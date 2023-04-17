@@ -1,0 +1,86 @@
+{
+    "version": 1,
+    "disabled_existing_loggers": false,
+    "formatters": {
+        "verbose": {
+            "format": "%(levelname)-10s - %(asctime)s - %(module)-15s : %(message)s"
+        },
+        "standard": {
+            "format": "%(levelname)-10s - %(module)-15s : %(message)s"
+        },
+        "brief": {
+            "format": "%(levelname)-10s - %(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "standard"
+        },
+        "discord_console": {
+            "level": "WARNING",
+            "class": "logging.StreamHandler",
+            "formatter": "standard"
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "logs/bot.log",
+            "maxBytes": 5242880,
+            "backupCount": 100,
+            "level": "DEBUG",
+            "encoding": "utf8",
+            "formatter": "verbose"
+        },
+        "apscheduler_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "logs/apscheduler.log",
+            "maxBytes": 5242880,
+            "backupCount": 100,
+            "level": "INFO",
+            "encoding": "utf8",
+            "formatter": "verbose"
+        },
+        "db_file": {
+            "class": "logging.FileHandler",
+            "filename": "logs/db.log",
+            "level": "DEBUG",
+            "encoding": "utf8",
+            "formatter": "verbose"
+        },
+        "message_file": {
+            "class": "logging.FileHandler",
+            "filename": "logs/messages.log",
+            "level": "DEBUG",
+            "encoding": "utf8",
+            "formatter": "verbose"
+        }
+    },
+    "loggers": {
+        "bot": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "discord": {
+            "handlers": ["discord_console"],
+            "level": "INFO",
+            "propagate": false
+        },
+        "apscheduler": {
+            "handlers": ["apscheduler_file"],
+            "level": "INFO",
+            "propagate": false
+        },
+        "db_log": {
+            "handlers": ["db_file"],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "message_log": {
+            "handlers": ["message_file"],
+            "level": "DEBUG",
+            "propagate": false
+        }
+    }
+}
