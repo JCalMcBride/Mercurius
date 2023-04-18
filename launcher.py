@@ -2,9 +2,10 @@
 """
 Sigil Controller - server control interface
 """
-
+import importlib
 import os
 import logging
+import sys
 from logging.config import dictConfig
 import click
 

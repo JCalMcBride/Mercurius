@@ -3,12 +3,14 @@ import logging
 from asyncio import sleep
 from pathlib import Path
 
+import discord
 from discord import Intents
 from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import when_mentioned_or
 
 cogs_dir = Path("lib/cogs")
 COGS = [p.stem for p in cogs_dir.glob("*.py")]
+
 
 class Ready(object):
     def __init__(self):
@@ -32,6 +34,10 @@ def get_prefix(bot, message):
     return when_mentioned_or(*prefix_list)(bot, message)
 
 
+def format_log_message(ctx, message):
+    return f"User: {ctx.author} | Command: {ctx.command} | {message}"
+
+
 class Bot(BotBase):
     def __init__(self, bot_config):
         self.stdout = None
@@ -39,6 +45,7 @@ class Bot(BotBase):
         self.cogs_ready = Ready()
         self.logger = logging.getLogger('bot')
         self.token = bot_config['discord_token']
+        self.bot_config = bot_config
 
         super().__init__(
             command_prefix=get_prefix,
@@ -52,6 +59,13 @@ class Bot(BotBase):
             self.logger.info(f"Cog loaded: {cog}")
 
         self.logger.info("Setup complete.")
+
+    async def send_message(self, ctx, content: str = None, error: Exception = None, embed: discord.Embed = None):
+        await ctx.send(content=content, embed=embed)
+        if error:
+            self.logger.error(format_log_message(ctx, content), exc_info=error)
+        else:
+            self.logger.info(format_log_message(ctx, content))
 
     def run(self):
         self.logger.info('Running setup.')
