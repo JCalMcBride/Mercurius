@@ -105,8 +105,8 @@ class MarketItem:
         item_statistics = self.database.get_item_statistics(self.item_id)
         print(item_statistics)
 
-    def get_orders(self):
-        orders = fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
+    async def get_orders(self):
+        orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
         print(orders)
 
     def __str__(self):
@@ -213,7 +213,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        wfm_item.get_orders()
+        await wfm_item.get_orders()
         # await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @Cog.listener()
