@@ -1,20 +1,50 @@
+import json
+import logging
+from contextlib import asynccontextmanager
+
 import aiohttp
 import discord
 import pymysql as pymysql
+import redis as redis
 from discord.ext import commands
 from discord.ext.commands import Cog
+from aiolimiter import AsyncLimiter
+
+logger = logging.getLogger('bot')
+rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
+
+
+@asynccontextmanager
+async def cache_manager():
+    cache = redis.Redis(host='localhost', port=6379, db=1)
+    yield cache
+
+
+@asynccontextmanager
+async def session_manager():
+    async with aiohttp.ClientSession() as session:
+        yield session
 
 
 async def fetch_wfm_data(url: str):
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(url) as r:
-                data = await r.json()
-                if 'error' in data:
+    async with cache_manager() as cache:
+        data = cache.get(url)
+
+        if data is not None:
+            logger.debug(f"Using cached data for {url}")
+            return json.loads(data)
+        else:
+            async with session_manager() as session:
+                try:
+                    async with session.get(url) as r:
+                        data = await r.json()
+                        cache.set(url, json.dumps(data), ex=60 * 60 * 24)
+                except aiohttp.ClientError:
                     return None
-                return data
-        except aiohttp.ClientError:
-            return None
+
+    if 'error' in data:
+        return None
+    return data
 
 
 class MarketDatabase:
