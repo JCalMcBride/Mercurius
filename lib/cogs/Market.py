@@ -156,6 +156,18 @@ class Market(Cog):
 
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
+    @commands.hybrid_command(name='marketstats',
+                                description="Gets statistics for the requested item, if it exists.",
+                                aliases=["getstats", 'wfmstats', 'wfms'])
+    async def get_market_stats(self, ctx: commands.Context, *, target_item: str) -> None:
+        wfm_item = self.market_db.get_item(target_item)
+        if wfm_item is None or wfm_item.item_url is None:
+            await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
+            return
+
+        wfm_item.get_item_statistics()
+        await self.bot.send_message(ctx, embed=wfm_item.embed())
+
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
