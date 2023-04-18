@@ -28,7 +28,7 @@ async def session_manager():
         yield session
 
 
-async def fetch_wfm_data(url: str):
+async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
     async with cache_manager() as cache:
         data = cache.get(url)
 
@@ -40,7 +40,7 @@ async def fetch_wfm_data(url: str):
                 try:
                     async with session.get(url) as r:
                         data = await r.json()
-                        cache.set(url, json.dumps(data), ex=60 * 60 * 24)
+                        cache.set(url, json.dumps(data), ex=expiration)
                 except aiohttp.ClientError:
                     return None
 
@@ -103,6 +103,11 @@ class MarketItem:
     def get_item_statistics(self):
         item_statistics = self.database.get_item_statistics(self.item_id)
         print(item_statistics)
+
+    def get_orders(self):
+        orders = fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
+        print(orders)
+
     def __str__(self):
         return f"{self.item_name} ({self.item_url_name})"
 
@@ -187,8 +192,8 @@ class Market(Cog):
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @commands.hybrid_command(name='marketstats',
-                                description="Gets statistics for the requested item, if it exists.",
-                                aliases=["getstats", 'wfmstats', 'wfms'])
+                             description="Gets statistics for the requested item, if it exists.",
+                             aliases=["getstats", 'wfmstats', 'wfms'])
     async def get_market_stats(self, ctx: commands.Context, *, target_item: str) -> None:
         wfm_item = self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
