@@ -78,6 +78,7 @@ class MarketDatabase:
 
 
 class MarketItem:
+    base_api_url = "https://api.warframe.market/v1"
     base_url = "https://warframe.market/items"
     asset_url = "https://warframe.market/static/assets"
 
