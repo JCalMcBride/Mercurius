@@ -1,3 +1,5 @@
+from typing import List
+
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -64,30 +66,43 @@ class MarketDatabase:
             sub_types = cursor.execute("SELECT * FROM item_subtypes WHERE item_id=%s", item_data[0])
             mod_ranks = cursor.execute("SELECT * FROM item_mod_ranks WHERE item_id=%s", item_data[0])
 
-            return MarketItem(*item_data, sub_types, mod_ranks)
+            return MarketItem(self, *item_data, sub_types, mod_ranks)
+
+    def get_item_statistics(self, item_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT datetime, avg_price "
+                           "FROM item_statistics "
+                           "WHERE item_id=%s "
+                           "AND order_type='closed'", item_id)
+            return cursor.fetchall()
 
 
 class MarketItem:
     base_url = "https://warframe.market/items"
     asset_url = "https://warframe.market/static/assets"
 
-    def __init__(self, item_id: str, item_name: str, item_type: str, item_url_name: str, thumb: str,
+    def __init__(self, database: MarketDatabase,
+                 item_id: str, item_name: str, item_type: str, item_url_name: str, thumb: str,
                  sub_types: str, mod_rank: str):
-        self.item_id = item_id
-        self.item_name = item_name
-        self.item_type = item_type
-        self.item_url_name = item_url_name
-        self.thumb = thumb
-        self.thumb_url = f"{MarketItem.asset_url}/{self.thumb}"
-        self.item_url = f"{MarketItem.base_url}/{self.item_url_name}"
-        self.sub_types = sub_types.split(",") if sub_types else list()
-        self.mod_rank = mod_rank.split(",") if mod_rank else list()
+        self.database: MarketDatabase = database
+        self.item_id: str = item_id
+        self.item_name: str = item_name
+        self.item_type: str = item_type
+        self.item_url_name: str = item_url_name
+        self.thumb: str = thumb
+        self.thumb_url: str = f"{MarketItem.asset_url}/{self.thumb}"
+        self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
+        self.sub_types: List = sub_types.split(",") if sub_types else list()
+        self.mod_rank: List = mod_rank.split(",") if mod_rank else list()
 
     def embed(self):
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
         embed.set_thumbnail(url=self.thumb_url)
         return embed
 
+    def get_item_statistics(self):
+        item_statistics = self.database.get_item_statistics(self.item_id)
+        print(item_statistics)
     def __str__(self):
         return f"{self.item_name} ({self.item_url_name})"
 
@@ -169,6 +184,18 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
+        await self.bot.send_message(ctx, embed=wfm_item.embed())
+
+    @commands.hybrid_command(name='marketstats',
+                                description="Gets statistics for the requested item, if it exists.",
+                                aliases=["getstats", 'wfmstats', 'wfms'])
+    async def get_market_stats(self, ctx: commands.Context, *, target_item: str) -> None:
+        wfm_item = self.market_db.get_item(target_item)
+        if wfm_item is None or wfm_item.item_url is None:
+            await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
+            return
+
+        wfm_item.get_item_statistics()
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @Cog.listener()
