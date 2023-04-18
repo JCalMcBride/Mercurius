@@ -38,6 +38,14 @@ class MarketDatabase:
 
             return MarketItem(self, *item_data, sub_types, mod_ranks)
 
+    def get_item_statistics(self, item_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT datetime, avg_price "
+                           "FROM item_statistics "
+                           "WHERE item_id=%s "
+                           "AND order_type='closed'", item_id)
+            return cursor.fetchall()
+
 
 class MarketItem:
     base_url = "https://warframe.market/items"
@@ -62,6 +70,9 @@ class MarketItem:
         embed.set_thumbnail(url=self.thumb_url)
         return embed
 
+    def get_item_statistics(self):
+        item_statistics = self.database.get_item_statistics(self.item_id)
+        print(item_statistics)
     def __str__(self):
         return f"{self.item_name} ({self.item_url_name})"
 
