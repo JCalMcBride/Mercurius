@@ -50,6 +50,12 @@ async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
     return data
 
 
+def format_row(label, value, average=None):
+    if average is not None:
+        return f"{label:<7} {value:<10} {average:<10}\n"
+    else:
+        return f"{label:<7} {value:<10}\n"
+
 class MarketDatabase:
     def __init__(self, user: str, password: str, host: str, database: str):
         self.connection = pymysql.connect(user=user,
@@ -150,9 +156,10 @@ class MarketItem:
         volume = [x[0] for x in volume]
 
         volume_string = "```"
-        volume_string += f"1 day:\t{sum(volume[-1:])}\n"
-        volume_string += f"7 day:\t{sum(volume[-7:])}\t{sum(volume[-7:]) // 7}\n"
-        volume_string += f"{days} day:\t{sum(volume)}\t{sum(volume) // days}\n"
+        volume_string += format_row("Period", "Volume", "Daily Avg")
+        volume_string += format_row("1 day:", sum(volume[-1:]))
+        volume_string += format_row("7 day:", sum(volume[-7:]), sum(volume[-7:]) // 7)
+        volume_string += format_row(f"{days} day:", sum(volume), sum(volume) // days)
         volume_string += "```"
         return volume_string
 
