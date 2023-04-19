@@ -150,9 +150,9 @@ class MarketItem:
         volume = [x[0] for x in volume]
         print(volume)
         volume_string = ""
-        volume_string += f"Last 24 hours: {sum(volume[-1:])}\n"
-        volume_string += f"Last 7 days: {sum(volume[-7:])} - {sum(volume[-7:]) // 7}\n"
-        volume_string += f"Last {days} days: {sum(volume)} - {sum(volume) // days}\n"
+        volume_string += f"Last 24 hours: ``{sum(volume[-1:])}``\n"
+        volume_string += f"Last 7 days: ``{sum(volume[-7:])}`` - ``{sum(volume[-7:]) // 7}``\n"
+        volume_string += f"Last {days} days: ``{sum(volume)}`` - ``{sum(volume) // days}``\n"
         return volume_string
 
     def __str__(self):
