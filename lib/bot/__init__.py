@@ -40,7 +40,7 @@ def format_log_message(ctx, message):
 
 class Bot(BotBase):
     def __init__(self, bot_config):
-        self.stdout = None
+        self.stdout = 1098289631444873356
         self.ready = False
         self.cogs_ready = Ready()
         self.logger = logging.getLogger('bot')
@@ -61,6 +61,14 @@ class Bot(BotBase):
         self.logger.info("Setup complete.")
 
     async def send_message(self, ctx, content: str = None, error: Exception = None, embed: discord.Embed = None):
+        if ctx is None:
+            if error:
+                self.logger.error(f"{content}", exc_info=error)
+                return
+
+            self.logger.info(f"{content}")
+            return
+
         await ctx.send(content=content, embed=embed)
         if error:
             self.logger.error(format_log_message(ctx, content), exc_info=error)
@@ -89,6 +97,8 @@ class Bot(BotBase):
 
             while not self.cogs_ready.all_ready():
                 await sleep(0.5)
+
+            self.stdout = self.get_channel(self.stdout)
 
             self.ready = True
             self.logger.info("Bot ready.")

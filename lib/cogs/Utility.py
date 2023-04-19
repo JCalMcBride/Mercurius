@@ -1,6 +1,10 @@
+import os
+from pathlib import Path
+
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
+import git
 
 
 def fix_cog_name(cog_name):
@@ -14,6 +18,7 @@ def get_cog_path(cog: str) -> str:
 class Utility(Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.commit_channel = self.bot.get_channel(1098283737290125344)
 
     async def execute_operation(self, ctx, cog_path, operation, func, cog):
         try:
@@ -77,6 +82,39 @@ class Utility(Cog):
         except Exception as e:
             await ctx.send(
                 f"Slash commands could not be synced, try again later, exception: {e}")
+
+    async def handle_commit(self):
+        await self.bot.stdout.send("Pulling from GitHub...")
+        repo = git.Repo(".")  # Path to repo
+
+        cogs_dir = Path("lib/cogs")
+        cogs_before_pull = set(cogs_dir.glob("*.py"))
+
+        # Get the current modification times of the cogs
+        mod_times_before = {cog: os.path.getmtime(cog) for cog in cogs_before_pull}
+
+        repo.git.pull()
+
+        # Get the updated list of cogs after the pull
+        cogs_after_pull = set(cogs_dir.glob("*.py"))
+
+        # Determine the cogs that have been updated or added
+        cogs_to_reload = {cog: os.path.getmtime(cog) for cog in cogs_after_pull if
+                          cog not in mod_times_before or os.path.getmtime(cog) > mod_times_before[cog]}
+
+        # Reload the updated and new cogs
+        for cog in cogs_to_reload.keys():
+            cog_path = get_cog_path(cog.stem)
+            await self.cog_operation(None, cog_path, "reload")
+
+        await self.bot.stdout.send(f"Pull complete | {len(cogs_to_reload)} cogs reloaded.")
+
+
+
+    @Cog.listener()
+    def on_message(self, message):
+        if message.channel == self.commit_channel:
+            self.handle_commit()
 
     @Cog.listener()
     async def on_ready(self):

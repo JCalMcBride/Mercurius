@@ -119,7 +119,6 @@ class MarketItem:
         embed.set_thumbnail(url=self.thumb_url)
         return embed
 
-
     def parse_orders(self, orders):
         for order in orders:
             parsed_order = {
