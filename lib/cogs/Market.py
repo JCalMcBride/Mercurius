@@ -245,7 +245,7 @@ class Market(Cog):
                                 description=f"Orders for {wfm_item.item_name} on Warframe.Market",
                                 color=discord.Color.blue())
         embed.add_field(name="User", value="\n".join([order['user'] for order in orders][:10]), inline=True)
-        embed.add_field(name="Plat", value="\n".join([str(order['platinum']) for order in orders][:10]), inline=True)
+        embed.add_field(name="Plat", value="\n".join([str(order['price']) for order in orders][:10]), inline=True)
         embed.add_field(name="Quantity", value="\n".join([str(order['quantity']) for order in orders][:10]), inline=True)
         # await self.bot.send_message(ctx, embed=wfm_item.embed())
 
