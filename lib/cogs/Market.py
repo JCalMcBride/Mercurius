@@ -266,10 +266,9 @@ class Market(Cog):
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
-
-        embed = discord.Embed(title=f"Volume for {wfm_item.item_name}",
-                              description=wfm_item.get_volume(),
-                              color=0x00ff00)
+        embed = wfm_item.embed()
+        embed.title = f"Volume for {wfm_item.item_name}"
+        embed.description = wfm_item.get_volume()
 
         await self.bot.send_message(ctx, embed=embed)
 
