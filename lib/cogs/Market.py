@@ -247,7 +247,7 @@ class Market(Cog):
         embed.add_field(name="User", value="\n".join([order['user'] for order in orders][:10]), inline=True)
         embed.add_field(name="Plat", value="\n".join([str(order['price']) for order in orders][:10]), inline=True)
         embed.add_field(name="Quantity", value="\n".join([str(order['quantity']) for order in orders][:10]), inline=True)
-        # await self.bot.send_message(ctx, embed=wfm_item.embed())
+        await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
     async def on_ready(self):
