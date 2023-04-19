@@ -251,7 +251,6 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        wfm_item.get_item_statistics()
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @commands.hybrid_command(name='marketvolume',
