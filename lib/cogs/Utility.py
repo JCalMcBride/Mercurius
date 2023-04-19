@@ -106,8 +106,7 @@ class Utility(Cog):
 
         # Reload the updated and new cogs
         for cog in cogs_to_reload.keys():
-            cog_path = get_cog_path(cog.stem)
-            await self.cog_operation(None, cog_path, "reload")
+            await self.cog_operation(None, cog.stem, "reload")
 
         await self.bot.stdout.send(f"Pull complete | {len(cogs_to_reload)} cogs reloaded.")
 
