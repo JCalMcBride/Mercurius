@@ -18,7 +18,7 @@ def get_cog_path(cog: str) -> str:
 class Utility(Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.commit_channel = self.bot.get_channel(1098283737290125344)
+        self.commit_channel = 1098283737290125344
         print(self.commit_channel)
 
     async def execute_operation(self, ctx, cog_path, operation, func, cog):
@@ -121,6 +121,7 @@ class Utility(Cog):
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
+            self.commit_channel = self.bot.get_channel(self.commit_channel)
             self.bot.cogs_ready.ready_up("Utility")
 
 
