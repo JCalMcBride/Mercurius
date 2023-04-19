@@ -150,9 +150,9 @@ class MarketItem:
         volume = [x[0] for x in volume]
 
         volume_string = "```"
-        volume_string += f"24 hour: {sum(volume[-1:])}\n"
-        volume_string += f"7 day: {sum(volume[-7:])} - {sum(volume[-7:]) // 7}\n"
-        volume_string += f"{days} day: {sum(volume)} - {sum(volume) // days}\n"
+        volume_string += f"1 day:\t{sum(volume[-1:])}\n"
+        volume_string += f"7 day:\t{sum(volume[-7:])}\t{sum(volume[-7:]) // 7}\n"
+        volume_string += f"{days} day:\t{sum(volume)}\t{sum(volume) // days}\n"
         volume_string += "```"
         return volume_string
 
