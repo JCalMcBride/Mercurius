@@ -106,8 +106,9 @@ class Utility(Cog):
         # Reload the updated and new cogs
         for cog in cogs_to_reload.keys():
             await self.cog_operation(None, cog.stem, "reload")
-
-        await self.bot.stdout.send(f"Pull complete | {len(cogs_to_reload)} cogs reloaded.")
+        cog_list = '\n'.join([cog.stem for cog in cogs_to_reload.keys()])
+        await self.bot.stdout.send(f"Pull complete, Cogs Reloaded:\n"
+                                   f"{cog_list}")
 
     @Cog.listener()
     async def on_message(self, message):
