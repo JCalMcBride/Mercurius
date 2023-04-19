@@ -260,7 +260,7 @@ class Market(Cog):
 
     @commands.hybrid_command(name='marketvolume',
                              description="Gets volume for the requested item, if it exists.",
-                             aliases=["getvolume", 'wfmvolume', 'wfmo', 'gv'])
+                             aliases=["getvolume", 'wfmvolume', 'gv'])
     async def get_market_volume(self, ctx: commands.Context, *, target_item: str) -> None:
         wfm_item = self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
