@@ -289,7 +289,7 @@ class Market(Cog):
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
-        embed.add_field(name='Period | Volume | Daily Average', value=wfm_item.get_volume(days=31), inline=False)
+        embed.add_field(name='Period | Volume | Daily Average', value=wfm_item.get_volume(), inline=False)
         embed.add_field(name="User", value=user_string, inline=True)
         embed.add_field(name="Price", value=price_string, inline=True)
         embed.add_field(name="Quantity", value=quantity_string, inline=True)
