@@ -265,10 +265,10 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"No orders found for {target_item}.")
             return
 
-        order_string = "```"
+        order_string = ""
         for order in orders[:10]:
-            order_string += f"{order['user']} - {order['quantity']} - {order['price']}p\n"
-        order_string += "```"
+            order_string += f"<:showsquad:890621641703448586>{order['user']}\t" \
+                            f"{order['quantity']}x {order['price']} <:platinum:977140137408466974>\n"
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
