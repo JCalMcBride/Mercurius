@@ -155,8 +155,7 @@ class MarketItem:
         volume = self.database.get_item_volume(self.item_id, days)
         volume = [x[0] for x in volume]
 
-        volume_string = "```"
-        volume_string += format_row("Period", "Volume", "Daily Avg")
+        volume_string = "```python\n"
         volume_string += format_row("1 day:", sum(volume[-1:]))
         volume_string += format_row("7 day:", sum(volume[-7:]), sum(volume[-7:]) // 7)
         volume_string += format_row(f"{days} day:", sum(volume), sum(volume) // days)
@@ -282,7 +281,7 @@ class Market(Cog):
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
-        embed.add_field(name='Volume | Daily Average', value=wfm_item.get_volume(days=31), inline=False)
+        embed.add_field(name='Period | Volume | Daily Average', value=wfm_item.get_volume(days=31), inline=False)
         embed.add_field(name="User", value=user_string, inline=True)
         embed.add_field(name="Price", value=price_string, inline=True)
         embed.add_field(name="Quantity", value=quantity_string, inline=True)
