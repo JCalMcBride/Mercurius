@@ -112,7 +112,7 @@ class Utility(Cog):
 
 
     @Cog.listener()
-    def on_message(self, message):
+    async def on_message(self, message):
         if message.channel == self.commit_channel:
             self.handle_commit()
 
