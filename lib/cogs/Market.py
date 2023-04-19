@@ -261,7 +261,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
         embed = wfm_item.embed()
-        embed.description = "**Period | Volume | Daily Avg." + wfm_item.get_volume()
+        embed.description = "**Period | Volume | Daily Avg.**" + wfm_item.get_volume()
 
         await self.bot.send_message(ctx, embed=embed)
 
