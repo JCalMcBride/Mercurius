@@ -19,7 +19,6 @@ class Utility(Cog):
     def __init__(self, bot):
         self.bot = bot
         self.commit_channel = 1098283737290125344
-        print(self.commit_channel)
 
     async def execute_operation(self, ctx, cog_path, operation, func, cog):
         try:
