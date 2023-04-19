@@ -151,9 +151,8 @@ class MarketItem:
         print(volume)
         volume_string = ""
         volume_string += f"Last 24 hours: {sum(volume[-1:])}\n"
-        volume_string += f"Last 7 days: {sum(volume[-7:])}\n"
-        volume_string += f"Last {days} days: {sum(volume)}\n"
-        volume_string += f"{days} day average: {sum(volume) // len(volume)}\n"
+        volume_string += f"Last 7 days: {sum(volume[-7:])} {sum(volume[-7:] / 7)}\n"
+        volume_string += f"Last {days} days: {sum(volume)} {sum(volume) / days}\n"
         return volume_string
 
     def __str__(self):
@@ -275,7 +274,7 @@ class Market(Cog):
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
-        embed.add_field(name='Volume', value=wfm_item.get_volume(days=31), inline=False)
+        embed.add_field(name='Volume | Daily Average', value=wfm_item.get_volume(days=31), inline=False)
         embed.add_field(name="User", value=user_string, inline=True)
         embed.add_field(name="Price", value=price_string, inline=True)
         embed.add_field(name="Quantity", value=quantity_string, inline=True)
