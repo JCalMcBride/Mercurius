@@ -267,8 +267,8 @@ class Market(Cog):
 
         order_string = ""
         for order in orders[:10]:
-            order_string += f"<:showsquad:890621641703448586>{order['user']}\t" \
-                            f"{order['quantity']}x {order['price']} <:platinum:977140137408466974>\n"
+            order_string += f"{order['user']}\t\t" \
+                            f"{order['quantity']}x <:platinum:977140137408466974> {order['price']}\n"
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
