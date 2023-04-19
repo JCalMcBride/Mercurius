@@ -19,6 +19,7 @@ class Utility(Cog):
     def __init__(self, bot):
         self.bot = bot
         self.commit_channel = self.bot.get_channel(1098283737290125344)
+        print(self.commit_channel)
 
     async def execute_operation(self, ctx, cog_path, operation, func, cog):
         try:
@@ -84,6 +85,7 @@ class Utility(Cog):
                 f"Slash commands could not be synced, try again later, exception: {e}")
 
     async def handle_commit(self):
+        print('Pulling from GitHub...')
         await self.bot.stdout.send("Pulling from GitHub...")
         repo = git.Repo(".")  # Path to repo
 
@@ -111,7 +113,9 @@ class Utility(Cog):
 
     @Cog.listener()
     async def on_message(self, message):
+        print('hi')
         if message.channel == self.commit_channel:
+            print('yes')
             await self.handle_commit()
 
     @Cog.listener()
