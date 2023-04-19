@@ -49,11 +49,11 @@ async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
     return data
 
 
-def format_row(number, label, value, average=None):
+def format_row(label, value, average=None):
     if average is not None:
-        return f"{number:<2} {label:<7} {value:<7} {average:<4}\n"
+        return f"{label:<7} {value:<7} {average:<4}\n"
     else:
-        return f"{number:<2} {label:<7} {value:<7}\n"
+        return f"{label:<7} {value:<7}\n"
 
 
 class MarketDatabase:
