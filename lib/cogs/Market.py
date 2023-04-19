@@ -287,8 +287,8 @@ class Market(Cog):
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
         price_string = '\n'.join([f"{order['price']}" for order in orders])
 
-        embed = discord.Embed(title=f"{wfm_item.item_name}",
-                              color=discord.Color.blue())
+        embed = wfm_item.embed()
+
         embed.add_field(name='Period | Volume | Daily Average', value=wfm_item.get_volume(), inline=False)
         embed.add_field(name="User", value=user_string, inline=True)
         embed.add_field(name="Price", value=price_string, inline=True)
