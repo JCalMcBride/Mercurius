@@ -123,9 +123,13 @@ class MarketItem:
         self.orders['sell'].sort(key=lambda x: x['last_update'], reverse=True)
         self.orders['buy'].sort(key=lambda x: x['last_update'], reverse=True)
 
-    async def get_orders(self, order_type: str = 'sell'):
+    async def get_orders(self, order_type: str = 'sell', only_online: bool = True):
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
         self.parse_orders(orders['payload']['orders'])
+
+        if only_online:
+            self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
+
         return self.orders[order_type]
 
     def __str__(self):
@@ -233,7 +237,16 @@ class Market(Cog):
             return
 
         orders = await wfm_item.get_orders()
-        print(orders)
+        if len(orders) == 0:
+            await self.bot.send_message(ctx, f"No orders found for {target_item}.")
+            return
+
+        embed = discord.Embed(title=f"Orders for {wfm_item.item_name}",
+                                description=f"Orders for {wfm_item.item_name} on Warframe.Market",
+                                color=discord.Color.blue())
+        embed.add_field(name="User", value="\n".join([order['user'] for order in orders][:10]), inline=True)
+        embed.add_field(name="Plat", value="\n".join([str(order['platinum']) for order in orders][:10]), inline=True)
+        embed.add_field(name="Quantity", value="\n".join([str(order['quantity']) for order in orders][:10]), inline=True)
         # await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @Cog.listener()
