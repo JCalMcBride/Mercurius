@@ -2,15 +2,14 @@
 """
 Sigil Controller - server control interface
 """
-import importlib
-import os
 import logging
-import sys
+import os
 from logging.config import dictConfig
+
 import click
 
-from lib.common import get_config
 from lib.bot import Bot
+from lib.common import get_config
 
 
 @click.group()

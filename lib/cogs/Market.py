@@ -36,6 +36,7 @@ async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
             logger.debug(f"Using cached data for {url}")
             return json.loads(data)
         else:
+            logger.debug(f"Fetching data for {url}")
             async with session_manager() as session:
                 try:
                     async with session.get(url) as r:
@@ -74,6 +75,15 @@ class MarketDatabase:
                            "FROM item_statistics "
                            "WHERE item_id=%s "
                            "AND order_type='closed'", item_id)
+            return cursor.fetchall()
+
+    def get_item_volume(self, item_id, days: int = 31):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT volume "
+                           "FROM item_statistics "
+                           "WHERE datetime >= NOW() - INTERVAL %s DAY "
+                           "AND order_type='closed' "
+                           "AND item_id = %s", (days, item_id))
             return cursor.fetchall()
 
 
@@ -134,6 +144,17 @@ class MarketItem:
             self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
 
         return self.orders[order_type]
+
+    def get_volume(self, days: int = 31):
+        volume = self.database.get_item_volume(self.item_id, days)
+        volume = [x[0] for x in volume]
+        print(volume)
+        volume_string = ""
+        volume_string += f"Last 24 hours: {sum(volume[-1:])}\n"
+        volume_string += f"Last 7 days: {sum(volume[-7:])}\n"
+        volume_string += f"Last {days} days: {sum(volume)}\n"
+        volume_string += f"{days} day average: {sum(volume) // len(volume)}\n"
+        return volume_string
 
     def __str__(self):
         return f"{self.item_name} ({self.item_url_name})"
@@ -244,12 +265,15 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"No orders found for {target_item}.")
             return
 
-        embed = discord.Embed(title=f"Orders for {wfm_item.item_name}",
-                                description=f"Orders for {wfm_item.item_name} on Warframe.Market",
-                                color=discord.Color.blue())
-        embed.add_field(name="User", value="\n".join([order['user'] for order in orders][:10]), inline=True)
-        embed.add_field(name="Plat", value="\n".join([str(order['price']) for order in orders][:10]), inline=True)
-        embed.add_field(name="Quantity", value="\n".join([str(order['quantity']) for order in orders][:10]), inline=True)
+        order_string = "```"
+        for order in orders[:10]:
+            order_string += f"{order['user']} - {order['quantity']} - {order['price']}p\n"
+        order_string += "```"
+
+        embed = discord.Embed(title=f"{wfm_item.item_name}",
+                              color=discord.Color.blue())
+        embed.add_field(name='Volume', value=wfm_item.get_volume(days=31), inline=False)
+        embed.add_field(name="Orders", value=order_string, inline=False)
         await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
