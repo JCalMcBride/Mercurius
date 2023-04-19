@@ -52,9 +52,9 @@ async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
 
 def format_row(number, label, value, average=None):
     if average is not None:
-        return f"{number:<3} {label:<4} {value:<10} {average:<10}\n"
+        return f"{number:<2} {label:<3} {value:<10} {average:<10}\n"
     else:
-        return f"{number:<3} {label:<4} {value:<10}\n"
+        return f"{number:<2} {label:<3} {value:<10}\n"
 
 
 class MarketDatabase:
@@ -157,7 +157,6 @@ class MarketItem:
         volume = [x[0] for x in volume]
 
         volume_string = "```python\n"
-        volume_string += format_row("", "Period", "Volume", "Daily Avg")
         volume_string += format_row("1", "day", sum(volume[-1:]))
         volume_string += format_row("7", "day", sum(volume[-7:]), sum(volume[-7:]) // 7)
         volume_string += format_row(f"{days}", "day", sum(volume), sum(volume) // days)
