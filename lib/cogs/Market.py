@@ -95,6 +95,7 @@ class MarketItem:
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
         self.sub_types: List = sub_types.split(",") if sub_types else list()
         self.mod_rank: List = mod_rank.split(",") if mod_rank else list()
+        self.orders = {'buy': list(), 'sell': list()}
 
     def embed(self):
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
@@ -105,9 +106,27 @@ class MarketItem:
         item_statistics = self.database.get_item_statistics(self.item_id)
         print(item_statistics)
 
-    async def get_orders(self):
+    def parse_orders(self, orders):
+        for order in orders:
+            parsed_order = {
+                'last_update': order['last_update'],
+                'quantity': order['quantity'],
+                'price': order['platinum'],
+                'user': order['user']['ingame_name'],
+                'state': order['user']['status']
+            }
+            if order['order_type'] == 'sell':
+                self.orders['sell'].append(parsed_order)
+            else:
+                self.orders['buy'].append(parsed_order)
+
+        self.orders['sell'].sort(key=lambda x: x['last_update'], reverse=True)
+        self.orders['buy'].sort(key=lambda x: x['last_update'], reverse=True)
+
+    async def get_orders(self, order_type: str = 'sell'):
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
-        print(orders)
+        self.parse_orders(orders['payload']['orders'])
+        return self.orders[order_type]
 
     def __str__(self):
         return f"{self.item_name} ({self.item_url_name})"
@@ -213,7 +232,8 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        await wfm_item.get_orders()
+        orders = await wfm_item.get_orders()
+        print(orders)
         # await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @Cog.listener()
