@@ -1,16 +1,15 @@
-from typing import List
-
 import json
 import logging
 from contextlib import asynccontextmanager
+from typing import List
 
 import aiohttp
 import discord
 import pymysql as pymysql
 import redis as redis
+from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
-from aiolimiter import AsyncLimiter
 
 logger = logging.getLogger('bot')
 rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
@@ -262,8 +261,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
         embed = wfm_item.embed()
-        embed.title = f"Volume for {wfm_item.item_name}"
-        embed.description = wfm_item.get_volume()
+        embed.description = "**Period | Volume | Daily Avg." + wfm_item.get_volume()
 
         await self.bot.send_message(ctx, embed=embed)
 
