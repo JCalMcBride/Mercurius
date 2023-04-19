@@ -109,8 +109,6 @@ class Utility(Cog):
 
         await self.bot.stdout.send(f"Pull complete | {len(cogs_to_reload)} cogs reloaded.")
 
-
-
     @Cog.listener()
     async def on_message(self, message):
         if message.channel == self.commit_channel:
