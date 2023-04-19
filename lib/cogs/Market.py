@@ -147,14 +147,14 @@ class MarketItem:
 
         return self.orders[order_type]
 
-    def get_volume(self, days: int = 31):
-        volume = self.database.get_item_volume(self.item_id, days)
+    def get_volume(self):
+        volume = self.database.get_item_volume(self.item_id, 31)
         volume = [x[0] for x in volume]
 
         volume_string = "```python\n"
-        volume_string += format_row("1", "day:", sum(volume[-1:]))
-        volume_string += format_row("7", "day:", sum(volume[-7:]), sum(volume[-7:]) // 7)
-        volume_string += format_row(f"{days}", "day:", sum(volume), sum(volume) // days)
+        volume_string += format_row("Day:", sum(volume[-1:]))
+        volume_string += format_row("Week:", sum(volume[-7:]), sum(volume[-7:]) // 7)
+        volume_string += format_row("Month:", sum(volume), sum(volume) // 31)
         volume_string += "```"
         return volume_string
 
