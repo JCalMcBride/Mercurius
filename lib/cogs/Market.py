@@ -121,7 +121,10 @@ class MarketItem:
                 self.orders['buy'].append(parsed_order)
 
         self.orders['sell'].sort(key=lambda x: x['last_update'], reverse=True)
+        self.orders['sell'].sort(key=lambda x: x['price'])
+
         self.orders['buy'].sort(key=lambda x: x['last_update'], reverse=True)
+        self.orders['buy'].sort(key=lambda x: x['price'], reverse=True)
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True):
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
