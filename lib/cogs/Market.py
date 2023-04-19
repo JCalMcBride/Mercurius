@@ -149,10 +149,11 @@ class MarketItem:
         volume = self.database.get_item_volume(self.item_id, days)
         volume = [x[0] for x in volume]
         print(volume)
-        volume_string = ""
+        volume_string = "```"
         volume_string += f"**24 hour:** ``{sum(volume[-1:])}``\n"
         volume_string += f"**7 day:** ``{sum(volume[-7:])}`` - ``{sum(volume[-7:]) // 7}``\n"
         volume_string += f"**{days} day:** ``{sum(volume)}`` - ``{sum(volume) // days}``\n"
+        volume_string += "```"
         return volume_string
 
     def __str__(self):
