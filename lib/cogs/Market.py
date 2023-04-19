@@ -258,6 +258,17 @@ class Market(Cog):
         wfm_item.get_item_statistics()
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
+    @commands.hybrid_command(name='marketvolume',
+                             description="Gets volume for the requested item, if it exists.",
+                             aliases=["getvolume", 'wfmvolume', 'wfmo', 'gv'])
+    async def get_market_volume(self, ctx: commands.Context, *, target_item: str) -> None:
+        wfm_item = self.market_db.get_item(target_item)
+        if wfm_item is None or wfm_item.item_url is None:
+            await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
+            return
+
+        await self.bot.send_message(ctx, wfm_item.get_volume())
+
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
