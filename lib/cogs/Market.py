@@ -255,6 +255,8 @@ class Market(Cog):
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
+        num_orders = 5
+
         wfm_item = self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
@@ -265,17 +267,18 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"No orders found for {target_item}.")
             return
 
-        user_string = '\n'.join([f"{order['user']}" for order in orders[:10]])
+        orders = orders[:num_orders]
 
-        order_string = ""
-        for order in orders[:10]:
-            order_string += f"{order['quantity']}x <:platinum:977140137408466974> {order['price']}\n"
+        user_string = '\n'.join([f"{order['user']}" for order in orders])
+        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
+        price_string = '\n'.join([f"{order['price']}" for order in orders])
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
         embed.add_field(name='Volume', value=wfm_item.get_volume(days=31), inline=False)
         embed.add_field(name="User", value=user_string, inline=True)
-        embed.add_field(name="Order", value=order_string, inline=True)
+        embed.add_field(name="Quantity", value=quantity_string, inline=True)
+        embed.add_field(name="Price", value=price_string, inline=True)
         await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
