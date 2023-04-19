@@ -114,7 +114,7 @@ class Utility(Cog):
     @Cog.listener()
     async def on_message(self, message):
         if message.channel == self.commit_channel:
-            self.handle_commit()
+            await self.handle_commit()
 
     @Cog.listener()
     async def on_ready(self):
