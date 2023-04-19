@@ -119,9 +119,6 @@ class MarketItem:
         embed.set_thumbnail(url=self.thumb_url)
         return embed
 
-    def get_item_statistics(self):
-        item_statistics = self.database.get_item_statistics(self.item_id)
-        print(item_statistics)
 
     def parse_orders(self, orders):
         for order in orders:
