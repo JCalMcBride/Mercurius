@@ -267,7 +267,11 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        await self.bot.send_message(ctx, wfm_item.get_volume())
+        embed = discord.Embed(title=f"Volume for {wfm_item.item_name}",
+                              description=wfm_item.get_volume(),
+                              color=0x00ff00)
+
+        await self.bot.send_message(ctx, embed=embed)
 
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
