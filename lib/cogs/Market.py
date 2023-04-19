@@ -265,15 +265,17 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"No orders found for {target_item}.")
             return
 
+        user_string = '\n'.join([f"{order['user']}" for order in orders[:10]])
+
         order_string = ""
         for order in orders[:10]:
-            order_string += f"{order['user']}\t\t" \
-                            f"{order['quantity']}x <:platinum:977140137408466974> {order['price']}\n"
+            order_string += f"{order['quantity']}x <:platinum:977140137408466974> {order['price']}\n"
 
         embed = discord.Embed(title=f"{wfm_item.item_name}",
                               color=discord.Color.blue())
         embed.add_field(name='Volume', value=wfm_item.get_volume(days=31), inline=False)
-        embed.add_field(name="Orders", value=order_string, inline=False)
+        embed.add_field(name="User", value=user_string, inline=True)
+        embed.add_field(name="Order", value=order_string, inline=True)
         await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
