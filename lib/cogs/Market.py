@@ -159,15 +159,19 @@ class MarketDatabase:
             cursor.execute(query, params)
             return cursor.fetchall()
 
-    def get_item(self, item: str) -> Optional[MarketItem]:
-        fuzzy_item = self.get_fuzzy_item(item)
+    async def get_item(self, item: str) -> Optional[MarketItem]:
+        async with cache_manager as cache:
+            item_data = cache.get(item)
 
-        if fuzzy_item is None:
-            return None
+        if item_data is None:
+            fuzzy_item = self.get_fuzzy_item(item)
 
-        item_data: str = list(fuzzy_item.values())
-        sub_types: tuple = self._execute_query(self.GET_ITEM_SUBTYPES_QUERY, item_data[0])
-        mod_ranks: tuple = self._execute_query(self.GET_ITEM_MOD_RANKS_QUERY, item_data[0])
+            if fuzzy_item is None:
+                return None
+
+            item_data: str = list(fuzzy_item.values())
+            sub_types: tuple = self._execute_query(self.GET_ITEM_SUBTYPES_QUERY, item_data[0])
+            mod_ranks: tuple = self._execute_query(self.GET_ITEM_MOD_RANKS_QUERY, item_data[0])
 
         return MarketItem(self, *item_data, sub_types, mod_ranks)
 
