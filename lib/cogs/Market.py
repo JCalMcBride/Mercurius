@@ -25,7 +25,7 @@ timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
 session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
 
 
-async def fetch_wfm_data(url: str, session: aiohttp.ClientSession):
+async def fetch_wfm_data(url: str):
     try:
         async with rate_limiter:
             async with session.get(url) as r:
