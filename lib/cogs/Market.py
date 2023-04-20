@@ -178,7 +178,7 @@ class MarketItem:
         return self.orders[order_type]
 
     async def get_order_embed(self) -> discord.Embed:
-        num_orders = 10
+        num_orders = 5
         orders = await self.get_orders()
 
         orders = orders[:num_orders]
