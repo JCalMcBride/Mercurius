@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import cProfile
 import json
 import logging
 from collections import defaultdict
@@ -392,7 +393,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        embed = await wfm_item.get_order_embed()
+        embed = await cProfile.run('wfm_item.get_order_embed()', filename="output.prof")
 
         await self.bot.send_message(ctx, embed=embed)
 
