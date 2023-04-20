@@ -95,7 +95,7 @@ class MarketDatabase:
 
 
 def format_user(user):
-    return f"{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
+    return f"[{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
 
 
 class MarketItem:
