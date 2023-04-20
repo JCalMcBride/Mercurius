@@ -152,9 +152,9 @@ class MarketItem:
 
         return self.orders[order_type]
 
-    def get_order_embed(self):
+    async def get_order_embed(self):
         num_orders = 10
-        orders = self.get_orders()
+        orders = await self.get_orders()
 
         orders = orders[:num_orders]
 
@@ -300,7 +300,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        embed = wfm_item.get_order_embed()
+        embed = await wfm_item.get_order_embed()
 
         await self.bot.send_message(ctx, embed=embed)
 
