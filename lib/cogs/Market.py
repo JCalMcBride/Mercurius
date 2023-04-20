@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict, Counter
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pprint import pprint
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -77,6 +78,8 @@ def find_common_words(item_names: List[str], threshold: int = 75) -> set:
 
     common_words = {word for word, count in word_counter.items() if count >= threshold}
 
+    pprint(common_words)
+
     return common_words
 
 
@@ -95,8 +98,8 @@ def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, O
     for item in items:
         processed_names = [remove_common_words(name, common_words) for name in get_item_names(item)]
         max_score = max(fuzz.ratio(item_name, name) for name in processed_names)
-        if max_score > 10:
-            print(f"{item_name} -> {processed_names} -> {max_score}")
+        # if max_score > 10:
+        #     print(f"{item_name} -> {processed_names} -> {max_score}")
         if max_score > best_score:
             best_score, best_item = max_score, item
 
