@@ -13,6 +13,7 @@ from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
+from pymysql import Connection
 
 logger = logging.getLogger('bot')
 rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
@@ -157,16 +158,11 @@ class MarketItem:
                 'user': order['user']['ingame_name'],
                 'state': order['user']['status']
             }
-            if order['order_type'] == 'sell':
-                self.orders['sell'].append(parsed_order)
-            else:
-                self.orders['buy'].append(parsed_order)
+            order_key = 'sell' if order['order_type'] == 'sell' else 'buy'
+            self.orders[order_key].append(parsed_order)
 
-        self.orders['sell'].sort(key=lambda x: x['last_update'], reverse=True)
-        self.orders['sell'].sort(key=lambda x: x['price'])
-
-        self.orders['buy'].sort(key=lambda x: x['last_update'], reverse=True)
-        self.orders['buy'].sort(key=lambda x: x['price'], reverse=True)
+        for key, reverse in [('sell', False), ('buy', True)]:
+            self.orders[key].sort(key=lambda x: (x['price'], -x['last_update']), reverse=reverse)
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
