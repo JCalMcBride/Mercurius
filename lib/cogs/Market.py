@@ -14,6 +14,7 @@ from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
+from fuzzywuzzy import process
 from pymysql import Connection
 
 logger = logging.getLogger('bot')
@@ -74,6 +75,7 @@ class MarketDatabase:
                                   "WHERE datetime >= NOW() - INTERVAL %s DAY "
                                   "AND order_type='closed' "
                                   "AND item_id = %s")
+    GET_ALL_ITEMS_QUERY: str = ("SELECT id, item_name, item_type, url_name, thumb FROM items")
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
@@ -81,17 +83,28 @@ class MarketDatabase:
                                                       host=host,
                                                       database=database)
 
+        self.all_items = self.get_all_items()
+
+    def get_all_items(self) -> List[Dict[str, str]]:
+        all_items_data = self._execute_query(self.GET_ALL_ITEMS_QUERY)
+        all_items = [
+            {'id': item[0], 'item_name': item[1], 'item_type': item[2], 'url_name': item[3], 'thumb': item[4]}
+            for item in all_items_data
+        ]
+        return all_items
+
     def _execute_query(self, query: str, *params) -> List[Tuple]:
         with self.connection.cursor() as cursor:
             cursor.execute(query, params)
             return cursor.fetchall()
 
     def get_item(self, item: str) -> Optional[MarketItem]:
-        item_data = self._execute_query(self.GET_ITEM_QUERY, item)
-        if not item_data:
+        fuzzy_item = self.get_fuzzy_item(item)
+
+        if fuzzy_item is None:
             return None
 
-        item_data: str = item_data[0]
+        item_data: str = fuzzy_item.values()
         sub_types: tuple = self._execute_query(self.GET_ITEM_SUBTYPES_QUERY, item_data[0])
         mod_ranks: tuple = self._execute_query(self.GET_ITEM_MOD_RANKS_QUERY, item_data[0])
 
@@ -105,6 +118,12 @@ class MarketDatabase:
 
     def close(self) -> None:
         self.connection.close()
+
+    def get_fuzzy_item(self, item_name: str) -> Optional[Dict[str, str]]:
+        best_match = process.extractOne(item_name, [item['item_name'] for item in self.all_items])
+        if best_match[1] > 80:
+            return next(item for item in self.all_items if item['item_name'] == best_match[0])
+        return None
 
 
 def format_user(user) -> str:
