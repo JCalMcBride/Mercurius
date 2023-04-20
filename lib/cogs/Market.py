@@ -67,11 +67,22 @@ def get_item_names(item: Dict[str, Any]) -> List[str]:
     return [item['item_name']] + item.get('aliases', [])
 
 
+def closest_common_word(word: str, common_words: set, threshold: int) -> Optional[str]:
+    best_match, best_score = None, 0
+    for common_word in common_words:
+        score = fuzz.ratio(word, common_word)
+        if score > best_score:
+            best_match, best_score = common_word, score
+
+    return best_match if best_score >= threshold else None
+
+
 def remove_common_words(name: str, common_words: set) -> str:
     name = remove_blueprint(name)
+    threshold = 80  # Adjust this value based on the desired level of fuzzy matching
 
     words = name.split()
-    filtered_words = [word for word in words if word not in common_words]
+    filtered_words = [word for word in words if not closest_common_word(word, common_words, threshold)]
     return ' '.join(filtered_words)
 
 
