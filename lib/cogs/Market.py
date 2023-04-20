@@ -79,7 +79,7 @@ def remove_blueprint(s: str) -> str:
     words = s.lower().split()
     if words[-1:] == ['blueprint'] and words[-2:-1] != ['prime']:
         return ' '.join(words[:-1])
-    return s
+    return s.lower()
 
 
 def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, Optional[Dict[str, str]]]:
