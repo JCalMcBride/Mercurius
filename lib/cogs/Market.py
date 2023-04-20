@@ -40,21 +40,23 @@ async def fetch_wfm_data(url: str):
             logger.debug(f"Using cached data for {url}")
             return json.loads(data)
 
-    try:
-        async with rate_limiter:
-            async with session.get(url) as r:
-                if r.status == 200:
-                    logger.info(f"Fetched data from {url}")
-                    data = await r.json()
+    retries = 3
+    for _ in range(retries):
+        try:
+            async with rate_limiter:
+                async with session.get(url) as r:
+                    if r.status == 200:
+                        logger.info(f"Fetched data from {url}")
+                        data = await r.json()
 
-                    # Store the data in the cache with a 1-minute expiration
-                    cache.set(url, json.dumps(data), ex=60)
+                        # Store the data in the cache with a 1-minute expiration
+                        cache.set(url, json.dumps(data), ex=60)
 
-                    return await r.json()
-                else:
-                    raise aiohttp.ClientError
-    except aiohttp.ClientError:
-        logger.error(f"Failed to fetch data from {url}")
+                        return await r.json()
+                    else:
+                        raise aiohttp.ClientError
+        except aiohttp.ClientError:
+            logger.error(f"Failed to fetch data from {url}")
 
 
 def format_row(label, value, average=None):
