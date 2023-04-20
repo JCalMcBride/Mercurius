@@ -95,7 +95,8 @@ def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, O
     for item in items:
         processed_names = [remove_common_words(name, common_words) for name in get_item_names(item)]
         max_score = max(fuzz.ratio(item_name, name) for name in processed_names)
-        print(f"{item_name} -> {item['item_name']} -> {max_score}")
+        if max_score > 10:
+            print(f"{item_name} -> {processed_names} -> {max_score}")
         if max_score > best_score:
             best_score, best_item = max_score, item
 
