@@ -141,7 +141,7 @@ class MarketDatabase:
                     print(f"{item_name} -> {name} [{score}]")
                     best_match, best_score, best_item = name, score, item
 
-        return best_item if best_score > 80 else None
+        return best_item if best_score > 50 else None
 
 
 def format_user(user) -> str:
