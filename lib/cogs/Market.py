@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections import defaultdict
-from contextlib import asynccontextmanager
 from datetime import datetime
 from time import perf_counter
 from typing import List, Optional, Tuple, Union, Dict, Any
 
-import aiocache as aiocache
 import aiohttp
 import discord
 import pymysql as pymysql
-import redis as redis
-from aiohttp import TCPConnector
+from aiohttp import TCPConnector, ClientTimeout
 from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -23,66 +19,22 @@ from pymysql import Connection
 
 logger = logging.getLogger('bot')
 rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
+connector = TCPConnector(limit=10)
+headers = {"Connection": "keep-alive", "Upgrade-Insecure-Requests": "1"}
+timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
 
 
-@asynccontextmanager
-async def cache_manager():
-    cache = redis.Redis(host='localhost', port=6379, db=1)
-    yield cache
-
-
-@asynccontextmanager
-async def session_manager():
-    connector = TCPConnector(limit=10)  # Adjust the limit based on your requirements
-    async with aiohttp.ClientSession(connector=connector) as session:
-        yield session
-
-
-# Create a global cache and session object
-_session = None
-_cache = aiocache.SimpleMemoryCache()
-
-
-async def get_cache():
-    return _cache
-
-
-async def get_session():
-    global _session
-    if _session is None:
-        connector = TCPConnector(limit=10)  # Adjust the limit based on your requirements
-        _session = aiohttp.ClientSession(connector=connector)
-    return _session
-
-
-async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24) -> Optional[dict]:
-    cache = await get_cache()
-    data = await cache.get(url)
-
-    if data is not None:
-        logger.debug(f"Using cached data for {url}")
-        return data
-
-    logger.debug(f"Fetching data for {url}")
-    session = await get_session()
-
-    async def fetch_data():
-        nonlocal data
-        try:
+async def fetch_wfm_data(url: str, session: aiohttp.ClientSession):
+    try:
+        async with rate_limiter:
             async with session.get(url) as r:
-                data = await r.json()
-        except aiohttp.ClientError:
-            return None
-
-    async def update_cache():
-        nonlocal data
-        await cache.set(url, data, expires=expiration)
-
-    await asyncio.gather(fetch_data(), update_cache())
-
-    if 'error' in data:
-        return None
-    return data
+                if r.status == 200:
+                    logger.info(f"Fetched data from {url}")
+                    return await r.json()
+                else:
+                    raise aiohttp.ClientError
+    except aiohttp.ClientError:
+        logger.error(f"Failed to fetch data from {url}")
 
 def format_row(label, value, average=None):
     if average is not None:
