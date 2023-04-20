@@ -111,8 +111,8 @@ def format_user(user) -> str:
 
 def format_volume(day: int, week: int, month: int) -> str:
     return f'```python\n' \
-           f'{format_row("Day:", day)}\n' \
-           f'{format_row("Week:", week, week // 7)}\n' \
+           f'{format_row("Day:", day)}' \
+           f'{format_row("Week:", week, week // 7)}' \
            f'{format_row("Month:", month, month // 31)}```'
 
 
