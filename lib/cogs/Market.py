@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict, Counter
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pprint import pprint
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -68,38 +67,30 @@ def get_item_names(item: Dict[str, Any]) -> List[str]:
     return [item['item_name']] + item.get('aliases', [])
 
 
-def find_common_words(item_names: List[str], threshold: int = 100) -> set:
-    word_counter = Counter()
-
-    for name in item_names:
-        words = name.split()
-        if len(words) > 1:
-            word_counter.update(words)
-
-    common_words = {word for word, count in word_counter.items() if count >= threshold}
-
-    pprint(common_words)
-
-    return common_words
-
-
 def remove_common_words(name: str, common_words: set) -> str:
     words = name.split()
     filtered_words = [word for word in words if word not in common_words]
     return ' '.join(filtered_words)
 
 
+def remove_blueprint(s: str) -> str:
+    words = s.lower().split()
+    if words[-1:] == ['blueprint'] and words[-2:-1] != ['prime']:
+        return ' '.join(words[:-1])
+    return s
+
+
 def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, Optional[Dict[str, str]]]:
     best_score, best_item = 0, None
-    item_list = [name for item in items for name in get_item_names(item)]
-    common_words = find_common_words(item_list)
+    common_words = {'Arcane', 'Prime', 'Set', 'Scene'}
     item_name = remove_common_words(item_name, common_words)
+    item_name = remove_blueprint(item_name)
 
     for item in items:
         processed_names = [remove_common_words(name, common_words) for name in get_item_names(item)]
         max_score = max(fuzz.ratio(item_name, name) for name in processed_names)
-        # if max_score > 10:
-        #     print(f"{item_name} -> {processed_names} -> {max_score}")
+        if max_score > 10:
+            print(f"{item_name} -> {processed_names} -> {max_score}")
         if max_score > best_score:
             best_score, best_item = max_score, item
 
