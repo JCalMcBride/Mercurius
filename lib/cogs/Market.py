@@ -63,6 +63,10 @@ def format_row(label, value, average=None):
         return f"{label:<7} {value:<7}\n"
 
 
+def get_item_names(item: Dict[str, Any]) -> List[str]:
+    return [item['item_name']] + item.get('aliases', [])
+
+
 class MarketDatabase:
     GET_ITEM_QUERY: str = "SELECT * FROM items WHERE item_name=%s"
     GET_ITEM_SUBTYPES_QUERY: str = "SELECT * FROM item_subtypes WHERE item_id=%s"
@@ -130,16 +134,12 @@ class MarketDatabase:
         self.connection.close()
 
     def get_fuzzy_item(self, item_name: str) -> Optional[Dict[str, str]]:
-        best_match, best_score, best_item = None, 0, None
+        best_score, best_item = 0, None
 
         for item in self.all_items:
-            item_names = [item['item_name']] + item.get('aliases', [])
-
-            for name in item_names:
-                score = fuzz.ratio(item_name, name)
-                if score > best_score:
-                    print(f"{item_name} -> {name} [{score}]")
-                    best_match, best_score, best_item = name, score, item
+            max_score = max(fuzz.ratio(item_name, name) for name in get_item_names(item))
+            if max_score > best_score:
+                best_score, best_item = max_score, item
 
         return best_item if best_score > 50 else None
 
