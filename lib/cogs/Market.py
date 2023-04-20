@@ -162,8 +162,8 @@ class MarketItem:
             order_key = 'sell' if order['order_type'] == 'sell' else 'buy'
             self.orders[order_key].append(parsed_order)
 
-        for key, reverse in [('sell', True), ('buy', False)]:
-            self.orders[key].sort(key=lambda x: (x['last_update'], x['price']), reverse=reverse)
+        for key, reverse in [('sell', False), ('buy', True)]:
+            self.orders[key].sort(key=lambda x: (x['last_update'], -x['price']), reverse=reverse)
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
