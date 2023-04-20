@@ -84,7 +84,7 @@ def remove_blueprint(s: str) -> str:
 
 def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, Optional[Dict[str, str]]]:
     best_score, best_item = 0, None
-    common_words = {'arcane', 'prime', 'scene'}
+    common_words = {'arcane', 'prime', 'scene', 'set'}
 
     item_name = remove_common_words(item_name, common_words)
 
