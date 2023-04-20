@@ -10,6 +10,7 @@ import redis as redis
 from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
+from discord.utils import escape_markdown
 
 logger = logging.getLogger('bot')
 rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
@@ -93,6 +94,10 @@ class MarketDatabase:
             return cursor.fetchall()
 
 
+def format_user(user):
+    return f"{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
+
+
 class MarketItem:
     base_api_url = "https://api.warframe.market/v1"
     base_url = "https://warframe.market/items"
@@ -146,6 +151,25 @@ class MarketItem:
             self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
 
         return self.orders[order_type]
+
+    def get_order_embed(self):
+        num_orders = 10
+        orders = self.get_orders()
+
+        orders = orders[:num_orders]
+
+        user_string = '\n'.join([format_user(order['user']) for order in orders])
+        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
+        price_string = '\n'.join([f"{order['price']}" for order in orders])
+
+        embed = self.embed()
+
+        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
+        embed.add_field(name="User", value=user_string, inline=True)
+        embed.add_field(name="Price", value=price_string, inline=True)
+        embed.add_field(name="Quantity", value=quantity_string, inline=True)
+
+        return embed
 
     def get_volume(self):
         volume = self.database.get_item_volume(self.item_id, 31)
@@ -276,23 +300,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        orders = await wfm_item.get_orders()
-        if len(orders) == 0:
-            await self.bot.send_message(ctx, f"No orders found for {target_item}.")
-            return
-
-        orders = orders[:num_orders]
-
-        user_string = '\n'.join([f"{order['user']}" for order in orders])
-        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
-        price_string = '\n'.join([f"{order['price']}" for order in orders])
-
-        embed = wfm_item.embed()
-
-        embed.add_field(name='Period | Volume | Daily Average', value=wfm_item.get_volume(), inline=False)
-        embed.add_field(name="User", value=user_string, inline=True)
-        embed.add_field(name="Price", value=price_string, inline=True)
-        embed.add_field(name="Quantity", value=quantity_string, inline=True)
+        embed = wfm_item.get_order_embed()
 
         await self.bot.send_message(ctx, embed=embed)
 
