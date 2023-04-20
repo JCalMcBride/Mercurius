@@ -138,6 +138,7 @@ class MarketDatabase:
             for name in item_names:
                 score = fuzz.ratio(item_name, name)
                 if score > best_score:
+                    print(f"{item_name} -> {name} [{score}]")
                     best_match, best_score, best_item = name, score, item
 
         return best_item if best_score > 80 else None
