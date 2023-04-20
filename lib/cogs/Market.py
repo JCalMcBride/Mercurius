@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -152,7 +153,7 @@ class MarketItem:
     def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
         for order in orders:
             parsed_order = {
-                'last_update': order['last_update'],
+                'last_update': datetime.strptime(order['last_update'], '%Y-%m-%dT%H:%M:%S.%f%z'),
                 'quantity': order['quantity'],
                 'price': order['platinum'],
                 'user': order['user']['ingame_name'],
@@ -161,7 +162,7 @@ class MarketItem:
             order_key = 'sell' if order['order_type'] == 'sell' else 'buy'
             self.orders[order_key].append(parsed_order)
 
-        for key, reverse in [('sell', False), ('buy', True)]:
+        for key, reverse in [('sell', True), ('buy', False)]:
             self.orders[key].sort(key=lambda x: (x['last_update'], x['price']), reverse=reverse)
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
