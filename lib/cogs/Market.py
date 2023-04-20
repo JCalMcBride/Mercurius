@@ -102,10 +102,11 @@ def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, O
     for item in items:
         processed_names = [remove_common_words(name, common_words) for name in get_item_names(item)]
         max_score = max(fuzz.ratio(item_name, name) for name in processed_names)
-        if max_score > 50 or item['item_name'] == "Mesa Prime Set":
-            print(f"{item_name} -> {processed_names} -> {max_score}")
         if max_score > best_score:
             best_score, best_item = max_score, item
+
+        if best_score == 100:
+            break
 
     return best_score, best_item
 
