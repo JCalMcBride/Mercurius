@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
+from time import perf_counter
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -387,12 +388,19 @@ class Market(Cog):
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
         num_orders = 5
 
+        t0 = perf_counter()
         wfm_item = self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
+        t1 = perf_counter()
+        await self.bot.send_message(ctx, f"Time to fetch wfm item: {t1 - t0}")
 
+        t0 = perf_counter()
         embed = await wfm_item.get_order_embed()
+        t1 = perf_counter()
+
+        await self.bot.send_message(ctx, f"Time to fetch orders: {t1 - t0}")
 
         await self.bot.send_message(ctx, embed=embed)
 
