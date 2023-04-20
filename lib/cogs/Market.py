@@ -68,7 +68,7 @@ def get_item_names(item: Dict[str, Any]) -> List[str]:
     return [item['item_name']] + item.get('aliases', [])
 
 
-def find_common_words(item_names: List[str], threshold: int = 75) -> set:
+def find_common_words(item_names: List[str], threshold: int = 50) -> set:
     word_counter = Counter()
 
     for name in item_names:
