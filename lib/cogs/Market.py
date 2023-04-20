@@ -50,7 +50,8 @@ async def get_cache():
 async def get_session():
     global _session
     if _session is None:
-        _session = await session_manager()
+        connector = TCPConnector(limit=10)  # Adjust the limit based on your requirements
+        _session = aiohttp.ClientSession(connector=connector)
     return _session
 
 
