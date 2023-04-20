@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -8,10 +8,12 @@ from datetime import datetime
 from time import perf_counter
 from typing import List, Optional, Tuple, Union, Dict, Any
 
+import aiocache as aiocache
 import aiohttp
 import discord
 import pymysql as pymysql
 import redis as redis
+from aiohttp import TCPConnector
 from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -31,31 +33,55 @@ async def cache_manager():
 
 @asynccontextmanager
 async def session_manager():
-    async with aiohttp.ClientSession() as session:
+    connector = TCPConnector(limit=10)  # Adjust the limit based on your requirements
+    async with aiohttp.ClientSession(connector=connector) as session:
         yield session
 
 
-async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24):
-    async with cache_manager() as cache:
-        data = cache.get(url)
+# Create a global cache and session object
+_session = None
+_cache = aiocache.SimpleMemoryCache()
 
-        if data is not None:
-            logger.debug(f"Using cached data for {url}")
-            return json.loads(data)
-        else:
-            logger.debug(f"Fetching data for {url}")
-            async with session_manager() as session:
-                try:
-                    async with session.get(url) as r:
-                        data = await r.json()
-                        cache.set(url, json.dumps(data), ex=expiration)
-                except aiohttp.ClientError:
-                    return None
+
+async def get_cache():
+    return _cache
+
+
+async def get_session():
+    global _session
+    if _session is None:
+        _session = await session_manager()
+    return _session
+
+
+async def fetch_wfm_data(url: str, expiration: int = 60 * 60 * 24) -> Optional[dict]:
+    cache = await get_cache()
+    data = await cache.get(url)
+
+    if data is not None:
+        logger.debug(f"Using cached data for {url}")
+        return data
+
+    logger.debug(f"Fetching data for {url}")
+    session = await get_session()
+
+    async def fetch_data():
+        nonlocal data
+        try:
+            async with session.get(url) as r:
+                data = await r.json()
+        except aiohttp.ClientError:
+            return None
+
+    async def update_cache():
+        nonlocal data
+        await cache.set(url, data, expires=expiration)
+
+    await asyncio.gather(fetch_data(), update_cache())
 
     if 'error' in data:
         return None
     return data
-
 
 def format_row(label, value, average=None):
     if average is not None:
