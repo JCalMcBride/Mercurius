@@ -36,6 +36,7 @@ async def fetch_wfm_data(url: str, session: aiohttp.ClientSession):
     except aiohttp.ClientError:
         logger.error(f"Failed to fetch data from {url}")
 
+
 def format_row(label, value, average=None):
     if average is not None:
         return f"{label:<7} {value:<7} {average:<4}\n"
