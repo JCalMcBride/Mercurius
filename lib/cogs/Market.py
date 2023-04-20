@@ -359,7 +359,7 @@ class Market(Cog):
                              description="Gets link to the requested item's page, if it exists.",
                              aliases=["getitem", 'wfmitem', 'wfi', 'wfmi'])
     async def get_market_item(self, ctx: commands.Context, *, target_item: str) -> None:
-        wfm_item = self.market_db.get_item(target_item)
+        wfm_item = await self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
@@ -370,7 +370,7 @@ class Market(Cog):
                              description="Gets statistics for the requested item, if it exists.",
                              aliases=["getstats", 'wfmstats', 'wfms'])
     async def get_market_stats(self, ctx: commands.Context, *, target_item: str) -> None:
-        wfm_item = self.market_db.get_item(target_item)
+        wfm_item = await self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
@@ -381,7 +381,7 @@ class Market(Cog):
                              description="Gets volume for the requested item, if it exists.",
                              aliases=["getvolume", 'wfmvolume', 'gv'])
     async def get_market_volume(self, ctx: commands.Context, *, target_item: str) -> None:
-        wfm_item = self.market_db.get_item(target_item)
+        wfm_item = await self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
@@ -396,7 +396,7 @@ class Market(Cog):
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
         num_orders = 5
 
-        wfm_item = self.market_db.get_item(target_item)
+        wfm_item = await self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
