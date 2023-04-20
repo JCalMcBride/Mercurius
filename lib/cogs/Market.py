@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional, Tuple, Union, Dict, Any
@@ -14,7 +15,6 @@ from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
-from fuzzywuzzy import process
 from pymysql import Connection
 
 logger = logging.getLogger('bot')
@@ -75,7 +75,9 @@ class MarketDatabase:
                                   "WHERE datetime >= NOW() - INTERVAL %s DAY "
                                   "AND order_type='closed' "
                                   "AND item_id = %s")
-    GET_ALL_ITEMS_QUERY: str = ("SELECT id, item_name, item_type, url_name, thumb FROM items")
+    GET_ALL_ITEMS_QUERY: str = ("SELECT items.id, items.item_name, items.item_type, "
+                                "items.url_name, items.thumb, item_aliases.alias "
+                                "FROM items LEFT JOIN item_aliases ON items.id = item_aliases.item_id")
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
@@ -85,12 +87,19 @@ class MarketDatabase:
 
         self.all_items = self.get_all_items()
 
-    def get_all_items(self) -> List[Dict[str, str]]:
-        all_items_data = self._execute_query(self.GET_ALL_ITEMS_QUERY)
-        all_items = [
-            {'id': item[0], 'item_name': item[1], 'item_type': item[2], 'url_name': item[3], 'thumb': item[4]}
-            for item in all_items_data
-        ]
+    def get_all_items(self) -> list[list]:
+        all_data = self._execute_query(self.GET_ALL_ITEMS_QUERY)
+
+        item_dict = defaultdict(lambda: defaultdict(list))
+        for item_id, item_name, item_type, url_name, thumb, alias in all_data:
+            if not item_dict[item_id]['item_data']:
+                item_dict[item_id]['item_data'] = {'id': item_id, 'item_name': item_name, 'item_type': item_type,
+                                                   'url_name': url_name, 'thumb': thumb}
+            if alias:
+                item_dict[item_id]['aliases'].append(alias)
+
+        all_items = [item_data['item_data'] for item_data in item_dict.values()]
+
         return all_items
 
     def _execute_query(self, query: str, *params) -> List[Tuple]:
@@ -120,11 +129,17 @@ class MarketDatabase:
         self.connection.close()
 
     def get_fuzzy_item(self, item_name: str) -> Optional[Dict[str, str]]:
-        best_match = process.extractOne(item_name, [item['item_name'] for item in self.all_items])
-        print(best_match)
-        if best_match[1] > 50:
-            return next(item for item in self.all_items if item['item_name'] == best_match[0])
-        return None
+        best_match, best_score, best_item = None, 0, None
+
+        for item in self.all_items:
+            item_names = [item['item_name']] + item.get('aliases', [])
+
+            for name in item_names:
+                score = fuzz.ratio(item_name, name)
+                if score > best_score:
+                    best_match, best_score, best_item = name, score, item
+
+        return best_item if best_score > 80 else None
 
 
 def format_user(user) -> str:
