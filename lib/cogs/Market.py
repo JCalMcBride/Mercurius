@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime
 from time import perf_counter
 from typing import List, Optional, Tuple, Union, Dict, Any
@@ -9,6 +11,7 @@ from typing import List, Optional, Tuple, Union, Dict, Any
 import aiohttp
 import discord
 import pymysql as pymysql
+import redis
 from aiohttp import TCPConnector, ClientTimeout
 from aiolimiter import AsyncLimiter
 from discord.ext import commands
@@ -25,12 +28,29 @@ timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
 session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
 
 
+@asynccontextmanager
+async def cache_manager():
+    cache = redis.Redis(host='localhost', port=6379, db=0)
+    yield cache
+
+
 async def fetch_wfm_data(url: str):
+    with await cache_manager() as cache:
+        data = cache.get(url)
+        if data is not None:
+            logger.debug(f"Using cached data for {url}")
+            return json.loads(data)
+
     try:
         async with rate_limiter:
             async with session.get(url) as r:
                 if r.status == 200:
                     logger.info(f"Fetched data from {url}")
+                    data = await r.json()
+
+                    # Store the data in the cache with a 1-minute expiration
+                    cache.set(url, json.dumps(data), ex=60)
+
                     return await r.json()
                 else:
                     raise aiohttp.ClientError
