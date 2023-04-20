@@ -15,6 +15,7 @@ from aiolimiter import AsyncLimiter
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
+from fuzzywuzzy import fuzz
 from pymysql import Connection
 
 logger = logging.getLogger('bot')
