@@ -104,7 +104,7 @@ class MarketDatabase:
         if fuzzy_item is None:
             return None
 
-        item_data: str = fuzzy_item.values()
+        item_data: str = list(fuzzy_item.values())
         sub_types: tuple = self._execute_query(self.GET_ITEM_SUBTYPES_QUERY, item_data[0])
         mod_ranks: tuple = self._execute_query(self.GET_ITEM_MOD_RANKS_QUERY, item_data[0])
 
