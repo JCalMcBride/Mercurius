@@ -35,7 +35,7 @@ async def cache_manager():
 
 
 async def fetch_wfm_data(url: str):
-    with await cache_manager() as cache:
+    async with cache_manager() as cache:
         data = cache.get(url)
         if data is not None:
             logger.debug(f"Using cached data for {url}")
