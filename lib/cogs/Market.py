@@ -121,6 +121,7 @@ class MarketDatabase:
 
     def get_fuzzy_item(self, item_name: str) -> Optional[Dict[str, str]]:
         best_match = process.extractOne(item_name, [item['item_name'] for item in self.all_items])
+        print(best_match)
         if best_match[1] > 50:
             return next(item for item in self.all_items if item['item_name'] == best_match[0])
         return None
