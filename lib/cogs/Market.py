@@ -5,7 +5,6 @@ import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
-from time import perf_counter
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -244,15 +243,9 @@ class MarketItem:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
-        t0 = perf_counter()
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
-        t1 = perf_counter()
-        print(f"fetch_wfm_data took {t1 - t0} seconds")
 
-        t0 = perf_counter()
         self.parse_orders(orders['payload']['orders'])
-        t1 = perf_counter()
-        print(f"parse_orders took {t1 - t0} seconds")
 
         if only_online:
             self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
@@ -262,10 +255,7 @@ class MarketItem:
     async def get_order_embed(self) -> discord.Embed:
         num_orders = 5
 
-        t0 = perf_counter()
         orders = await self.get_orders()
-        t1 = perf_counter()
-        print(f"get_orders took {t1 - t0} seconds")
 
         orders = orders[:num_orders]
 
@@ -275,10 +265,7 @@ class MarketItem:
 
         embed = self.embed()
 
-        t0 = perf_counter()
         embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
-        t1 = perf_counter()
-        print(f"get_volume took {t1 - t0} seconds")
         embed.add_field(name="User", value=user_string, inline=True)
         embed.add_field(name="Price", value=price_string, inline=True)
         embed.add_field(name="Quantity", value=quantity_string, inline=True)
