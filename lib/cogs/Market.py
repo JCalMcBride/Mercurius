@@ -67,6 +67,17 @@ def get_item_names(item: Dict[str, Any]) -> List[str]:
     return [item['item_name']] + item.get('aliases', [])
 
 
+def find_best_match(item_name: str, items: List[Dict[str, Any]]) -> Tuple[int, Optional[Dict[str, str]]]:
+    best_score, best_item = 0, None
+
+    for item in items:
+        max_score = max(fuzz.ratio(item_name, name) for name in get_item_names(item))
+        if max_score > best_score:
+            best_score, best_item = max_score, item
+
+    return best_score, best_item
+
+
 class MarketDatabase:
     GET_ITEM_QUERY: str = "SELECT * FROM items WHERE item_name=%s"
     GET_ITEM_SUBTYPES_QUERY: str = "SELECT * FROM item_subtypes WHERE item_id=%s"
@@ -134,12 +145,7 @@ class MarketDatabase:
         self.connection.close()
 
     def get_fuzzy_item(self, item_name: str) -> Optional[Dict[str, str]]:
-        best_score, best_item = 0, None
-
-        for item in self.all_items:
-            max_score = max(fuzz.ratio(item_name, name) for name in get_item_names(item))
-            if max_score > best_score:
-                best_score, best_item = max_score, item
+        best_score, best_item = find_best_match(item_name, self.all_items)
 
         return best_item if best_score > 50 else None
 
