@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
 import discord
@@ -58,54 +60,78 @@ def format_row(label, value, average=None):
 
 
 class MarketDatabase:
-    def __init__(self, user: str, password: str, host: str, database: str):
-        self.connection = pymysql.connect(user=user,
-                                          password=password,
-                                          host=host,
-                                          database=database)
+    GET_ITEM_QUERY: str = "SELECT * FROM items WHERE item_name=%s"
+    GET_ITEM_SUBTYPES_QUERY: str = "SELECT * FROM item_subtypes WHERE item_id=%s"
+    GET_ITEM_MOD_RANKS_QUERY: str = "SELECT * FROM item_mod_ranks WHERE item_id=%s"
+    GET_ITEM_STATISTICS_QUERY: str = ("SELECT datetime, avg_price "
+                                      "FROM item_statistics "
+                                      "WHERE item_id=%s "
+                                      "AND order_type='closed'")
+    GET_ITEM_VOLUME_QUERY: str = ("SELECT volume "
+                                  "FROM item_statistics "
+                                  "WHERE datetime >= NOW() - INTERVAL %s DAY "
+                                  "AND order_type='closed' "
+                                  "AND item_id = %s")
 
-    def get_item(self, item):
+    def __init__(self, user: str, password: str, host: str, database: str) -> None:
+        self.connection: Connection = pymysql.connect(user=user,
+                                                      password=password,
+                                                      host=host,
+                                                      database=database)
+
+    def _execute_query(self, query: str, *params) -> List[Tuple]:
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM items WHERE item_name=%s", item)
-            item_data = cursor.fetchone()
-            if item_data is None:
-                return None
-
-            sub_types = cursor.execute("SELECT * FROM item_subtypes WHERE item_id=%s", item_data[0])
-            mod_ranks = cursor.execute("SELECT * FROM item_mod_ranks WHERE item_id=%s", item_data[0])
-
-            return MarketItem(self, *item_data, sub_types, mod_ranks)
-
-    def get_item_statistics(self, item_id):
-        with self.connection.cursor() as cursor:
-            cursor.execute("SELECT datetime, avg_price "
-                           "FROM item_statistics "
-                           "WHERE item_id=%s "
-                           "AND order_type='closed'", item_id)
+            cursor.execute(query, params)
             return cursor.fetchall()
 
-    def get_item_volume(self, item_id, days: int = 31):
-        with self.connection.cursor() as cursor:
-            cursor.execute("SELECT volume "
-                           "FROM item_statistics "
-                           "WHERE datetime >= NOW() - INTERVAL %s DAY "
-                           "AND order_type='closed' "
-                           "AND item_id = %s", (days, item_id))
-            return cursor.fetchall()
+    def get_item(self, item: str) -> Optional[MarketItem]:
+        item_data = self._execute_query(self.GET_ITEM_QUERY, item)
+        if not item_data:
+            return None
+
+        item_data: str = item_data[0]
+        sub_types: tuple = self._execute_query(self.GET_ITEM_SUBTYPES_QUERY, item_data[0])
+        mod_ranks: tuple = self._execute_query(self.GET_ITEM_MOD_RANKS_QUERY, item_data[0])
+
+        return MarketItem(self, *item_data, sub_types, mod_ranks)
+
+    def get_item_statistics(self, item_id: str) -> List[Tuple]:
+        return self._execute_query(self.GET_ITEM_STATISTICS_QUERY, item_id)
+
+    def get_item_volume(self, item_id: str, days: int = 31) -> List[Tuple]:
+        return self._execute_query(self.GET_ITEM_VOLUME_QUERY, days, item_id)
+
+    def close(self) -> None:
+        self.connection.close()
 
 
-def format_user(user):
+def format_user(user) -> str:
     return f"[{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
 
 
+def format_volume(day: int, week: int, month: int) -> str:
+    return f"""```python
+{format_row("Day:", day)}
+{format_row("Week:", week, week // 7)}
+{format_row("Month:", month, month // 31)}
+```"""
+
+
+def get_sums(volume: list) -> tuple:
+    day_total = sum(volume[-1:])
+    week_total = sum(volume[-7:])
+    month_total = sum(volume)
+    return day_total, week_total, month_total
+
+
 class MarketItem:
-    base_api_url = "https://api.warframe.market/v1"
-    base_url = "https://warframe.market/items"
-    asset_url = "https://warframe.market/static/assets"
+    base_api_url: str = "https://api.warframe.market/v1"
+    base_url: str = "https://warframe.market/items"
+    asset_url: str = "https://warframe.market/static/assets"
 
     def __init__(self, database: MarketDatabase,
                  item_id: str, item_name: str, item_type: str, item_url_name: str, thumb: str,
-                 sub_types: str, mod_rank: str):
+                 sub_types: str, mod_rank: str) -> None:
         self.database: MarketDatabase = database
         self.item_id: str = item_id
         self.item_name: str = item_name
@@ -114,16 +140,16 @@ class MarketItem:
         self.thumb: str = thumb
         self.thumb_url: str = f"{MarketItem.asset_url}/{self.thumb}"
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
-        self.sub_types: List = sub_types.split(",") if sub_types else list()
-        self.mod_rank: List = mod_rank.split(",") if mod_rank else list()
-        self.orders = {'buy': list(), 'sell': list()}
+        self.sub_types: List[str] = sub_types.split(",") if sub_types else []
+        self.mod_rank: List[str] = mod_rank.split(",") if mod_rank else []
+        self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
 
-    def embed(self):
+    def embed(self) -> discord.Embed:
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
         embed.set_thumbnail(url=self.thumb_url)
         return embed
 
-    def parse_orders(self, orders):
+    def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
         for order in orders:
             parsed_order = {
                 'last_update': order['last_update'],
@@ -143,7 +169,7 @@ class MarketItem:
         self.orders['buy'].sort(key=lambda x: x['last_update'], reverse=True)
         self.orders['buy'].sort(key=lambda x: x['price'], reverse=True)
 
-    async def get_orders(self, order_type: str = 'sell', only_online: bool = True):
+    async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
         self.parse_orders(orders['payload']['orders'])
 
@@ -152,7 +178,7 @@ class MarketItem:
 
         return self.orders[order_type]
 
-    async def get_order_embed(self):
+    async def get_order_embed(self) -> discord.Embed:
         num_orders = 10
         orders = await self.get_orders()
 
@@ -171,57 +197,51 @@ class MarketItem:
 
         return embed
 
-    def get_volume(self):
-        volume = self.database.get_item_volume(self.item_id, 31)
-        volume = [x[0] for x in volume]
+    def get_volume(self) -> str:
+        volume = [x[0] for x in self.database.get_item_volume(self.item_id, 31)]
+        day_total, week_total, month_total = get_sums(volume)
+        return format_volume(day_total, week_total, month_total)
 
-        volume_string = "```python\n"
-        volume_string += format_row("Day:", sum(volume[-1:]))
-        volume_string += format_row("Week:", sum(volume[-7:]), sum(volume[-7:]) // 7)
-        volume_string += format_row("Month:", sum(volume), sum(volume) // 31)
-        volume_string += "```"
-        return volume_string
-
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.item_name} ({self.item_url_name})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.item_name} ({self.item_url_name})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id == other.item_id
         else:
             return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.item_id)
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id < other.item_id
         else:
             return False
 
-    def __le__(self, other):
+    def __le__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id <= other.item_id
         else:
             return False
 
-    def __gt__(self, other):
+    def __gt__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id > other.item_id
         else:
             return False
 
-    def __ge__(self, other):
+    def __ge__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id >= other.item_id
         else:
             return False
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         if isinstance(other, MarketItem):
             return self.item_id != other.item_id
         else:
