@@ -60,7 +60,8 @@ class Bot(BotBase):
 
         self.logger.info("Setup complete.")
 
-    async def send_message(self, ctx, content: str = None, error: Exception = None, embed: discord.Embed = None):
+    async def send_message(self, ctx, content: str = None, error: Exception = None, embed: discord.Embed = None,
+                           view: discord.ui.View = None):
         if ctx is None:
             if error:
                 self.logger.error(f"{content}", exc_info=error)
@@ -69,7 +70,7 @@ class Bot(BotBase):
             self.logger.info(f"{content}")
             return
 
-        await ctx.send(content=content, embed=embed)
+        await ctx.send(content=content, embed=embed, view=view)
         if error:
             self.logger.error(format_log_message(ctx, content), exc_info=error)
         else:
