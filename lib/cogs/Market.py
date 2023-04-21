@@ -363,7 +363,7 @@ class MarketItem:
 
         return embed
 
-    def filter_orders(self, order_type: str = 'sell', num_orders: int = 10, only_online: bool = True) \
+    def filter_orders(self, order_type: str = 'sell', num_orders: int = 5, only_online: bool = True) \
             -> List[Dict[str, Union[str, int]]]:
         orders = self.orders[order_type]
 
