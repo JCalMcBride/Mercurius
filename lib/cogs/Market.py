@@ -344,7 +344,7 @@ def get_emoji(rarities):
         frozenset([1, 2]): "<:commonuncommon:1099015114860019723>",
         frozenset([1, 3]): "<:commonrare:1099015117548564610>",
         frozenset([2, 3]): "<:uncommonrare:1099015116139282482>",
-        frozenset([1, 2, 3]): "<:commonuncommonrare:1099016557402783845>"
+        frozenset([1, 2, 3]): "<:commonuncommonrare:1099019241002389606>"
     }
 
     description = rarity_descriptions.get(frozenset(rarities))
