@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections import defaultdict
@@ -340,6 +341,12 @@ class MarketItem:
         else:
             return True
 
+    async def get_part_prices(self):
+        tasks = [item.get_orders() for item in self.parts]
+        results = await asyncio.gather(*tasks)
+        print(results)
+
+
 
 class Market(Cog):
     def __init__(self, bot):
@@ -429,6 +436,9 @@ class Market(Cog):
         if not wfm_item.get_parts():
             await self.bot.send_message(ctx, f"Item {target_part} does not have any parts.")
             return
+
+        embed = wfm_item.embed()
+        part_prices = wfm_item.get_part_prices()
 
         print(wfm_item.parts)
 
