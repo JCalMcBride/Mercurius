@@ -310,6 +310,31 @@ def get_sums(volume: list) -> tuple:
     return day_total, week_total, month_total
 
 
+def require_orders(order_type: str = 'sell', only_online: bool = True):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            await self.get_orders(order_type=order_type, only_online=only_online)
+            return await func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def require_all_part_orders():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            tasks = [item.get_orders() for item in self.parts]
+            await asyncio.gather(*tasks)
+            return await func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 class MarketItem:
     base_api_url: str = "https://api.warframe.market/v1"
     base_url: str = "https://warframe.market/items"
@@ -356,7 +381,7 @@ class MarketItem:
 
         return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
 
-    @MarketItem.require_orders()
+    @require_orders()
     async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
         num_orders = 5
 
@@ -381,8 +406,8 @@ class MarketItem:
 
         return ("Part", name_string), ("Price", price_string)
 
-    @MarketItem.require_orders()
-    @MarketItem.require_all_part_orders()
+    @require_orders()
+    @require_all_part_orders()
     async def get_part_prices(self, order_type: str = 'sell'):
         embed = self.embed()
 
@@ -413,31 +438,6 @@ class MarketItem:
             self.parts = [MarketItem(self.database, *item) for item in self.database.get_item_parts(self.item_id)]
             return True
         return False
-
-    @staticmethod
-    def require_orders(order_type: str = 'sell', only_online: bool = True):
-        def decorator(func):
-            @wraps(func)
-            async def wrapper(self, *args, **kwargs):
-                await self.get_orders(order_type=order_type, only_online=only_online)
-                return await func(self, *args, **kwargs)
-
-            return wrapper
-
-        return decorator
-
-    @staticmethod
-    def require_all_part_orders():
-        def decorator(func):
-            @wraps(func)
-            async def wrapper(self, *args, **kwargs):
-                tasks = [item.get_orders() for item in self.parts]
-                await asyncio.gather(*tasks)
-                return await func(self, *args, **kwargs)
-
-            return wrapper
-
-        return decorator
 
     async def get_orders(self) -> None:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
