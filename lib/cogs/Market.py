@@ -401,7 +401,7 @@ class MarketItem:
 
     def get_rarities(self, part):
         rarities = []
-        for relic in relic_engine.get_relic_list().values():
+        for relic in relic_engine.get_relic_dict().values():
             if part in relic:
                 rarities.append(relic[part])
 
