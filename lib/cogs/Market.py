@@ -160,9 +160,9 @@ async def fetch_wfm_data(url: str):
 
 def format_row(label, value, average=None):
     if average is not None:
-        return f"{label:<7} {value:<7} {average:<4}\n"
+        return f"{label:<7} {value:<12} {average:<4}\n"
     else:
-        return f"{label:<7} {value:<7}\n"
+        return f"{label:<7} {value:<12}\n"
 
 
 def get_item_names(item: Dict[str, Any]) -> List[str]:
@@ -421,7 +421,7 @@ class MarketItem:
 
     def format_part_name(self, part_name: str, emoji: str) -> str:
         set_name = self.item_name.replace('Set', '').strip()
-        return f"{emoji}{part_name.replace(set_name, '').strip()}"
+        return f"{emoji} {part_name.replace(set_name, '').strip()}"
 
     def get_part_price_embed_fields(self, order_type):
         part_price = 0
