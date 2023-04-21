@@ -69,8 +69,10 @@ class MarketItemView(discord.ui.View):
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         orders = await self.item.get_orders()
         embed = await self.item.get_order_embed(orders)
-        await self.message.edit(embed=embed)
-        await interaction.response.send_message("Fetched orders", ephemeral=True)
+        self.remove_item(self.orders_button)
+        self.add_item(self.part_prices)
+        await self.message.edit(embed=embed, view=self)
+        await interaction.response.defer(thinking=False)
 
 
 async def fetch_wfm_data(url: str):
