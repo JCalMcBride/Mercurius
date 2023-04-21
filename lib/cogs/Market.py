@@ -34,7 +34,7 @@ async def cache_manager():
     yield cache
 
 
-class MarketItemView(discord.ui.view):
+class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem):
         self.item = item
         self.item.get_parts()
