@@ -231,15 +231,16 @@ class MarketItem:
 
     def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
         for order in orders:
+            order_type = order['order_type']
+            user = order['user']
             parsed_order = {
-                'last_update': datetime.strptime(order['last_update'], '%Y-%m-%dT%H:%M:%S.%f%z'),
+                'last_update': order['last_update'],
                 'quantity': order['quantity'],
                 'price': order['platinum'],
-                'user': order['user']['ingame_name'],
-                'state': order['user']['status']
+                'user': user['ingame_name'],
+                'state': user['status']
             }
-            order_key = 'sell' if order['order_type'] == 'sell' else 'buy'
-            self.orders[order_key].append(parsed_order)
+            self.orders[order_type].append(parsed_order)
 
         for key, reverse in [('sell', False), ('buy', True)]:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
