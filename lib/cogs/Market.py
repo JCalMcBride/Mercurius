@@ -79,8 +79,8 @@ class MarketItemView(discord.ui.View):
         if self.orders_button in self.children:
             embed = await self.item.get_part_prices(self.order_type)
         elif self.part_prices in self.children:
-            orders = await self.item.get_orders(self.order_type)
-            embed = await self.item.get_order_embed(orders)
+            await self.item.get_orders(self.order_type)
+            embed = await self.item.get_order_embed(self.order_type)
 
         return embed
 
@@ -334,6 +334,28 @@ class MarketItem:
     def embed(self) -> discord.Embed:
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
         embed.set_thumbnail(url=self.thumb_url)
+        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
+
+        return embed
+
+    def get_order_embed_fields(self, num_orders, order_type) -> \
+            tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
+        orders = self.orders[order_type][:num_orders]
+
+        user_string = '\n'.join([format_user(order['user']) for order in orders])
+        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
+        price_string = '\n'.join([f"{order['price']}" for order in orders])
+
+        return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
+
+    async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
+        num_orders = 5
+
+        embed = self.embed()
+
+        for field in self.get_order_embed_fields(num_orders, order_type):
+            embed.add_field(name=field[0], value=field[1], inline=True)
+
         return embed
 
     def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
@@ -368,24 +390,6 @@ class MarketItem:
             self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
 
         return self.orders[order_type]
-
-    async def get_order_embed(self, orders) -> discord.Embed:
-        num_orders = 5
-
-        orders = orders[:num_orders]
-
-        user_string = '\n'.join([format_user(order['user']) for order in orders])
-        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
-        price_string = '\n'.join([f"{order['price']}" for order in orders])
-
-        embed = self.embed()
-
-        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
-        embed.add_field(name="User", value=user_string, inline=True)
-        embed.add_field(name="Price", value=price_string, inline=True)
-        embed.add_field(name="Quantity", value=quantity_string, inline=True)
-
-        return embed
 
     def get_volume(self) -> str:
         volume = [x[0] for x in self.database.get_item_volume(self.item_id, 31)]
