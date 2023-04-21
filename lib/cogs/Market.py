@@ -54,6 +54,12 @@ class MarketItemView(discord.ui.View):
         elif self.order_type == "buy":
             self.remove_item(self.buy_orders)
 
+    def get_order_type_button(self):
+        if self.order_type == "sell":
+            return self.sell_orders
+        elif self.order_type == "buy":
+            return self.buy_orders
+
     @discord.ui.button(
         label="Part Prices",
         style=ButtonStyle.green,
@@ -63,8 +69,9 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         embed = await self.item.get_part_prices(self.order_type)
-        self.remove_item(self.part_prices)
+        self.clear_items()
         self.add_item(self.orders_button)
+        self.add_item(self.get_order_type_button())
         await self.message.edit(embed=embed, view=self)
 
     async def order_type_logic(self):
@@ -86,8 +93,9 @@ class MarketItemView(discord.ui.View):
 
         orders = await self.item.get_orders(self.order_type)
         embed = await self.item.get_order_embed(orders)
-        self.remove_item(self.orders_button)
+        self.clear_items()
         self.add_item(self.part_prices)
+        self.add_item(self.get_order_type_button())
         await self.message.edit(embed=embed, view=self)
 
     @discord.ui.button(
