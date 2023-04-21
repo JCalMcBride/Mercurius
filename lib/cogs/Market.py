@@ -337,20 +337,21 @@ def require_all_part_orders():
 
 
 def get_emoji(rarities):
-    if rarities == (1,):
-        print("Common")
-    elif rarities == (2,):
-        print("Uncommon")
-    elif rarities == (3,):
-        print("Rare")
-    elif rarities == (1, 2):
-        print("Common and Uncommon")
-    elif rarities == (1, 3):
-        print("Common and Rare")
-    elif rarities == (2, 3):
-        print("Uncommon and Rare")
-    elif rarities == (1, 2, 3):
-        print("Common, Uncommon, and Rare")
+    rarity_descriptions = {
+        frozenset([1]): "Common",
+        frozenset([2]): "Uncommon",
+        frozenset([3]): "Rare",
+        frozenset([1, 2]): "Common and Uncommon",
+        frozenset([1, 3]): "Common and Rare",
+        frozenset([2, 3]): "Uncommon and Rare",
+        frozenset([1, 2, 3]): "Common, Uncommon, and Rare"
+    }
+
+    description = rarity_descriptions.get(frozenset(rarities))
+    if description:
+        print(description)
+    else:
+        print("Unknown rarity combination")
 
 
 def get_rarities(part):
