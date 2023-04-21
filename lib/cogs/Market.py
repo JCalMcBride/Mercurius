@@ -5,6 +5,7 @@ import json
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from functools import wraps
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -79,7 +80,6 @@ class MarketItemView(discord.ui.View):
         if self.orders_button in self.children:
             embed = await self.item.get_part_prices(self.order_type)
         elif self.part_prices in self.children:
-            await self.item.get_orders(self.order_type)
             embed = await self.item.get_order_embed(self.order_type)
 
         return embed
@@ -92,8 +92,7 @@ class MarketItemView(discord.ui.View):
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
 
-        orders = await self.item.get_orders(self.order_type)
-        embed = await self.item.get_order_embed(orders)
+        embed = await self.item.get_order_embed()
         self.clear_items()
         self.add_item(self.part_prices)
         self.add_item(self.get_order_type_button())
@@ -338,9 +337,17 @@ class MarketItem:
 
         return embed
 
-    def get_order_embed_fields(self, num_orders, order_type) -> \
-            tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
+    def filter_orders(self, order_type, num_orders, only_online) -> List[Dict[str, Union[str, int]]]:
         orders = self.orders[order_type][:num_orders]
+
+        if only_online:
+            orders = list(filter(lambda x: x['state'] == 'ingame', orders))
+
+        return orders
+
+    def get_order_embed_fields(self, num_orders, order_type, only_online) -> \
+            tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
+        orders = self.filter_orders(order_type, num_orders, only_online)
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -348,12 +355,37 @@ class MarketItem:
 
         return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
 
+    @MarketItem.require_orders()
     async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
         num_orders = 5
 
         embed = self.embed()
 
         for field in self.get_order_embed_fields(num_orders, order_type):
+            embed.add_field(name=field[0], value=field[1], inline=True)
+
+        return embed
+
+    def get_part_price_embed_fields(self, order_type, only_online):
+        part_price = 0
+        name_string = ""
+        price_string = ""
+        for part in self.parts:
+            orders = part.filter_orders(order_type, 1, only_online)
+            name_string += f"{part.item_name}\n"
+            price_string += f"{orders[0]['price']}\n"
+            part_price += orders[0]['price']
+        name_string += f"{self.item_name}\n"
+        price_string += f"{self.orders[0]['price']}\n"
+
+        return ("Part", name_string), ("Price", price_string)
+
+    @MarketItem.require_orders()
+    @MarketItem.require_all_part_orders()
+    async def get_part_prices(self, order_type: str = 'sell'):
+        embed = self.embed()
+
+        for field in self.get_part_price_embed_fields(order_type, True):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
@@ -381,15 +413,35 @@ class MarketItem:
             return True
         return False
 
-    async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
+    @staticmethod
+    def require_orders(order_type: str = 'sell', only_online: bool = True):
+        def decorator(func):
+            @wraps(func)
+            async def wrapper(self, *args, **kwargs):
+                await self.get_orders(order_type=order_type, only_online=only_online)
+                return await func(self, *args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
+    @staticmethod
+    def require_all_part_orders():
+        def decorator(func):
+            @wraps(func)
+            async def wrapper(self, *args, **kwargs):
+                tasks = [item.get_orders() for item in self.parts]
+                await asyncio.gather(*tasks)
+                return await func(self, *args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
+    async def get_orders(self) -> None:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
 
         self.parse_orders(orders['payload']['orders'])
-
-        if only_online:
-            self.orders[order_type] = list(filter(lambda x: x['state'] == 'ingame', self.orders[order_type]))
-
-        return self.orders[order_type]
 
     def get_volume(self) -> str:
         volume = [x[0] for x in self.database.get_item_volume(self.item_id, 31)]
@@ -440,28 +492,6 @@ class MarketItem:
             return self.item_id != other.item_id
         else:
             return True
-
-    async def get_part_prices(self, order_type: str = 'sell'):
-        tasks = [item.get_orders(order_type=order_type) for item in self.parts] + [
-            self.get_orders(order_type=order_type)]
-        results = await asyncio.gather(*tasks)
-        embed = self.embed()
-
-        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
-        part_price = 0
-        name_string = ""
-        price_string = ""
-        for item, orders in zip(self.parts, results[:-1]):
-            name_string += f"{item.item_name}\n"
-            price_string += f"{orders[0]['price']}\n"
-            part_price += orders[0]['price']
-        name_string += f"{self.item_name}\n"
-        price_string += f"{results[-1][0]['price']}\n"
-
-        embed.add_field(name="Part", value=name_string, inline=True)
-        embed.add_field(name="Price", value=price_string, inline=True)
-
-        return embed
 
 
 class Market(Cog):
@@ -541,8 +571,6 @@ class Market(Cog):
             return
 
         view = MarketItemView(wfm_item)
-
-        await wfm_item.get_orders()
 
         embed = await wfm_item.get_order_embed()
 
