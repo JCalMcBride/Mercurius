@@ -383,6 +383,8 @@ class MarketItem:
 
     @require_orders()
     async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
+        print(self.orders)
+
         num_orders = 5
 
         embed = self.embed()
@@ -432,8 +434,6 @@ class MarketItem:
 
         for key, reverse in [('sell', False), ('buy', True)]:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
-
-        print(self.orders)
 
     def get_parts(self) -> bool:
         if 'Set' in self.item_name:
