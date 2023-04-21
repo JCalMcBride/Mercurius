@@ -542,9 +542,9 @@ class Market(Cog):
 
         view = MarketItemView(wfm_item)
 
-        orders = await wfm_item.get_orders()
+        await wfm_item.get_orders()
 
-        embed = await wfm_item.get_order_embed(orders)
+        embed = await wfm_item.get_order_embed()
 
         message = await self.bot.send_message(ctx, embed=embed, view=view)
 
