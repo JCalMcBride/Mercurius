@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -24,31 +24,13 @@ rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
 connector = TCPConnector(limit=10)
 headers = {"Connection": "keep-alive", "Upgrade-Insecure-Requests": "1"}
 timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
+session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
 
 
 @asynccontextmanager
 async def cache_manager():
     cache = redis.Redis(host='localhost', port=6379, db=0)
     yield cache
-
-
-# class MarketItemView(discord.ui.View):
-#     def __init__(self, item: MarketItem):
-#         self.item = item
-#         self.item.get_parts()
-#         if not self.item.get_parts():
-#             self.part_prices.disabled = True
-#
-#         super().__init__()
-#
-#     @discord.ui.button(
-#         label="Part Prices",
-#         style=ButtonStyle.green,
-#         custom_id=f"part_price"
-#     )
-#     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         embed = await self.item.get_part_prices()
-#         await interaction.response.send_message(embed=embed)
 
 
 async def fetch_wfm_data(url: str):
@@ -58,7 +40,6 @@ async def fetch_wfm_data(url: str):
             logger.debug(f"Using cached data for {url}")
             return json.loads(data)
 
-    session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
     retries = 3
     for _ in range(retries):
         try:
@@ -149,11 +130,6 @@ class MarketDatabase:
     GET_ALL_ITEMS_QUERY: str = ("SELECT items.id, items.item_name, items.item_type, "
                                 "items.url_name, items.thumb, item_aliases.alias "
                                 "FROM items LEFT JOIN item_aliases ON items.id = item_aliases.item_id")
-    GET_ITEMS_IN_SET_QUERY: str = ("SELECT items.id, items.item_name, items.item_type, items.url_name, items.thumb "
-                                   "FROM items_in_set "
-                                   "INNER JOIN items "
-                                   "ON items_in_set.item_id = items.id "
-                                   "WHERE items_in_set.set_id = %s")
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
@@ -209,9 +185,6 @@ class MarketDatabase:
 
         return best_item if best_score > 50 else None
 
-    def get_item_parts(self, item_id: str) -> List[Tuple]:
-        return self._execute_query(self.GET_ITEMS_IN_SET_QUERY, item_id)
-
 
 def format_user(user) -> str:
     return f"[{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
@@ -238,7 +211,7 @@ class MarketItem:
 
     def __init__(self, database: MarketDatabase,
                  item_id: str, item_name: str, item_type: str, item_url_name: str, thumb: str,
-                 sub_types: str = None, mod_rank: str = None) -> None:
+                 sub_types: str, mod_rank: str) -> None:
         self.database: MarketDatabase = database
         self.item_id: str = item_id
         self.item_name: str = item_name
@@ -247,10 +220,9 @@ class MarketItem:
         self.thumb: str = thumb
         self.thumb_url: str = f"{MarketItem.asset_url}/{self.thumb}"
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
-        self.sub_types: List[str] = sub_types.split(",") if sub_types is not None and sub_types else []
-        self.mod_rank: List[str] = mod_rank.split(",") if mod_rank is not None and mod_rank else []
+        self.sub_types: List[str] = sub_types.split(",") if sub_types else []
+        self.mod_rank: List[str] = mod_rank.split(",") if mod_rank else []
         self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
-        self.parts: List[MarketItem] = []
 
     def embed(self) -> discord.Embed:
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
@@ -259,25 +231,18 @@ class MarketItem:
 
     def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
         for order in orders:
-            order_type = order['order_type']
-            user = order['user']
             parsed_order = {
-                'last_update': order['last_update'],
+                'last_update': datetime.strptime(order['last_update'], '%Y-%m-%dT%H:%M:%S.%f%z'),
                 'quantity': order['quantity'],
                 'price': order['platinum'],
-                'user': user['ingame_name'],
-                'state': user['status']
+                'user': order['user']['ingame_name'],
+                'state': order['user']['status']
             }
-            self.orders[order_type].append(parsed_order)
+            order_key = 'sell' if order['order_type'] == 'sell' else 'buy'
+            self.orders[order_key].append(parsed_order)
 
         for key, reverse in [('sell', False), ('buy', True)]:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
-
-    def get_parts(self) -> bool:
-        if 'Set' in self.item_name:
-            self.parts = [MarketItem(self.database, *item) for item in self.database.get_item_parts(self.item_id)]
-            return True
-        return False
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
@@ -359,27 +324,6 @@ class MarketItem:
         else:
             return True
 
-    async def get_part_prices(self):
-        tasks = [item.get_orders() for item in self.parts] + [self.get_orders()]
-        results = await asyncio.gather(*tasks)
-        embed = self.embed()
-
-        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
-        part_price = 0
-        name_string = ""
-        price_string = ""
-        for item, orders in zip(self.parts, results[:-1]):
-            name_string += f"{item.item_name}\n"
-            price_string += f"{orders[0]['price']}\n"
-            part_price += orders[0]['price']
-        name_string += f"{self.item_name}\n"
-        price_string += f"{results[-1][0]['price']}\n"
-
-        embed.add_field(name="Part", value=name_string, inline=True)
-        embed.add_field(name="Price", value=price_string, inline=True)
-
-        return embed
-
 
 class Market(Cog):
     def __init__(self, bot):
@@ -427,9 +371,6 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        embed = wfm_item.embed()
-        embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
-
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @commands.hybrid_command(name='marketvolume',
@@ -440,7 +381,6 @@ class Market(Cog):
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
-
         embed = wfm_item.embed()
         embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
 
@@ -457,26 +397,7 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        # view = MarketItemView(wfm_item)
-
         embed = await wfm_item.get_order_embed()
-
-        await self.bot.send_message(ctx, embed=embed)
-
-    @commands.hybrid_command(name='partprices',
-                             description="Gets prices for the requested part, if it exists.",
-                             aliases=["partprice", "pp", "partp"])
-    async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
-        wfm_item = self.market_db.get_item(target_part)
-        if wfm_item is None or wfm_item.item_url is None:
-            await self.bot.send_message(ctx, f"Item {target_part} does not on Warframe.Market")
-            return
-
-        if not wfm_item.get_parts():
-            await self.bot.send_message(ctx, f"Item {target_part} does not have any parts.")
-            return
-
-        embed = await wfm_item.get_part_prices()
 
         await self.bot.send_message(ctx, embed=embed)
 
