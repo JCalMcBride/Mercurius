@@ -421,7 +421,7 @@ class MarketItem:
 
     def format_part_name(self, part_name: str, emoji: str) -> str:
         set_name = self.item_name.replace('Set', '').strip()
-        return f"{emoji} {part_name.replace(set_name, '').strip()}"
+        return f"{emoji}{part_name.replace(set_name, '').strip()}"
 
     def get_part_price_embed_fields(self, order_type):
         part_price = 0
