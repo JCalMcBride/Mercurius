@@ -406,9 +406,10 @@ class MarketItem:
         required_string = ""
         for part in self.parts:
             orders = part.filter_orders(order_type)
+            required = relic_engine.get_required_amount(part.item_name)
             name_string += f"{self.format_part_name(part.item_name)}\n"
             price_string += f"{orders[0]['price']}\n"
-            part_price += orders[0]['price']
+            part_price += (orders[0]['price'] * required)
             required_string += f"{relic_engine.get_required_amount(part.item_name)}\n"
 
         orders = self.filter_orders(order_type)
@@ -419,7 +420,7 @@ class MarketItem:
         name_string += f"Part Price\n"
         price_string += f"{part_price}\n"
 
-        return ("Part", name_string), ("Price", price_string)
+        return ("Part", name_string), ("Price", price_string), ("Required", required_string)
 
     @require_orders()
     @require_all_part_orders()
