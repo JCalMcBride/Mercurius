@@ -338,20 +338,17 @@ def require_all_part_orders():
 
 def get_emoji(rarities):
     rarity_descriptions = {
-        frozenset([1]): "Common",
-        frozenset([2]): "Uncommon",
-        frozenset([3]): "Rare",
-        frozenset([1, 2]): "Common and Uncommon",
-        frozenset([1, 3]): "Common and Rare",
-        frozenset([2, 3]): "Uncommon and Rare",
-        frozenset([1, 2, 3]): "Common, Uncommon, and Rare"
+        frozenset([1]): "<:common:1099015121516367934>",
+        frozenset([2]): "<:uncommon:1099015120111292428>",
+        frozenset([3]): "<:rare:1099015118718779472>",
+        frozenset([1, 2]): "<:commonuncommon:1099015114860019723>",
+        frozenset([1, 3]): "<:commonrare:1099015117548564610>",
+        frozenset([2, 3]): "<:uncommonrare:1099015116139282482>",
+        frozenset([1, 2, 3]): "<:commonuncommonrare:1099016557402783845>"
     }
 
     description = rarity_descriptions.get(frozenset(rarities))
-    if description:
-        print(description)
-    else:
-        print("Unknown rarity combination")
+    return description
 
 
 def get_rarities(part):
@@ -422,9 +419,9 @@ class MarketItem:
 
         return embed
 
-    def format_part_name(self, part_name: str) -> str:
+    def format_part_name(self, part_name: str, emoji: str) -> str:
         set_name = self.item_name.replace('Set', '').strip()
-        return part_name.replace(set_name, '').strip()
+        return f"{emoji} {part_name.replace(set_name, '').strip()}"
 
     def get_part_price_embed_fields(self, order_type):
         part_price = 0
@@ -432,10 +429,10 @@ class MarketItem:
         price_string = ""
         required_string = ""
         for part in self.parts:
-            get_emoji(get_rarities(part.item_name))
+            emoji = get_emoji(get_rarities(part.item_name))
             orders = part.filter_orders(order_type)
             required = relic_engine.get_required_amount(part.item_name)
-            name_string += f"{self.format_part_name(part.item_name)}\n"
+            name_string += f"{self.format_part_name(part.item_name, emoji)}\n"
             price_string += f"{orders[0]['price']}\n"
             part_price += (orders[0]['price'] * required)
             required_string += f"{relic_engine.get_required_amount(part.item_name)}\n"
