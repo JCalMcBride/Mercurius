@@ -394,13 +394,17 @@ class MarketItem:
 
         return embed
 
+    def format_part_name(self, part_name: str) -> str:
+        self.item_name = self.item_name.replace('Set', '').strip()
+        return part_name.replace(self.item_name, '').strip()
+
     def get_part_price_embed_fields(self, order_type):
         part_price = 0
         name_string = ""
         price_string = ""
         for part in self.parts:
             orders = part.filter_orders(order_type)
-            name_string += f"{part.item_name.replace(self.item_name, '').lstrip()}\n"
+            name_string += f"{self.format_part_name(part.item_name)}\n"
             price_string += f"{orders[0]['price']}\n"
             part_price += orders[0]['price']
 
