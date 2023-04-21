@@ -399,12 +399,21 @@ class MarketItem:
         set_name = self.item_name.replace('Set', '').strip()
         return part_name.replace(set_name, '').strip()
 
+    def get_rarities(self, part):
+        rarities = []
+        for relic in relic_engine.get_relic_list().values():
+            if part in relic:
+                rarities.append(relic[part])
+
+        print(rarities)
+
     def get_part_price_embed_fields(self, order_type):
         part_price = 0
         name_string = ""
         price_string = ""
         required_string = ""
         for part in self.parts:
+            self.get_rarities(part.item_name)
             orders = part.filter_orders(order_type)
             required = relic_engine.get_required_amount(part.item_name)
             name_string += f"{self.format_part_name(part.item_name)}\n"
