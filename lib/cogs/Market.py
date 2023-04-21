@@ -406,6 +406,9 @@ class MarketItem:
 
         orders = self.filter_orders(order_type)
 
+        name_string += f"Part Total\n"
+        price_string += f"{part_price}\n"
+
         name_string += f"{self.item_name}\n"
         price_string += f"{orders[0]['price']}\n"
 
