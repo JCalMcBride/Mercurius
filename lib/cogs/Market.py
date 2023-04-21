@@ -342,9 +342,17 @@ class MarketItem:
             return True
 
     async def get_part_prices(self):
-        tasks = [item.get_orders() for item in self.parts]
+        tasks = [item.get_orders() for item in self.parts] + [self.get_orders()]
         results = await asyncio.gather(*tasks)
-        print(results)
+        embed = self.embed()
+
+        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
+        part_price = 0
+        for item, orders in zip(self.parts, results[:-1]):
+            embed.add_field(name=item.item_name, value=f"{orders[0]['price']}", inline=True)
+            part_price += orders[0]['price']
+        embed.add_field(name='Part Price', value=f"{part_price}", inline=True)
+        embed.add_field(name='Set Price', value=f"{results[-1][0]['price']}", inline=True)
 
 
 class Market(Cog):
