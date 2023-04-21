@@ -357,7 +357,7 @@ def get_rarities(part):
     rarities = set()
     for relic in relic_engine.get_relic_dict().values():
         if part in relic:
-            rarities.append(relic[part])
+            rarities.add(relic[part])
 
     return rarities
 
