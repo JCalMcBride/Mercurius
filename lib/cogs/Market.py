@@ -21,16 +21,21 @@ from pymysql import Connection
 
 logger = logging.getLogger('bot')
 rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
-connector = TCPConnector(limit=10)
-headers = {"Connection": "keep-alive", "Upgrade-Insecure-Requests": "1"}
-timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
-session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
 
 
 @asynccontextmanager
 async def cache_manager():
     cache = redis.Redis(host='localhost', port=6379, db=0)
     yield cache
+
+
+@asynccontextmanager
+async def session_manager():
+    connector = TCPConnector(limit=10)
+    headers = {"Connection": "keep-alive", "Upgrade-Insecure-Requests": "1"}
+    timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
+    session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
+    yield session
 
 
 async def fetch_wfm_data(url: str):
@@ -41,22 +46,23 @@ async def fetch_wfm_data(url: str):
             return json.loads(data)
 
     retries = 3
-    for _ in range(retries):
-        try:
-            async with rate_limiter:
-                async with session.get(url) as r:
-                    if r.status == 200:
-                        logger.info(f"Fetched data from {url}")
-                        data = await r.json()
+    async with session_manager() as session:
+        for _ in range(retries):
+            try:
+                async with rate_limiter:
+                    async with session.get(url) as r:
+                        if r.status == 200:
+                            logger.info(f"Fetched data from {url}")
+                            data = await r.json()
 
-                        # Store the data in the cache with a 1-minute expiration
-                        cache.set(url, json.dumps(data), ex=60)
+                            # Store the data in the cache with a 1-minute expiration
+                            cache.set(url, json.dumps(data), ex=60)
 
-                        return await r.json()
-                    else:
-                        raise aiohttp.ClientError
-        except aiohttp.ClientError:
-            logger.error(f"Failed to fetch data from {url}")
+                            return await r.json()
+                        else:
+                            raise aiohttp.ClientError
+            except aiohttp.ClientError:
+                logger.error(f"Failed to fetch data from {url}")
 
 
 def format_row(label, value, average=None):
