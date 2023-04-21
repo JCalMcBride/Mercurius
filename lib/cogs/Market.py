@@ -362,7 +362,7 @@ class MarketItem:
 
         embed = self.embed()
 
-        for field in self.get_order_embed_fields(num_orders, order_type):
+        for field in self.get_order_embed_fields(num_orders, order_type, True):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
