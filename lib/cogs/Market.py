@@ -13,6 +13,7 @@ import pymysql as pymysql
 import redis
 from aiohttp import TCPConnector, ClientTimeout
 from aiolimiter import AsyncLimiter
+from discord import ButtonStyle
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
@@ -35,15 +36,19 @@ async def cache_manager():
 
 class MarketItemView(discord.ui.view):
     def __init__(self, item: MarketItem):
-        super().__init__()
-
         self.item = item
         self.item.get_parts()
         if not self.item.get_parts():
             self.part_prices.disabled = True
 
-    @discord.ui.button(label='PartPrices', style=discord.ButtonStyle.blurple)
-    async def part_prices(self, button: discord.ui.Button, interaction: discord.Interaction):
+        super().__init__()
+
+    @discord.ui.button(
+        label="Part Prices",
+        style=ButtonStyle.green,
+        custom_id=f"part_price"
+    )
+    async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = await self.item.get_part_prices()
         await interaction.response.send_message(embed=embed, view=None)
 
