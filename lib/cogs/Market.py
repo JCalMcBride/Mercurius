@@ -59,7 +59,7 @@ class MarketItemView(discord.ui.View):
         self.remove_item(self.part_prices)
         self.add_item(self.orders_button)
         await self.message.edit(embed=embed, view=self)
-        await interaction.response()
+        await interaction.response.defer(thinking=False)
 
     @discord.ui.button(
         label="Orders",
