@@ -314,7 +314,7 @@ def require_orders(order_type: str = 'sell', only_online: bool = True):
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
-            await self.get_orders(order_type=order_type, only_online=only_online)
+            await self.get_orders()
             return await func(self, *args, **kwargs)
 
         return wrapper
