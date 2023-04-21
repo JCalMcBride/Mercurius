@@ -57,6 +57,18 @@ class MarketItemView(discord.ui.View):
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = await self.item.get_part_prices()
         await self.message.edit(embed=embed)
+        await interaction.response.send_message("Fetched part prices", ephemeral=True)
+
+    @discord.ui.button(
+        label="Orders",
+        style=ButtonStyle.green,
+        custom_id=f"get_orders"
+    )
+    async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.item.get_orders()
+        embed = await self.item.get_order_embed()
+        await self.message.edit(embed=embed)
+        await interaction.response.send_message("Fetched orders", ephemeral=True)
 
 
 async def fetch_wfm_data(url: str):
@@ -300,9 +312,7 @@ class MarketItem:
     async def get_order_embed(self) -> discord.Embed:
         num_orders = 5
 
-        orders = await self.get_orders()
-
-        orders = orders[:num_orders]
+        orders = self.orders[:num_orders]
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -466,6 +476,8 @@ class Market(Cog):
             return
 
         view = MarketItemView(wfm_item)
+
+        await wfm_item.get_orders()
 
         embed = await wfm_item.get_order_embed()
 
