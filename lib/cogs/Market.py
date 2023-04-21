@@ -13,7 +13,6 @@ import pymysql as pymysql
 import redis
 from aiohttp import TCPConnector, ClientTimeout
 from aiolimiter import AsyncLimiter
-from discord import ButtonStyle
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.utils import escape_markdown
@@ -33,23 +32,23 @@ async def cache_manager():
     yield cache
 
 
-class MarketItemView(discord.ui.View):
-    def __init__(self, item: MarketItem):
-        self.item = item
-        self.item.get_parts()
-        if not self.item.get_parts():
-            self.part_prices.disabled = True
-
-        super().__init__()
-
-    @discord.ui.button(
-        label="Part Prices",
-        style=ButtonStyle.green,
-        custom_id=f"part_price"
-    )
-    async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = await self.item.get_part_prices()
-        await interaction.response.send_message(embed=embed)
+# class MarketItemView(discord.ui.View):
+#     def __init__(self, item: MarketItem):
+#         self.item = item
+#         self.item.get_parts()
+#         if not self.item.get_parts():
+#             self.part_prices.disabled = True
+#
+#         super().__init__()
+#
+#     @discord.ui.button(
+#         label="Part Prices",
+#         style=ButtonStyle.green,
+#         custom_id=f"part_price"
+#     )
+#     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
+#         embed = await self.item.get_part_prices()
+#         await interaction.response.send_message(embed=embed)
 
 
 async def fetch_wfm_data(url: str):
@@ -458,11 +457,11 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
-        view = MarketItemView(wfm_item)
+        # view = MarketItemView(wfm_item)
 
         embed = await wfm_item.get_order_embed()
 
-        await self.bot.send_message(ctx, embed=embed, view=view)
+        await self.bot.send_message(ctx, embed=embed)
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
