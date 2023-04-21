@@ -81,7 +81,7 @@ class MarketItemView(discord.ui.View):
         if self.part_prices in self.children:
             embed = await self.item.get_part_prices(self.order_type)
         else:
-            embed = await self.item.get_part_prices(self.order_type)
+            embed = await self.item.get_order_embed(self.order_type)
 
         return embed
 
