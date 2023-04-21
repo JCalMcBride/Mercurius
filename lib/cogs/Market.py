@@ -49,7 +49,7 @@ class MarketItemView(discord.ui.View):
         self.message = None
         super().__init__()
         if not self.item.get_parts():
-            self.part_prices.disabled = True
+            self.remove_item(self.part_prices)
 
         self.remove_item(self.orders_button)
         if self.order_type == "sell":
