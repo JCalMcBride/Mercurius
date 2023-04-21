@@ -442,6 +442,8 @@ class MarketItem:
 
     async def get_orders(self) -> None:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
+        if orders is None:
+            return
 
         self.parse_orders(orders['payload']['orders'])
 
