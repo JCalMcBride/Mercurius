@@ -70,11 +70,13 @@ class Bot(BotBase):
             self.logger.info(f"{content}")
             return
 
-        await ctx.send(content=content, embed=embed, view=view)
+        message = await ctx.send(content=content, embed=embed, view=view)
         if error:
             self.logger.error(format_log_message(ctx, content), exc_info=error)
         else:
             self.logger.info(format_log_message(ctx, content))
+
+        return message
 
     def run(self):
         self.logger.info('Running setup.')
