@@ -347,7 +347,6 @@ class MarketItem:
         print(results)
 
 
-
 class Market(Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -438,7 +437,7 @@ class Market(Cog):
             return
 
         embed = wfm_item.embed()
-        part_prices = wfm_item.get_part_prices()
+        part_prices = await wfm_item.get_part_prices()
 
         print(wfm_item.parts)
 
