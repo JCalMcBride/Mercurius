@@ -12,6 +12,7 @@ import aiohttp
 import discord
 import pymysql as pymysql
 import redis
+import relic_engine
 from aiohttp import TCPConnector, ClientTimeout
 from aiolimiter import AsyncLimiter
 from discord import ButtonStyle
@@ -402,11 +403,13 @@ class MarketItem:
         part_price = 0
         name_string = ""
         price_string = ""
+        required_string = ""
         for part in self.parts:
             orders = part.filter_orders(order_type)
             name_string += f"{self.format_part_name(part.item_name)}\n"
             price_string += f"{orders[0]['price']}\n"
             part_price += orders[0]['price']
+            required_string += f"{relic_engine.get_required_amount(part.item_name)}\n"
 
         orders = self.filter_orders(order_type)
 
