@@ -63,7 +63,7 @@ class MarketItemView(discord.ui.View):
         self.add_item(self.orders_button)
         await self.message.edit(embed=embed, view=self)
 
-    def order_type_logic(self):
+    async def order_type_logic(self):
         if self.orders_button in self.children:
             embed = await self.item.get_part_prices(self.order_type)
         elif self.part_prices in self.children:
@@ -95,7 +95,7 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         self.order_type = "buy"
-        embed = self.order_type_logic()
+        embed = await self.order_type_logic()
 
         self.remove_item(self.buy_orders)
         self.add_item(self.sell_orders)
@@ -110,7 +110,7 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         self.order_type = "sell"
-        embed = self.order_type_logic()
+        embed = await self.order_type_logic()
 
         self.remove_item(self.sell_orders)
         self.add_item(self.buy_orders)
