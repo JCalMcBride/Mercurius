@@ -56,9 +56,9 @@ class MarketItemView(discord.ui.View):
 
     def get_order_type_button(self):
         if self.order_type == "sell":
-            return self.sell_orders
-        elif self.order_type == "buy":
             return self.buy_orders
+        elif self.order_type == "buy":
+            return self.sell_orders
 
     @discord.ui.button(
         label="Part Prices",
