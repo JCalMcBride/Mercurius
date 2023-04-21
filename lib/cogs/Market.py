@@ -25,7 +25,6 @@ rate_limiter = AsyncLimiter(3, 1)  # 3 requests per 1 second
 connector = TCPConnector(limit=10)
 headers = {"Connection": "keep-alive", "Upgrade-Insecure-Requests": "1"}
 timeout = ClientTimeout(total=5, connect=2, sock_connect=2, sock_read=2)
-session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
 
 
 @asynccontextmanager
@@ -60,6 +59,7 @@ async def fetch_wfm_data(url: str):
             logger.debug(f"Using cached data for {url}")
             return json.loads(data)
 
+    session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout)
     retries = 3
     for _ in range(retries):
         try:
