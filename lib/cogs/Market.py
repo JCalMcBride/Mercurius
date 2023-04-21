@@ -409,6 +409,9 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
+        embed = wfm_item.embed()
+        embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
+
         await self.bot.send_message(ctx, embed=wfm_item.embed())
 
     @commands.hybrid_command(name='marketvolume',
@@ -419,6 +422,7 @@ class Market(Cog):
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
+
         embed = wfm_item.embed()
         embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
 
