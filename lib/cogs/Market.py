@@ -65,8 +65,8 @@ class MarketItemView(discord.ui.View):
         custom_id=f"get_orders"
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.item.get_orders()
-        embed = await self.item.get_order_embed()
+        orders = await self.item.get_orders()
+        embed = await self.item.get_order_embed(orders)
         await self.message.edit(embed=embed)
         await interaction.response.send_message("Fetched orders", ephemeral=True)
 
@@ -309,10 +309,10 @@ class MarketItem:
 
         return self.orders[order_type]
 
-    async def get_order_embed(self) -> discord.Embed:
+    async def get_order_embed(self, orders) -> discord.Embed:
         num_orders = 5
 
-        orders = self.orders[:num_orders]
+        orders = orders[:num_orders]
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -477,9 +477,9 @@ class Market(Cog):
 
         view = MarketItemView(wfm_item)
 
-        await wfm_item.get_orders()
+        orders = await wfm_item.get_orders()
 
-        embed = await wfm_item.get_order_embed()
+        embed = await wfm_item.get_order_embed(orders)
 
         message = await self.bot.send_message(ctx, embed=embed, view=view)
 
