@@ -363,7 +363,8 @@ class MarketItem:
 
         return embed
 
-    def filter_orders(self, order_type, num_orders, only_online) -> List[Dict[str, Union[str, int]]]:
+    def filter_orders(self, order_type: str = 'sell', num_orders: int = 10, only_online: bool = True) \
+            -> List[Dict[str, Union[str, int]]]:
         orders = self.orders[order_type]
 
         if only_online:
@@ -371,9 +372,9 @@ class MarketItem:
 
         return orders[:num_orders]
 
-    def get_order_embed_fields(self, num_orders, order_type, only_online) -> \
+    def get_order_embed_fields(self, order_type) -> \
             tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
-        orders = self.filter_orders(order_type, num_orders, only_online)
+        orders = self.filter_orders(order_type)
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -387,17 +388,17 @@ class MarketItem:
 
         embed = self.embed()
 
-        for field in self.get_order_embed_fields(num_orders, order_type, True):
+        for field in self.get_order_embed_fields(order_type):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
 
-    def get_part_price_embed_fields(self, order_type, only_online):
+    def get_part_price_embed_fields(self, order_type):
         part_price = 0
         name_string = ""
         price_string = ""
         for part in self.parts:
-            orders = part.filter_orders(order_type, 1, only_online)
+            orders = part.filter_orders(order_type)
             name_string += f"{part.item_name}\n"
             price_string += f"{orders[0]['price']}\n"
             part_price += orders[0]['price']
@@ -411,7 +412,7 @@ class MarketItem:
     async def get_part_prices(self, order_type: str = 'sell'):
         embed = self.embed()
 
-        for field in self.get_part_price_embed_fields(order_type, True):
+        for field in self.get_part_price_embed_fields(order_type):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
