@@ -310,7 +310,7 @@ def get_sums(volume: list) -> tuple:
     return day_total, week_total, month_total
 
 
-def require_orders(order_type: str = 'sell', only_online: bool = True):
+def require_orders():
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
