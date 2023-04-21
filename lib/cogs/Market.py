@@ -50,7 +50,7 @@ class MarketItemView(discord.ui.View):
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = await self.item.get_part_prices()
-        await interaction.response.send_message(embed=embed, view=None)
+        await interaction.response.send_message(embed=embed)
 
 
 async def fetch_wfm_data(url: str):
