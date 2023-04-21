@@ -43,6 +43,7 @@ class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem):
         self.item = item
         self.item.get_parts()
+        self.order_type = "sell"
         self.message = None
         if not self.item.get_parts():
             self.part_prices.disabled = True
@@ -55,11 +56,21 @@ class MarketItemView(discord.ui.View):
         custom_id=f"part_price"
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = await self.item.get_part_prices()
+        await interaction.response.defer(thinking=False)
+
+        embed = await self.item.get_part_prices(self.order_type)
         self.remove_item(self.part_prices)
         self.add_item(self.orders_button)
         await self.message.edit(embed=embed, view=self)
-        await interaction.response.defer(thinking=False)
+
+    def order_type_logic(self):
+        if self.orders_button in self.children:
+            embed = await self.item.get_part_prices(self.order_type)
+        elif self.part_prices in self.children:
+            orders = await self.item.get_orders(self.order_type)
+            embed = await self.item.get_order_embed(orders)
+
+        return embed
 
     @discord.ui.button(
         label="Orders",
@@ -67,12 +78,43 @@ class MarketItemView(discord.ui.View):
         custom_id=f"get_orders"
     )
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        orders = await self.item.get_orders()
+        await interaction.response.defer(thinking=False)
+
+        orders = await self.item.get_orders(self.order_type)
         embed = await self.item.get_order_embed(orders)
         self.remove_item(self.orders_button)
         self.add_item(self.part_prices)
         await self.message.edit(embed=embed, view=self)
+
+    @discord.ui.button(
+        label="Buy Orders",
+        style=ButtonStyle.green,
+        custom_id=f"buy_orders"
+    )
+    async def buy_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
+
+        self.order_type = "buy"
+        embed = self.order_type_logic()
+
+        self.remove_item(self.buy_orders)
+        self.add_item(self.sell_orders)
+        await self.message.edit(embed=embed, view=self)
+
+    @discord.ui.button(
+        label="Sell Orders",
+        style=ButtonStyle.green,
+        custom_id=f"buy_orders"
+    )
+    async def sell_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(thinking=False)
+
+        self.order_type = "sell"
+        embed = self.order_type_logic()
+
+        self.remove_item(self.sell_orders)
+        self.add_item(self.buy_orders)
+        await self.message.edit(embed=embed, view=self)
 
 
 async def fetch_wfm_data(url: str):
@@ -382,8 +424,8 @@ class MarketItem:
         else:
             return True
 
-    async def get_part_prices(self):
-        tasks = [item.get_orders() for item in self.parts] + [self.get_orders()]
+    async def get_part_prices(self, order_type: str = 'sell'):
+        tasks = [item.get_orders(order_type=order_type) for item in self.parts] + [self.get_orders()]
         results = await asyncio.gather(*tasks)
         embed = self.embed()
 
