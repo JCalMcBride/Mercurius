@@ -400,17 +400,17 @@ class MarketItem:
         price_string = ""
         for part in self.parts:
             orders = part.filter_orders(order_type)
-            name_string += f"{part.item_name}\n"
+            name_string += f"{part.item_name.replace(self.item_name, '').lstrip()}\n"
             price_string += f"{orders[0]['price']}\n"
             part_price += orders[0]['price']
 
         orders = self.filter_orders(order_type)
 
-        name_string += f"Part Total\n"
-        price_string += f"{part_price}\n"
-
-        name_string += f"{self.item_name}\n"
+        name_string += f"Set Price\n"
         price_string += f"{orders[0]['price']}\n"
+
+        name_string += f"Part Price\n"
+        price_string += f"{part_price}\n"
 
         return ("Part", name_string), ("Price", price_string)
 
