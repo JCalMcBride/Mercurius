@@ -364,12 +364,12 @@ class MarketItem:
         return embed
 
     def filter_orders(self, order_type, num_orders, only_online) -> List[Dict[str, Union[str, int]]]:
-        orders = self.orders[order_type][:num_orders]
+        orders = self.orders[order_type]
 
         if only_online:
             orders = list(filter(lambda x: x['state'] == 'ingame', orders))
 
-        return orders
+        return orders[:num_orders]
 
     def get_order_embed_fields(self, num_orders, order_type, only_online) -> \
             tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
@@ -383,8 +383,6 @@ class MarketItem:
 
     @require_orders()
     async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
-        print(self.orders)
-
         num_orders = 5
 
         embed = self.embed()
