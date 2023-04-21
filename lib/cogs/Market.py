@@ -43,6 +43,7 @@ class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem):
         self.item = item
         self.item.get_parts()
+        self.message = None
         if not self.item.get_parts():
             self.part_prices.disabled = True
 
@@ -55,7 +56,7 @@ class MarketItemView(discord.ui.View):
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = await self.item.get_part_prices()
-        await interaction.response.send_message(embed=embed)
+        await self.message.edit(embed=embed)
 
 
 async def fetch_wfm_data(url: str):
@@ -468,7 +469,9 @@ class Market(Cog):
 
         embed = await wfm_item.get_order_embed()
 
-        await self.bot.send_message(ctx, embed=embed, view=view)
+        message = await self.bot.send_message(ctx, embed=embed, view=view)
+
+        view.message = message
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
