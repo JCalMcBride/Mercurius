@@ -160,9 +160,9 @@ async def fetch_wfm_data(url: str):
 
 def format_row(label, value, average=None):
     if average is not None:
-        return f"{label:<7} {value:<12} {average:<4}\n"
+        return f"{label:<7} {value:<7} {average:<4}\n"
     else:
-        return f"{label:<7} {value:<12}\n"
+        return f"{label:<7} {value:<7}\n"
 
 
 def get_item_names(item: Dict[str, Any]) -> List[str]:
