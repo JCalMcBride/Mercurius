@@ -130,6 +130,11 @@ class MarketDatabase:
     GET_ALL_ITEMS_QUERY: str = ("SELECT items.id, items.item_name, items.item_type, "
                                 "items.url_name, items.thumb, item_aliases.alias "
                                 "FROM items LEFT JOIN item_aliases ON items.id = item_aliases.item_id")
+    GET_ITEMS_IN_SET_QUERY: str = ("SELECT items.id, items.item_name, items.item_type, items.url_name, items.thumb "
+                                   "FROM items_in_set "
+                                   "INNER JOIN items "
+                                   "ON items_in_set.item_id = items.id "
+                                   "WHERE items_in_set.set_id = %s")
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
@@ -185,6 +190,9 @@ class MarketDatabase:
 
         return best_item if best_score > 50 else None
 
+    def get_item_parts(self, item_id: str) -> List[Tuple]:
+        return self._execute_query(self.GET_ITEMS_IN_SET_QUERY, item_id)
+
 
 def format_user(user) -> str:
     return f"[{escape_markdown(str(user))}]({f'https://warframe.market/profile/{user}'})"
@@ -211,7 +219,7 @@ class MarketItem:
 
     def __init__(self, database: MarketDatabase,
                  item_id: str, item_name: str, item_type: str, item_url_name: str, thumb: str,
-                 sub_types: str, mod_rank: str) -> None:
+                 sub_types: str = None, mod_rank: str = None) -> None:
         self.database: MarketDatabase = database
         self.item_id: str = item_id
         self.item_name: str = item_name
@@ -220,9 +228,10 @@ class MarketItem:
         self.thumb: str = thumb
         self.thumb_url: str = f"{MarketItem.asset_url}/{self.thumb}"
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
-        self.sub_types: List[str] = sub_types.split(",") if sub_types else []
-        self.mod_rank: List[str] = mod_rank.split(",") if mod_rank else []
+        self.sub_types: List[str] = sub_types.split(",") if sub_types is not None and sub_types else []
+        self.mod_rank: List[str] = mod_rank.split(",") if mod_rank is not None and mod_rank else []
         self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
+        self.parts: List[MarketItem] = []
 
     def embed(self) -> discord.Embed:
         embed = discord.Embed(title=self.item_name, url=self.item_url, color=discord.Color.dark_gold())
@@ -244,6 +253,12 @@ class MarketItem:
 
         for key, reverse in [('sell', False), ('buy', True)]:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
+
+    def get_parts(self) -> bool:
+        if 'Set' in self.item_name:
+            self.parts = [MarketItem(self.database, *item) for item in self.database.get_item_parts(self.item_id)]
+            return True
+        return False
 
     async def get_orders(self, order_type: str = 'sell', only_online: bool = True) -> List[Dict[str, Union[str, int]]]:
         orders = await fetch_wfm_data(f"{self.base_api_url}/items/{self.item_url_name}/orders")
@@ -401,6 +416,21 @@ class Market(Cog):
         embed = await wfm_item.get_order_embed()
 
         await self.bot.send_message(ctx, embed=embed)
+
+    @commands.hybrid_command(name='partprices',
+                             description="Gets prices for the requested part, if it exists.",
+                             aliases=["partprice", "pp", "partp"])
+    async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
+        wfm_item = self.market_db.get_item(target_part)
+        if wfm_item is None or wfm_item.item_url is None:
+            await self.bot.send_message(ctx, f"Item {target_part} does not on Warframe.Market")
+            return
+
+        if not wfm_item.get_parts():
+            await self.bot.send_message(ctx, f"Item {target_part} does not have any parts.")
+            return
+
+        print(wfm_item.parts)
 
     @Cog.listener()
     async def on_ready(self):
