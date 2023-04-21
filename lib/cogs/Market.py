@@ -437,7 +437,8 @@ class MarketItem:
             return True
 
     async def get_part_prices(self, order_type: str = 'sell'):
-        tasks = [item.get_orders(order_type=order_type) for item in self.parts] + [self.get_orders()]
+        tasks = [item.get_orders(order_type=order_type) for item in self.parts] + [
+            self.get_orders(order_type=order_type)]
         results = await asyncio.gather(*tasks)
         embed = self.embed()
 
