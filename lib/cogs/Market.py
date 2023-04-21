@@ -325,9 +325,8 @@ class MarketItem:
         self.thumb: str = thumb
         self.thumb_url: str = f"{MarketItem.asset_url}/{self.thumb}"
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
-        self.sub_types: List[str] = sub_types[0].split(",") if sub_types is not None and sub_types else []
-        print(mod_rank)
-        self.mod_rank: List[str] = mod_rank[0].split(",") if mod_rank is not None and mod_rank else []
+        self.sub_types: List[str] = [x[1] for x in sub_types] if sub_types is not None and sub_types else []
+        self.mod_rank: List[str] = [x[1] for x in mod_rank] if mod_rank is not None and mod_rank else []
         self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
         self.parts: List[MarketItem] = []
 
