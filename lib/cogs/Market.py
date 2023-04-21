@@ -46,7 +46,7 @@ class MarketItemView(discord.ui.View):
         self.message = None
         if not self.item.get_parts():
             self.part_prices.disabled = True
-
+        self.remove_item(self.orders_button)
         super().__init__()
 
     @discord.ui.button(
@@ -56,7 +56,9 @@ class MarketItemView(discord.ui.View):
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = await self.item.get_part_prices()
-        await self.message.edit(embed=embed)
+        self.remove_item(self.part_prices)
+        self.add_item(self.orders_button)
+        await self.message.edit(embed=embed, view=self)
         await interaction.response.send_message("Fetched part prices", ephemeral=True)
 
     @discord.ui.button(
@@ -64,7 +66,7 @@ class MarketItemView(discord.ui.View):
         style=ButtonStyle.green,
         custom_id=f"get_orders"
     )
-    async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         orders = await self.item.get_orders()
         embed = await self.item.get_order_embed(orders)
         await self.message.edit(embed=embed)
