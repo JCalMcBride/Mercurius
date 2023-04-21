@@ -78,11 +78,10 @@ class MarketItemView(discord.ui.View):
         await self.message.edit(embed=embed, view=self)
 
     async def order_type_logic(self):
-        embed = None
-        if self.orders_button in self.children:
+        if self.part_prices in self.children:
             embed = await self.item.get_part_prices(self.order_type)
-        elif self.part_prices in self.children:
-            embed = await self.item.get_order_embed(self.order_type)
+        else:
+            embed = await self.item.get_part_prices(self.order_type)
 
         return embed
 
