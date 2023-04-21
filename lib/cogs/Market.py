@@ -46,7 +46,8 @@ class SubtypeSelectMenu(discord.ui.Select):
         options = []
         for subtype in subtypes:
             options.append(discord.SelectOption(label=subtype, value=subtype))
-
+        print(options)
+        print(market_item_view)
         self.market_item_view = market_item_view
 
         super().__init__(placeholder="Select a subtype", min_values=1, max_values=1, options=options)
