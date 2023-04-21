@@ -372,9 +372,10 @@ class MarketItem:
 
         return orders[:num_orders]
 
-    def get_order_embed_fields(self, order_type) -> \
+    def get_order_embed_fields(self, order_type: str = 'sell',
+                               num_orders: int = 5) -> \
             tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
-        orders = self.filter_orders(order_type)
+        orders = self.filter_orders(order_type=order_type, num_orders=num_orders)
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -383,12 +384,12 @@ class MarketItem:
         return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
 
     @require_orders()
-    async def get_order_embed(self, order_type: str = "sell") -> discord.Embed:
+    async def get_order_embed(self, order_type: str = "sell", num_orders: int = 5) -> discord.Embed:
         num_orders = 5
 
         embed = self.embed()
 
-        for field in self.get_order_embed_fields(order_type):
+        for field in self.get_order_embed_fields(order_type=order_type, num_orders=num_orders):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
@@ -567,8 +568,6 @@ class Market(Cog):
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
-        num_orders = 5
-
         wfm_item = self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
