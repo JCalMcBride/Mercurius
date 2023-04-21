@@ -52,7 +52,7 @@ class SubtypeSelectMenu(discord.ui.Select):
         super().__init__(placeholder="Select a subtype", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        await self.market_item_view.subtype_handler(self.values[0])
+        await self.market_item_view.subtype_handler(interaction, self.values[0])
 
 
 class MarketItemView(discord.ui.View):
@@ -90,17 +90,19 @@ class MarketItemView(discord.ui.View):
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
 
-        embed = await self.item.get_part_prices(self.order_type)
         self.clear_items()
         self.add_item(self.orders_button)
         self.add_item(self.get_order_type_button())
+
+        embed = await self.get_embed_handler()
+
         await self.message.edit(embed=embed, view=self)
 
-    async def order_type_logic(self):
+    async def get_embed_handler(self):
         if self.part_prices in self.children:
             embed = await self.item.get_part_prices(self.order_type)
         else:
-            embed = await self.item.get_order_embed(self.order_type)
+            embed = await self.item.get_order_embed(self.order_type, subtype=self.subtype)
 
         return embed
 
@@ -112,10 +114,12 @@ class MarketItemView(discord.ui.View):
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
 
-        embed = await self.item.get_order_embed(self.order_type)
         self.clear_items()
         self.add_item(self.part_prices)
         self.add_item(self.get_order_type_button())
+
+        embed = await self.get_embed_handler()
+
         await self.message.edit(embed=embed, view=self)
 
     @discord.ui.button(
@@ -127,7 +131,7 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         self.order_type = "buy"
-        embed = await self.order_type_logic()
+        embed = await self.get_embed_handler()
 
         self.remove_item(self.buy_orders)
         self.add_item(self.sell_orders)
@@ -142,14 +146,19 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         self.order_type = "sell"
-        embed = await self.order_type_logic()
+        embed = await self.get_embed_handler()
 
         self.remove_item(self.sell_orders)
         self.add_item(self.buy_orders)
         await self.message.edit(embed=embed, view=self)
 
-    def subtype_handler(self, subtype):
+    def subtype_handler(self, interaction, subtype):
+        await interaction.response.defer(thinking=False)
+
         self.subtype = subtype
+        embed = self.get_embed_handler()
+
+        await self.message.edit(embed=embed, view=self)
 
 
 async def fetch_wfm_data(url: str):
@@ -411,19 +420,23 @@ class MarketItem:
 
         return embed
 
-    def filter_orders(self, order_type: str = 'sell', num_orders: int = 5, only_online: bool = True) \
+    def filter_orders(self, order_type: str = 'sell', num_orders: int = 5, only_online: bool = True,
+                      subtype: str = None) \
             -> List[Dict[str, Union[str, int]]]:
         orders = self.orders[order_type]
 
         if only_online:
             orders = list(filter(lambda x: x['state'] == 'ingame', orders))
 
+        if subtype is not None:
+            orders = list(filter(lambda x: x['subtype'] == subtype, orders))
+
         return orders[:num_orders]
 
     def get_order_embed_fields(self, order_type: str = 'sell',
-                               num_orders: int = 5) -> \
+                               num_orders: int = 5, subtype: str = None) -> \
             tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
-        orders = self.filter_orders(order_type=order_type, num_orders=num_orders)
+        orders = self.filter_orders(order_type=order_type, num_orders=num_orders, subtype=subtype)
 
         user_string = '\n'.join([format_user(order['user']) for order in orders])
         quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
@@ -432,12 +445,13 @@ class MarketItem:
         return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
 
     @require_orders()
-    async def get_order_embed(self, order_type: str = "sell", num_orders: int = 5) -> discord.Embed:
+    async def get_order_embed(self, order_type: str = "sell", num_orders: int = 5,
+                              subtype: str = None) -> discord.Embed:
         num_orders = 5
 
         embed = self.embed()
 
-        for field in self.get_order_embed_fields(order_type=order_type, num_orders=num_orders):
+        for field in self.get_order_embed_fields(order_type=order_type, num_orders=num_orders, subtype=subtype):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
