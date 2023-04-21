@@ -433,6 +433,8 @@ class MarketItem:
         for key, reverse in [('sell', False), ('buy', True)]:
             self.orders[key].sort(key=lambda x: (x['price'], x['last_update']), reverse=reverse)
 
+        print(self.orders)
+
     def get_parts(self) -> bool:
         if 'Set' in self.item_name:
             self.parts = [MarketItem(self.database, *item) for item in self.database.get_item_parts(self.item_id)]
