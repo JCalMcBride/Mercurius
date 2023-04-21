@@ -104,7 +104,7 @@ class MarketItemView(discord.ui.View):
     @discord.ui.button(
         label="Sell Orders",
         style=ButtonStyle.green,
-        custom_id=f"buy_orders"
+        custom_id=f"sell_orders"
     )
     async def sell_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
