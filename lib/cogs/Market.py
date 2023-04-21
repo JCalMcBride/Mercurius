@@ -278,6 +278,7 @@ class MarketItem:
         return embed
 
     def parse_orders(self, orders: List[Dict[str, Any]]) -> None:
+        self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
         for order in orders:
             order_type = order['order_type']
             user = order['user']
