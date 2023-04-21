@@ -5,7 +5,6 @@ import json
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 import aiohttp
@@ -32,6 +31,21 @@ session = aiohttp.ClientSession(connector=connector, headers=headers, timeout=ti
 async def cache_manager():
     cache = redis.Redis(host='localhost', port=6379, db=0)
     yield cache
+
+
+class MarketItemView(discord.ui.view):
+    def __init__(self, item: MarketItem):
+        super().__init__()
+
+        self.item = item
+        self.item.get_parts()
+        if not self.item.get_parts():
+            self.part_prices.disabled = True
+
+    @discord.ui.button(label='PartPrices', style=discord.ButtonStyle.blurple)
+    async def part_prices(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = await self.item.get_part_prices()
+        await interaction.response.send_message(embed=embed, view=None)
 
 
 async def fetch_wfm_data(url: str):
@@ -439,9 +453,11 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
             return
 
+        view = MarketItemView(wfm_item)
+
         embed = await wfm_item.get_order_embed()
 
-        await self.bot.send_message(ctx, embed=embed)
+        await self.bot.send_message(ctx, embed=embed, view=view)
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
