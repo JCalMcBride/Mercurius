@@ -354,6 +354,8 @@ class MarketItem:
         embed.add_field(name='Part Price', value=f"{part_price}", inline=True)
         embed.add_field(name='Set Price', value=f"{results[-1][0]['price']}", inline=True)
 
+        return embed
+
 
 class Market(Cog):
     def __init__(self, bot):
@@ -444,10 +446,9 @@ class Market(Cog):
             await self.bot.send_message(ctx, f"Item {target_part} does not have any parts.")
             return
 
-        embed = wfm_item.embed()
-        part_prices = await wfm_item.get_part_prices()
+        embed = await wfm_item.get_part_prices()
 
-        print(wfm_item.parts)
+        await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
     async def on_ready(self):
