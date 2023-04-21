@@ -157,7 +157,7 @@ class MarketItemView(discord.ui.View):
         await interaction.response.defer(thinking=False)
 
         self.subtype = subtype
-        embed = self.get_embed_handler()
+        embed = await self.get_embed_handler()
 
         await self.message.edit(embed=embed, view=self)
 
