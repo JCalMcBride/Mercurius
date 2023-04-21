@@ -41,6 +41,20 @@ async def session_manager():
     yield session
 
 
+class SubtypeSelectMenu(discord.ui.Select):
+    def __init__(self, market_item_view: MarketItemView, subtypes):
+        options = []
+        for subtype in subtypes:
+            options.append(discord.SelectOption(label=subtype, value=subtype))
+
+        self.market_item_view = market_item_view
+
+        super().__init__(placeholder="Select a subtype", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.market_item_view.subtype_handler(self.values[0])
+
+
 class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem):
         self.item = item
@@ -56,6 +70,11 @@ class MarketItemView(discord.ui.View):
             self.remove_item(self.sell_orders)
         elif self.order_type == "buy":
             self.remove_item(self.buy_orders)
+
+        self.subtype = None
+        if self.item.sub_types:
+            self.subtype_menu = SubtypeSelectMenu(self, self.item.sub_types)
+            self.add_item(self.subtype_menu)
 
     def get_order_type_button(self):
         if self.order_type == "sell":
@@ -128,6 +147,9 @@ class MarketItemView(discord.ui.View):
         self.remove_item(self.sell_orders)
         self.add_item(self.buy_orders)
         await self.message.edit(embed=embed, view=self)
+
+    def subtype_handler(self, subtype):
+        self.subtype = subtype
 
 
 async def fetch_wfm_data(url: str):
@@ -377,6 +399,8 @@ class MarketItem:
         self.item_url: str = f"{MarketItem.base_url}/{self.item_url_name}"
         self.sub_types: List[str] = [x[1] for x in sub_types] if sub_types is not None and sub_types else []
         self.mod_rank: List[str] = [x[1] for x in mod_rank] if mod_rank is not None and mod_rank else []
+        if self.mod_rank is not None and self.mod_rank:
+            self.sub_types += [f"R{x}" for x in self.mod_rank]
         self.orders: Dict[str, List[Dict[str, Union[str, int]]]] = {'buy': [], 'sell': []}
         self.parts: List[MarketItem] = []
 
@@ -468,6 +492,13 @@ class MarketItem:
                 'user': user['ingame_name'],
                 'state': user['status']
             }
+
+            if 'subtype' in order:
+                parsed_order['subtype'] = order['subtype']
+
+            if 'mod_rank' in order:
+                parsed_order['subtype'] = f"R{order['mod_rank']}"
+
             self.orders[order_type].append(parsed_order)
 
         for key, reverse in [('sell', False), ('buy', True)]:
