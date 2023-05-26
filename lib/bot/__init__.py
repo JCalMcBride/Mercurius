@@ -4,6 +4,7 @@ from asyncio import sleep
 from pathlib import Path
 
 import discord
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord import Intents
 from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import when_mentioned_or
@@ -46,6 +47,8 @@ class Bot(BotBase):
         self.logger = logging.getLogger('bot')
         self.token = bot_config['discord_token']
         self.bot_config = bot_config
+        self.scheduler = AsyncIOScheduler()
+        self.scheduler.start()
 
         super().__init__(
             command_prefix=get_prefix,

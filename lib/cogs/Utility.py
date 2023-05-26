@@ -70,7 +70,7 @@ class Utility(Cog):
         """Reload a cog."""
         await self.cog_operation(ctx, cog, "reload")
 
-    @commands.command(name='sync_slash', description='Syncs slash commands.', aliases=[])
+    @commands.command(name='sync', description='Syncs slash commands.', aliases=[])
     async def sync_slash(self, ctx):
         """Syncs slash commands."""
         try:

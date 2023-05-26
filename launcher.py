@@ -4,6 +4,7 @@ Sigil Controller - server control interface
 """
 import logging
 import os
+import warnings
 from logging.config import dictConfig
 
 import click
@@ -28,7 +29,10 @@ def main(ctx, **kwargs):
         logging.error(e)
         quit()
     dictConfig(cfgdict)
-
+    warnings.filterwarnings(
+        "ignore",
+        message="The localize method is no longer necessary, as this time zone supports the fold attribute",
+    )
 
 @main.command()
 @click.option(
