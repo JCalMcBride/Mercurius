@@ -18,9 +18,7 @@ class SubtypeSelectMenu(discord.ui.Select):
     def __init__(self, market_item_view: MarketItemView, subtypes):
         options = []
         for subtype in subtypes:
-            options.append(discord.SelectOption(label=subtype, value=subtype))
-        print(options)
-        print(market_item_view)
+            options.append(discord.SelectOption(label=subtype.title(), value=subtype))
         self.market_item_view = market_item_view
 
         super().__init__(placeholder="Select a subtype", min_values=1, max_values=1, options=options)
@@ -49,9 +47,17 @@ class MarketItemView(discord.ui.View):
             self.remove_item(self.buy_orders)
 
         self.subtype = None
-        # if self.item.sub_types:
-        #     self.subtype_menu = SubtypeSelectMenu(self, self.item.sub_types)
-        #     self.add_item(self.subtype_menu)
+        if subtypes := self.get_subtypes():
+            self.subtype_menu = SubtypeSelectMenu(self, subtypes)
+            self.add_item(self.subtype_menu)
+
+    def get_subtypes(self):
+        subtypes = []
+        for order in self.item.orders[self.order_type]:
+            if 'subtype' in order and order['subtype'] not in subtypes and order['state'] == 'ingame':
+                subtypes.append(order['subtype'])
+
+        return subtypes
 
     def get_order_type_button(self):
         if self.order_type == "sell":
@@ -227,14 +233,13 @@ class MarketItemView(discord.ui.View):
         return self.format_volume(day_total, week_total, month_total)
 
     def embed(self) -> discord.Embed:
-        if self.base_embed is None:
-            embed = discord.Embed(title=self.item.item_name, url=self.item.item_url, color=discord.Color.dark_gold())
-            embed.set_thumbnail(url=self.item.thumb_url)
-            embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
+        embed = discord.Embed(title=f"{self.item.item_name}"
+                                    f"{f' - {self.subtype.title()}' if self.subtype is not None else ''}",
+                              url=self.item.item_url, color=discord.Color.dark_gold())
+        embed.set_thumbnail(url=self.item.thumb_url)
+        embed.add_field(name='Period | Volume | Daily Average', value=self.get_volume(), inline=False)
 
-            self.base_embed = embed
-
-        return copy(self.base_embed)
+        return embed
 
     @staticmethod
     def format_user(user) -> str:
@@ -290,65 +295,8 @@ class Market(Cog):
             self.market_db = None
             self.bot.logger.error("Could not connect to database. Market cog will not be loaded.")
 
-    # @commands.hybrid_command(name='marketprofile',
-    #                          description="Gets link to the requested user's profile, if it exists.",
-    #                          aliases=["gen", "getprofile", "gp", 'wfmprofile', 'wfm', 'wfmp', 'mp'])
-    # async def get_market_profile(self, ctx: commands.Context, target_user: str) -> None:
-    #     wfm_api_profile = f"{self.base_api_url}/profile/{target_user}"
-    #     wfm_profile = f"{self.base_url}/profile/{target_user}"
-    #
-    #     data = await fetch_wfm_data(wfm_api_profile)
-    #
-    #     if data is None:
-    #         await self.bot.send_message(ctx, f"User {target_user} does not exist on Warframe.Market "
-    #                                          f"or an error occurred while fetching data.")
-    #         return
-    #
-    #     await self.bot.send_message(ctx, wfm_profile)
-
-    # @commands.hybrid_command(name='marketitem',
-    #                          description="Gets link to the requested item's page, if it exists.",
-    #                          aliases=["getitem", 'wfmitem', 'wfi', 'wfmi'])
-    # async def get_market_item(self, ctx: commands.Context, *, target_item: str) -> None:
-    #     wfm_item = self.market_db.get_item(target_item)
-    #     if wfm_item is None or wfm_item.item_url is None:
-    #         await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
-    #         return
-    #
-    #     await self.bot.send_message(ctx, embed=wfm_item.embed())
-    #
-    # @commands.hybrid_command(name='marketstats',
-    #                          description="Gets statistics for the requested item, if it exists.",
-    #                          aliases=["getstats", 'wfmstats', 'wfms'])
-    # async def get_market_stats(self, ctx: commands.Context, *, target_item: str) -> None:
-    #     wfm_item = self.market_db.get_item(target_item)
-    #     if wfm_item is None or wfm_item.item_url is None:
-    #         await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
-    #         return
-    #
-    #     embed = wfm_item.embed()
-    #     embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
-    #
-    #     await self.bot.send_message(ctx, embed=wfm_item.embed())
-    #
-    # @commands.hybrid_command(name='marketvolume',
-    #                          description="Gets volume for the requested item, if it exists.",
-    #                          aliases=["getvolume", 'wfmvolume', 'gv'])
-    # async def get_market_volume(self, ctx: commands.Context, *, target_item: str) -> None:
-    #     wfm_item = self.market_db.get_item(target_item)
-    #     if wfm_item is None or wfm_item.item_url is None:
-    #         await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
-    #         return
-    #
-    #     embed = wfm_item.embed()
-    #     embed.description = "**Period | Volume | Daily Average**" + wfm_item.get_volume()
-    #
-    #     await self.bot.send_message(ctx, embed=embed)
-
-    @commands.hybrid_command(name='marketorders',
-                             description="Gets orders for the requested item, if it exists.",
-                             aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
-    async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
+    async def item_embed_handler(self, target_item: str, ctx: commands.Context,
+                                 embed_type: str) -> None:
         wfm_item = await self.market_db.get_item(target_item)
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
@@ -356,28 +304,29 @@ class Market(Cog):
 
         view = MarketItemView(wfm_item, self.market_db, self.bot)
 
-        embed = await view.get_order_embed()
+        if embed_type == 'order':
+            embed = await view.get_order_embed()
+        elif embed_type == 'part_price':
+            embed = await view.get_part_prices()
+        else:
+            self.bot.logger.error(f"Invalid embed type {embed_type} passed to item_embed_handler")
+            return
 
         message = await self.bot.send_message(ctx, embed=embed, view=view)
 
         view.message = message
 
+    @commands.hybrid_command(name='marketorders',
+                             description="Gets orders for the requested item, if it exists.",
+                             aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
+    async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
+        await self.item_embed_handler(target_item, ctx, 'order')
+
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
                              aliases=["partprice", "pp", "partp"])
     async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
-        wfm_item = self.market_db.get_item(target_part)
-        if wfm_item is None or wfm_item.item_url is None:
-            await self.bot.send_message(ctx, f"Item {target_part} does not on Warframe.Market")
-            return
-
-        if not wfm_item.get_parts():
-            await self.bot.send_message(ctx, f"Item {target_part} does not have any parts.")
-            return
-
-        embed = await wfm_item.get_part_prices()
-
-        await self.bot.send_message(ctx, embed=embed)
+        await self.item_embed_handler(target_part, ctx, 'part_price')
 
     @Cog.listener()
     async def on_ready(self):
