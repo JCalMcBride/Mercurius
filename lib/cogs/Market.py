@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from copy import copy
-from time import perf_counter
-
 import discord
 import relic_engine
 from discord import ButtonStyle
 from discord.ext import commands
 from discord.ext.commands import Cog
+from market_engine.modules import MarketData
 from market_engine.modules.MarketData import MarketItem
 from pymysql import OperationalError
-
-from market_engine.modules import MarketData
 
 
 class SubtypeSelectMenu(discord.ui.Select):
