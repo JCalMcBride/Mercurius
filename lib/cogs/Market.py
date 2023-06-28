@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import html
+import locale
+from datetime import datetime
+
+import aiohttp
 import discord
+import pycountry as pycountry
 import relic_engine
-from discord import ButtonStyle
+from bs4 import BeautifulSoup
+from dateutil.parser import parse
+from discord import ButtonStyle, app_commands
 from discord.ext import commands
 from discord.ext.commands import Cog
 from market_engine.modules import MarketData
-from market_engine.modules.MarketData import MarketItem
+from market_engine.modules.MarketData import MarketItem, MarketUser
 from pymysql import OperationalError
 
 
@@ -24,12 +32,13 @@ class SubtypeSelectMenu(discord.ui.Select):
 
 
 class MarketItemView(discord.ui.View):
-    def __init__(self, item: MarketItem, database: MarketData.MarketDatabase, bot: commands.Bot):
+    def __init__(self, item: MarketItem, database: MarketData.MarketDatabase, bot: commands.Bot,
+                 order_type: str = 'sell', subtype: str = None):
         self.item = item
         self.database = database
         self.bot = bot
         self.message = None
-        self.order_type = 'sell'
+        self.order_type = order_type
         self.base_embed = None
 
         super().__init__()
@@ -42,7 +51,7 @@ class MarketItemView(discord.ui.View):
         elif self.order_type == "buy":
             self.remove_item(self.buy_orders)
 
-        self.subtype = None
+        self.subtype = subtype
         if subtypes := self.get_subtypes():
             self.subtype_menu = SubtypeSelectMenu(self, subtypes)
             self.add_item(self.subtype_menu)
@@ -64,8 +73,6 @@ class MarketItemView(discord.ui.View):
     async def order_change_handler(self, interaction):
         await interaction.response.defer(thinking=False)
 
-        embed = await self.get_embed_handler()
-
         if self.part_prices in self.children:
             orders = True
         else:
@@ -79,6 +86,8 @@ class MarketItemView(discord.ui.View):
 
         self.add_item(self.get_order_type_button())
 
+        embed = await self.get_embed_handler()
+
         await self.message.edit(embed=embed, view=self)
 
     @discord.ui.button(
@@ -90,7 +99,7 @@ class MarketItemView(discord.ui.View):
         await self.order_change_handler(interaction)
 
     async def get_embed_handler(self):
-        if self.part_prices in self.children:
+        if self.orders_button in self.children:
             embed = await self.get_part_prices(self.order_type)
         else:
             embed = await self.get_order_embed(self.order_type)
@@ -260,7 +269,8 @@ class MarketItemView(discord.ui.View):
         orders = self.filter_orders(self.item, num_orders)
 
         user_string = '\n'.join([self.format_user(order['user']) for order in orders])
-        quantity_string = '\n'.join([f"{order['quantity']}" for order in orders])
+        quantity_string = '\n'.join(
+            [f"{order['quantity']} {order['subtype'] if 'subtype' in order else ''}" for order in orders])
         price_string = '\n'.join([f"{order['price']}" for order in orders])
 
         return ("User", user_string), ("Price", price_string), ("Quantity", quantity_string)
@@ -275,6 +285,77 @@ class MarketItemView(discord.ui.View):
             embed.add_field(name=field[0], value=field[1], inline=True)
 
         return embed
+
+def get_language_name(locale_code):
+    # Split the locale code by hyphen and take the first part
+    lang_code = locale_code.split('-')[0]
+
+    language = pycountry.languages.get(alpha_2=lang_code)
+    if language is None:
+        raise ValueError(f'Unknown language code: {lang_code}')
+
+    return language.name
+
+def get_discord_timestamp(wfm_timestamp):
+    # Parse the date and time string
+    date_time = parse(wfm_timestamp)
+
+    return f"<t:{int(date_time.timestamp())}:R>"
+
+
+class MarketUserView(discord.ui.View):
+    def __init__(self, user: MarketUser, database: MarketData.MarketDatabase, bot: commands.Bot):
+        super().__init__()
+        self.user = user
+        self.database = database
+        self.bot = bot
+        self.message = None
+
+    def embed(self) -> discord.Embed:
+        soup = BeautifulSoup(self.user.about, 'html.parser')
+
+        embed = discord.Embed(title=f"{self.user.username}",
+                              url=self.user.profile_url, color=discord.Color.dark_gold(),
+                              description=soup.get_text())
+        embed.set_thumbnail(url=self.user.avatar_url)
+
+        fields = [
+            ("Reputation", self.user.reputation, True),
+            ("Last Seen", get_discord_timestamp(self.user.last_seen), True),
+            ("Locale", get_language_name(self.user.locale), True)
+        ]
+
+        for name, value, inline in fields:
+            embed.add_field(name=name, value=value, inline=inline)
+
+        return embed
+
+    async def get_review_embed(self):
+        embed = self.embed()
+
+        if self.user.reviews is None or len(self.user.reviews) == 0:
+            return embed
+
+        reviews = [f"{get_discord_timestamp(x['date'])} **{x['user']}**: {x['text'] if x['text'] else 'N/A'}"
+                   for x in self.user.reviews][:5]
+
+        embed.add_field(name='Reviews', value='\n'.join(reviews), inline=False)
+
+        return embed
+
+    async def get_order_embed(self, order_type: str = 'buy'):
+        embed = self.embed()
+
+        if self.user.orders is None or len(self.user.orders[order_type]) == 0:
+            return embed
+
+        orders = [f"{get_discord_timestamp(x['date'])} **{x['user']}**: {x['text'] if x['text'] else 'N/A'}"
+                   for x in self.user.reviews][:5]
+
+        embed.add_field(name='Reviews', value='\n'.join(reviews), inline=False)
+
+        return embed
+
 
 
 class Market(Cog):
@@ -293,12 +374,37 @@ class Market(Cog):
 
     async def item_embed_handler(self, target_item: str, ctx: commands.Context,
                                  embed_type: str) -> None:
+        content = []
+
+        order_type = 'sell'
+        if 'buy' in target_item:
+            order_type = 'buy'
+            target_item = target_item.replace('buy', '').strip()
+        elif 'sell' in target_item:
+            target_item = target_item.replace('sell', '').strip()
+
         wfm_item = await self.market_db.get_item(target_item)
+
         if wfm_item is None or wfm_item.item_url is None:
-            await self.bot.send_message(ctx, f"Item {target_item} does not on Warframe.Market")
+            await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market")
             return
 
-        view = MarketItemView(wfm_item, self.market_db, self.bot)
+        view = MarketItemView(wfm_item, self.market_db, self.bot,
+                              order_type=order_type)
+
+        subtypes = view.get_subtypes()
+
+        for subtype in subtypes:
+            if subtype.lower() in target_item:
+                view.subtype = subtype
+                target_item = target_item.replace(subtype.lower(), '').strip()
+
+        if wfm_item.item_name.lower() != target_item:
+            content.append(f"{target_item} could not be found, closest match is {wfm_item.item_name}.")
+
+        if embed_type == 'part_price' and len(wfm_item.parts) == 0:
+            content.append("Item has no parts, showing orders instead.")
+            embed_type = 'order'
 
         if embed_type == 'order':
             embed = await view.get_order_embed()
@@ -308,21 +414,50 @@ class Market(Cog):
             self.bot.logger.error(f"Invalid embed type {embed_type} passed to item_embed_handler")
             return
 
+        message = await self.bot.send_message(ctx, content='\n'.join(content), embed=embed, view=view)
+
+        view.message = message
+
+    async def user_embed_handler(self, target_user: str, ctx: commands.Context,
+                                 embed_type: str) -> None:
+        wfm_user = await self.market_db.get_user(target_user)
+
+        if wfm_user is None:
+            await self.bot.send_message(ctx, f"User {target_user} does not exist on Warframe.Market")
+            return
+
+        view = MarketUserView(wfm_user, self.market_db, self.bot)
+
+        if embed_type == 'reviews':
+            embed = await view.get_review_embed()
+        if embed_type == 'orders':
+            embed = await view.get_order_embed()
+        else:
+            self.bot.logger.error(f"Invalid embed type {embed_type} passed to user_embed_handler")
+            return
+
         message = await self.bot.send_message(ctx, embed=embed, view=view)
 
         view.message = message
+
+    @commands.hybrid_command(name="userreviews",
+                             description="Shows recent reviews for a given user on warframe.market.", aliases=["ur"])
+    @app_commands.describe(target_user='User you want to get the reviews for.')
+    async def get_user_reviews(self, ctx: commands.Context, target_user: str):
+        """Shows recent reviews for a given user on warframe.market."""
+        await self.user_embed_handler(target_user, ctx, 'reviews')
 
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
-        await self.item_embed_handler(target_item, ctx, 'order')
+        await self.item_embed_handler(target_item.lower(), ctx, 'order')
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
                              aliases=["partprice", "pp", "partp"])
     async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
-        await self.item_embed_handler(target_part, ctx, 'part_price')
+        await self.item_embed_handler(target_part.lower(), ctx, 'part_price')
 
     @Cog.listener()
     async def on_ready(self):
