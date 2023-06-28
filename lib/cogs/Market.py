@@ -286,6 +286,7 @@ class MarketItemView(discord.ui.View):
 
         return embed
 
+
 def get_language_name(locale_code):
     # Split the locale code by hyphen and take the first part
     lang_code = locale_code.split('-')[0]
@@ -295,6 +296,7 @@ def get_language_name(locale_code):
         raise ValueError(f'Unknown language code: {lang_code}')
 
     return language.name
+
 
 def get_discord_timestamp(wfm_timestamp):
     # Parse the date and time string
@@ -350,12 +352,11 @@ class MarketUserView(discord.ui.View):
             return embed
 
         orders = [f"{get_discord_timestamp(x['date'])} **{x['user']}**: {x['text'] if x['text'] else 'N/A'}"
-                   for x in self.user.reviews][:5]
+                  for x in self.user.reviews][:5]
 
         embed.add_field(name='Reviews', value='\n'.join(reviews), inline=False)
 
         return embed
-
 
 
 class Market(Cog):
