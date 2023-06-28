@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import locale
 from datetime import datetime
+from time import perf_counter
 
 import aiohttp
 import discord
@@ -384,14 +385,23 @@ class Market(Cog):
         elif 'sell' in target_item:
             target_item = target_item.replace('sell', '').strip()
 
+        t0 = perf_counter()
         wfm_item = await self.market_db.get_item(target_item)
 
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market")
             return
 
+        print(f"Item query took {perf_counter() - t0} seconds.")
+
+        t0 = perf_counter()
+
         view = MarketItemView(wfm_item, self.market_db, self.bot,
                               order_type=order_type)
+
+        print(f"View creation took {perf_counter() - t0} seconds.")
+
+        t0 = perf_counter()
 
         subtypes = view.get_subtypes()
 
@@ -400,12 +410,16 @@ class Market(Cog):
                 view.subtype = subtype
                 target_item = target_item.replace(subtype.lower(), '').strip()
 
+        print(f"Subtype query took {perf_counter() - t0} seconds.")
+
         if wfm_item.item_name.lower() != target_item:
             content.append(f"{target_item} could not be found, closest match is {wfm_item.item_name}.")
 
         if embed_type == 'part_price' and len(wfm_item.parts) == 0:
             content.append("Item has no parts, showing orders instead.")
             embed_type = 'order'
+
+        t0 = perf_counter()
 
         if embed_type == 'order':
             embed = await view.get_order_embed()
@@ -414,6 +428,8 @@ class Market(Cog):
         else:
             self.bot.logger.error(f"Invalid embed type {embed_type} passed to item_embed_handler")
             return
+
+        print(f"Embed query took {perf_counter() - t0} seconds.")
 
         message = await self.bot.send_message(ctx, content='\n'.join(content), embed=embed, view=view)
 
