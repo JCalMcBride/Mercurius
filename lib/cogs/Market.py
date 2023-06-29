@@ -234,7 +234,10 @@ class MarketItemView(discord.ui.View):
         return day_total, week_total, month_total
 
     def get_volume(self) -> str:
+        t0 = perf_counter()
         volume = [x[0] for x in self.database.get_item_volume(self.item.item_id, 31)]
+        print(f"get_volume: {perf_counter() - t0}")
+
         day_total, week_total, month_total = self.get_sums(volume)
         return self.format_volume(day_total, week_total, month_total)
 
@@ -284,14 +287,10 @@ class MarketItemView(discord.ui.View):
 
         embed = self.embed()
 
-        print(f"Embed: {perf_counter() - t0}")
-
         t0 = perf_counter()
 
         for field in self.get_order_embed_fields(num_orders=num_orders):
             embed.add_field(name=field[0], value=field[1], inline=True)
-
-        print(f"Fields: {perf_counter() - t0}")
 
         return embed
 
