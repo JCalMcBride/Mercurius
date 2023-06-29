@@ -280,10 +280,18 @@ class MarketItemView(discord.ui.View):
                               subtype: str = None) -> discord.Embed:
         num_orders = 5
 
+        t0 = perf_counter()
+
         embed = self.embed()
+
+        print(f"Embed: {perf_counter() - t0}")
+
+        t0 = perf_counter()
 
         for field in self.get_order_embed_fields(num_orders=num_orders):
             embed.add_field(name=field[0], value=field[1], inline=True)
+
+        print(f"Fields: {perf_counter() - t0}")
 
         return embed
 
