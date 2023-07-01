@@ -477,7 +477,7 @@ class Market(Cog):
         await self.user_embed_handler(target_user, ctx, 'reviews')
 
     @commands.hybrid_command(name="userorders",
-                             description="Shows recent reviews for a given user on warframe.market.", aliases=["ur"])
+                             description="Shows recent reviews for a given user on warframe.market.", aliases=["uo"])
     @app_commands.describe(target_user='User you want to get the reviews for.')
     async def get_user_orders(self, ctx: commands.Context, target_user: str):
         """Shows recent reviews for a given user on warframe.market."""
