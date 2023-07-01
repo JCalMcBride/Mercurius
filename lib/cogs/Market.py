@@ -353,16 +353,21 @@ class MarketUserView(discord.ui.View):
 
         return embed
 
-    async def get_order_embed(self, order_type: str = 'buy'):
+    @staticmethod
+    def format_item(item, url_name) -> str:
+        return f"[{item}]({f'https://warframe.market/items/{url_name}'})"
+
+    async def get_order_embed(self, order_type: str = 'sell'):
         embed = self.embed()
 
         if self.user.orders is None or len(self.user.orders[order_type]) == 0:
             return embed
 
-        orders = [f"{get_discord_timestamp(x['date'])} **{x['user']}**: {x['text'] if x['text'] else 'N/A'}"
-                  for x in self.user.reviews][:5]
+        orders = [[self.format_item(x['item'], x['item_url_name']), x['quantity'], x['price']] for x in self.user.orders[order_type]][:5]
 
-        embed.add_field(name='Reviews', value='\n'.join(reviews), inline=False)
+        embed.add_field(name='Item', value='\n'.join([x[0] for x in orders]), inline=False)
+        embed.add_field(name='Quantity', value='\n'.join([str(x[1]) for x in orders]), inline=True)
+        embed.add_field(name='Price', value='\n'.join([str(x[2]) for x in orders]), inline=True)
 
         return embed
 
@@ -470,6 +475,13 @@ class Market(Cog):
     async def get_user_reviews(self, ctx: commands.Context, target_user: str):
         """Shows recent reviews for a given user on warframe.market."""
         await self.user_embed_handler(target_user, ctx, 'reviews')
+
+    @commands.hybrid_command(name="userorders",
+                             description="Shows recent reviews for a given user on warframe.market.", aliases=["ur"])
+    @app_commands.describe(target_user='User you want to get the reviews for.')
+    async def get_user_orders(self, ctx: commands.Context, target_user: str):
+        """Shows recent reviews for a given user on warframe.market."""
+        await self.user_embed_handler(target_user, ctx, 'orders')
 
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
