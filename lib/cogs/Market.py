@@ -362,13 +362,12 @@ class MarketUserView(discord.ui.View):
 
         if self.user.orders is None or len(self.user.orders[order_type]) == 0:
             return embed
-        print(self.user.orders[order_type])
 
         orders = [[self.format_item(x['item'], x['item_url_name']), x['quantity'], x['price']] for x in self.user.orders[order_type]][:5]
 
-        embed.add_field(name='Item', value='\n'.join([x[0] for x in orders]), inline=False)
-        embed.add_field(name='Quantity', value='\n'.join([str(x[1]) for x in orders]), inline=True)
+        embed.add_field(name='Item', value='\n'.join([x[0] for x in orders]), inline=True)
         embed.add_field(name='Price', value='\n'.join([str(x[2]) for x in orders]), inline=True)
+        embed.add_field(name='Quantity', value='\n'.join([str(x[1]) for x in orders]), inline=True)
 
         return embed
 
