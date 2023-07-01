@@ -454,7 +454,7 @@ class Market(Cog):
 
         if embed_type == 'reviews':
             embed = await view.get_review_embed()
-        if embed_type == 'orders':
+        elif embed_type == 'orders':
             embed = await view.get_order_embed()
         else:
             self.bot.logger.error(f"Invalid embed type {embed_type} passed to user_embed_handler")
