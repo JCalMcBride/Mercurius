@@ -362,6 +362,7 @@ class MarketUserView(discord.ui.View):
 
         if self.user.orders is None or len(self.user.orders[order_type]) == 0:
             return embed
+        print(self.user.orders[order_type])
 
         orders = [[self.format_item(x['item'], x['item_url_name']), x['quantity'], x['price']] for x in self.user.orders[order_type]][:5]
 
