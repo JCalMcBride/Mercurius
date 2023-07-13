@@ -397,8 +397,13 @@ class Market(Cog):
         elif 'sell' in target_item:
             target_item = target_item.replace('sell', '').strip()
 
+        fetch_part_orders = False
+        if embed_type == 'part_price':
+            fetch_part_orders = True
+
         t0 = perf_counter()
-        wfm_item = await self.market_db.get_item(target_item)
+        wfm_item = await self.market_db.get_item(target_item,
+                                                 fetch_part_orders=fetch_part_orders)
 
         if wfm_item is None or wfm_item.item_url is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market")
