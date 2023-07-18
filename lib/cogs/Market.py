@@ -40,13 +40,14 @@ class SubtypeSelectMenu(discord.ui.Select):
 
 class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem, database: MarketData.MarketDatabase, bot: commands.Bot,
-                 order_type: str = 'sell', subtype: str = None):
+                 user: discord.User, order_type: str = 'sell', subtype: str = None):
         self.item = item
         self.database = database
         self.bot = bot
         self.message = None
         self.order_type = order_type
         self.base_embed = None
+        self.user = user
 
         super().__init__()
         if len(self.item.parts) == 0:
@@ -95,6 +96,9 @@ class MarketItemView(discord.ui.View):
         custom_id=f"part_price"
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.user:
+            return
+
         if not self.item.part_orders_fetched:
             tasks = self.item.get_part_orders_tasks()
             await asyncio.gather(*tasks)
@@ -115,6 +119,9 @@ class MarketItemView(discord.ui.View):
         custom_id=f"get_orders"
     )
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.user:
+            return
+
         await self.order_change_handler(interaction)
 
     @discord.ui.button(
@@ -123,6 +130,9 @@ class MarketItemView(discord.ui.View):
         custom_id=f"buy_orders"
     )
     async def buy_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.user:
+            return
+
         await interaction.response.defer(thinking=False)
 
         self.order_type = "buy"
@@ -138,6 +148,9 @@ class MarketItemView(discord.ui.View):
         custom_id=f"sell_orders"
     )
     async def sell_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.user:
+            return
+
         await interaction.response.defer(thinking=False)
 
         self.order_type = "sell"
@@ -515,7 +528,7 @@ class Market(Cog):
 
         for wfm_item, subtype, output_string in zip(output_items, subtypes, output_strings):
             view = MarketItemView(wfm_item, self.bot.market_db, self.bot,
-                                  order_type=order_type, subtype=subtype)
+                                  order_type=order_type, subtype=subtype, user=ctx.author)
 
             if embed_type == 'part_price' and len(wfm_item.parts) == 0:
                 output_string = "Item has no parts, showing orders instead.\n" + output_string
