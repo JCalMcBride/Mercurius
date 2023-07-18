@@ -168,6 +168,9 @@ class MarketItemView(discord.ui.View):
         await self.message.edit(embed=embed, view=self)
 
     async def subtype_handler(self, interaction, subtype):
+        if not await self.user_check(interaction):
+            return
+
         await interaction.response.defer(thinking=False)
 
         self.subtype = subtype
