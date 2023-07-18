@@ -468,7 +468,7 @@ class Market(Cog):
         self.base_api_url = "https://api.warframe.market/v1"
         self.base_url = "https://warframe.market"
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(seconds=5)
     async def update_usernames(self):
         self.bot.market_db.update_usernames()
 
