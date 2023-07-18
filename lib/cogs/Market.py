@@ -70,6 +70,13 @@ class MarketItemView(discord.ui.View):
         elif self.order_type == "buy":
             return self.sell_orders
 
+    async def user_check(self, interaction: discord.Interaction):
+        if interaction.user != self.user:
+            await interaction.response.send_message("Only the user who requested this can use this button",
+                                                    ephemeral=True)
+            return False
+        return True
+
     async def order_change_handler(self, interaction):
         await interaction.response.defer(thinking=False)
 
@@ -96,7 +103,7 @@ class MarketItemView(discord.ui.View):
         custom_id=f"part_price"
     )
     async def part_prices(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.user:
+        if not await self.user_check(interaction):
             return
 
         if not self.item.part_orders_fetched:
@@ -119,7 +126,7 @@ class MarketItemView(discord.ui.View):
         custom_id=f"get_orders"
     )
     async def orders_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.user:
+        if not await self.user_check(interaction):
             return
 
         await self.order_change_handler(interaction)
@@ -130,7 +137,7 @@ class MarketItemView(discord.ui.View):
         custom_id=f"buy_orders"
     )
     async def buy_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.user:
+        if not await self.user_check(interaction):
             return
 
         await interaction.response.defer(thinking=False)
@@ -148,7 +155,7 @@ class MarketItemView(discord.ui.View):
         custom_id=f"sell_orders"
     )
     async def sell_orders(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.user:
+        if not await self.user_check(interaction):
             return
 
         await interaction.response.defer(thinking=False)
