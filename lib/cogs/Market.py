@@ -13,7 +13,7 @@ import relic_engine
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from discord import ButtonStyle, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 from market_engine.modules import MarketData
 from market_engine.modules.MarketData import MarketItem, MarketUser
@@ -468,6 +468,10 @@ class Market(Cog):
         self.base_api_url = "https://api.warframe.market/v1"
         self.base_url = "https://warframe.market"
 
+    @tasks.loop(minutes=1)
+    async def update_usernames(self):
+        self.bot.market_db.update_usernames()
+
     async def get_valid_items(self, input_string: str,
                               fetch_parts: bool = False, fetch_orders: bool = False, fetch_part_orders: bool = False,
                               fetch_price_history: bool = False, fetch_demand_history: bool = False,
@@ -700,6 +704,7 @@ class Market(Cog):
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
+            self.update_usernames.start()
             self.bot.cogs_ready.ready_up("Market")
 
 
