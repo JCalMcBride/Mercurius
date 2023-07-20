@@ -77,9 +77,7 @@ class MarketItemView(discord.ui.View):
             return False
         return True
 
-    async def order_change_handler(self, interaction):
-        await interaction.response.defer(thinking=False)
-
+    def update_buttons(self):
         if self.part_prices in self.children:
             orders = True
         else:
@@ -92,6 +90,11 @@ class MarketItemView(discord.ui.View):
             self.add_item(self.part_prices)
 
         self.add_item(self.get_order_type_button())
+
+    async def order_change_handler(self, interaction):
+        await interaction.response.defer(thinking=False)
+
+        self.update_buttons()
 
         embed = await self.get_embed_handler()
 
@@ -552,6 +555,7 @@ class Market(Cog):
                 embed = await view.get_order_embed()
             elif embed_type == 'part_price':
                 embed = await view.get_part_prices()
+                view.update_buttons()
             else:
                 self.bot.logger.error(f"Invalid embed type {embed_type} passed to item_embed_handler")
                 return

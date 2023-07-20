@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Sigil Controller - server control interface
-"""
 import logging
 import os
 import warnings
@@ -16,7 +12,7 @@ from lib.common import get_config
 @click.group()
 @click.pass_context
 def main(ctx, **kwargs):
-    """Sigil Controller - A Foxhole Discord bot."""
+    """Mercurius - A Warframe Discord bot."""
 
     ctx.ensure_object(dict)
     ctx.obj['basepath'] = os.path.dirname(os.path.realpath(__file__))
@@ -52,20 +48,6 @@ def start(ctx, **kwargs):
         bot.debug_mode = True
 
     bot.run()
-
-
-@main.command()
-@click.pass_context
-def db_install(ctx, **kwargs):
-    """Install the database schema."""
-    pass
-
-
-@main.command()
-@click.pass_context
-def db_backup(ctx, **kwargs):
-    """Save a database backup to a file."""
-    pass
 
 
 if __name__ == '__main__':
