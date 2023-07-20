@@ -475,11 +475,26 @@ class MarketItemGraphView(discord.ui.View):
         return buf
 
 
+def get_alias_used_and_message(message, prefix):
+    split_message = message[len(prefix):].split(' ', maxsplit=1)
+
+    alias_used = split_message[0].lower()
+    clean_message = split_message[1] if len(split_message) > 1 else None
+
+    return alias_used, clean_message
+
+
 class Market(Cog):
     def __init__(self, bot):
         self.bot = bot
         self.base_api_url = "https://api.warframe.market/v1"
         self.base_url = "https://warframe.market"
+        self.easter_eggs = {
+            'go': {'go power rangers': 'https://www.youtube.com/watch?v=BwbHW8MeHDU',
+                             'to bed': 'go to bed <@167596939460739072>',
+                             'tobed': 'go to bed <@167596939460739072>'},
+            'pp': {'big': '😳'}
+        }
 
     @tasks.loop(minutes=1)
     async def update_usernames(self):
@@ -631,16 +646,32 @@ class Market(Cog):
         """Shows recent reviews for a given user on warframe.market."""
         await self.user_embed_handler(target_user, ctx, 'orders')
 
+    def easter_egg_check(self, message, prefix):
+        alias_used, clean_message = get_alias_used_and_message(message, prefix)
+        if alias_used not in self.easter_eggs or clean_message not in self.easter_eggs[alias_used]:
+            return False
+
+        return self.easter_eggs[alias_used][clean_message]
+
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
+        """Gets orders for the requested item, if it exists."""
+        if easter_egg := self.easter_egg_check(ctx.message.content, ctx.prefix):
+            await ctx.send(easter_egg)
+            return
+
         await self.item_embed_handler(target_item.lower(), ctx, 'order')
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
                              aliases=["partprice", "pp", "partp"])
     async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
+        if easter_egg := self.easter_egg_check(ctx.message.content, ctx.prefix):
+            await ctx.send(easter_egg)
+            return
+
         await self.item_embed_handler(target_part.lower(), ctx, 'part_price')
 
     @app_commands.command(name='addalias',
