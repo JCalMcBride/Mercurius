@@ -1,0 +1,45 @@
+from typing import Dict, Union, Tuple, List
+
+import pymysql
+from pymysql import Connection
+
+
+class MercuriusDatabase:
+    _SET_PLATFORM_QUERY = """INSERT INTO user_platform (discord_id, platform) 
+                             VALUES (%s, %s) 
+                             ON DUPLICATE KEY UPDATE platform=VALUES(platform)
+                          """
+
+    _GET_PLATFORM_QUERY = """SELECT platform FROM user_platform WHERE discord_id = %s"""
+
+    def __init__(self, user: str, password: str, host: str, database: str) -> None:
+        self.connection: Connection = pymysql.connect(user=user,
+                                                      password=password,
+                                                      host=host,
+                                                      database=database)
+
+    def _execute_query(self, query: str, *params, fetch: str = 'all',
+                       commit: bool = False, many: bool = False) -> Union[Tuple, List[Tuple], None]:
+        self.connection.ping(reconnect=True)
+
+        with self.connection.cursor() as cur:
+            if many:
+                cur.executemany(query, params[0])
+            else:
+                cur.execute(query, params)
+
+            if commit:
+                self.connection.commit()
+
+            if fetch == 'one':
+                return cur.fetchone()
+            elif fetch == 'all':
+                return cur.fetchall()
+
+    def set_platform(self, user: str, platform: str) -> None:
+        self._execute_query(self._SET_PLATFORM_QUERY, user, platform, commit=True)
+
+    def get_platform(self, user: str) -> str:
+        platform = self._execute_query(self._GET_PLATFORM_QUERY, user, fetch='one')
+        return platform[0] if platform else 'pc'
+

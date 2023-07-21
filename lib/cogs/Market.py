@@ -40,7 +40,7 @@ class SubtypeSelectMenu(discord.ui.Select):
 
 class MarketItemView(discord.ui.View):
     def __init__(self, item: MarketItem, database: MarketData.MarketDatabase, bot: commands.Bot,
-                 user: discord.User, order_type: str = 'sell', subtype: str = None):
+                 user: discord.User, order_type: str = 'sell', subtype: str = None, platform: str = 'pc'):
         self.item = item
         self.database = database
         self.bot = bot
@@ -63,6 +63,8 @@ class MarketItemView(discord.ui.View):
         if subtypes := self.item.get_subtypes():
             self.subtype_menu = SubtypeSelectMenu(self, subtypes)
             self.add_item(self.subtype_menu)
+
+        self.platform = platform
 
     def get_order_type_button(self):
         if self.order_type == "sell":
@@ -265,7 +267,7 @@ class MarketItemView(discord.ui.View):
         return self.format_volume(day_total, week_total, month_total)
 
     async def embed(self) -> discord.Embed:
-        embed = discord.Embed(title=f"{self.item.item_name}"
+        embed = discord.Embed(title=f"{self.item.item_name} ({self.platform.upper()})"
                                     f"{f' - {self.subtype.title()}' if self.subtype is not None else ''}",
                               url=self.item.item_url, color=discord.Color.dark_gold())
         embed.set_thumbnail(url=self.item.thumb_url)
@@ -491,8 +493,8 @@ class Market(Cog):
         self.base_url = "https://warframe.market"
         self.easter_eggs = {
             'go': {'go power rangers': 'https://www.youtube.com/watch?v=BwbHW8MeHDU',
-                             'to bed': 'go to bed <@167596939460739072>',
-                             'tobed': 'go to bed <@167596939460739072>'},
+                   'to bed': 'go to bed <@167596939460739072>',
+                   'tobed': 'go to bed <@167596939460739072>'},
             'pp': {'big': '😳'}
         }
 
@@ -503,7 +505,8 @@ class Market(Cog):
     async def get_valid_items(self, input_string: str,
                               fetch_parts: bool = False, fetch_orders: bool = False, fetch_part_orders: bool = False,
                               fetch_price_history: bool = False, fetch_demand_history: bool = False,
-                              order_type: str = 'sell') -> tuple[list[str], list[MarketItem], list[str | None], str]:
+                              order_type: str = 'sell', platform='pc') -> tuple[
+        list[str], list[MarketItem], list[str | None], str]:
         if 'buy' in input_string:
             order_type = 'buy'
             input_string = input_string.replace('buy', '').strip()
@@ -517,12 +520,14 @@ class Market(Cog):
         subtypes = []
         for target_item in input_items:
             target_item = target_item.strip()
+            print(platform)
             wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
                                                                      fetch_parts=fetch_parts,
                                                                      fetch_orders=fetch_orders,
                                                                      fetch_part_orders=fetch_part_orders,
                                                                      fetch_price_history=fetch_price_history,
-                                                                     fetch_demand_history=fetch_demand_history)
+                                                                     fetch_demand_history=fetch_demand_history,
+                                                                     platform=platform)
 
             if wfm_item is None:
                 output_strings.append(f"Item {target_item} does not exist on Warframe.Market")
@@ -553,14 +558,19 @@ class Market(Cog):
         if embed_type == 'part_price':
             fetch_part_orders = True
 
-        output_strings, output_items, subtypes, order_type = await self.get_valid_items(input_string,
-                                                                                        fetch_part_orders=fetch_part_orders,
-                                                                                        fetch_orders=True,
-                                                                                        fetch_parts=True)
+        platform = self.bot.database.get_platform(ctx.author.id)
+
+        output_strings, output_items, subtypes, order_type = await self.get_valid_items(
+            input_string,
+            fetch_part_orders=fetch_part_orders,
+            fetch_orders=True,
+            fetch_parts=True,
+            platform=platform
+        )
 
         for wfm_item, subtype, output_string in zip(output_items, subtypes, output_strings):
             view = MarketItemView(wfm_item, self.bot.market_db, self.bot,
-                                  order_type=order_type, subtype=subtype, user=ctx.author)
+                                  order_type=order_type, subtype=subtype, user=ctx.author, platform=platform)
 
             if embed_type == 'part_price' and len(wfm_item.parts) == 0:
                 output_string = "Item has no parts, showing orders instead.\n" + output_string
@@ -586,7 +596,6 @@ class Market(Cog):
             fetch_price_history = True
         elif history_type == 'demand':
             fetch_demand_history = True
-
 
         output_string, output_items, _, _ = await self.get_valid_items(input_string,
                                                                        fetch_price_history=fetch_price_history,
@@ -745,6 +754,17 @@ class Market(Cog):
                              aliases=["dh", "demandh", "demandhist", "demandhis"])
     async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
         await self.graph_embed_handler(input_string, ctx, 'demand')
+
+    @commands.hybrid_command(name='setplatform',
+                             description="Sets your platform for market commands.",
+                             aliases=["sp", "setp", "setplat"])
+    async def set_user_platform(self, ctx: commands.Context, platform: str) -> None:
+        if platform.lower() not in ['pc', 'ps4', 'xbox', 'switch']:
+            await ctx.send("Invalid platform. Valid platforms are: PC, PS4, Xbox, Switch")
+            return
+
+        self.bot.database.set_platform(ctx.author.id, platform.lower())
+        await ctx.send(f"Platform set to {platform}")
 
     @Cog.listener()
     async def on_ready(self):

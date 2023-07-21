@@ -10,6 +10,9 @@ from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import when_mentioned_or
 from market_engine.modules import MarketData
 from aiomysql import OperationalError
+from market_engine.modules.MarketData import MarketDatabase
+
+from lib.db.database import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")
 COGS = [p.stem for p in cogs_dir.glob("*.py")]
@@ -52,6 +55,7 @@ class Bot(BotBase):
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
         self.market_db = None
+        self.database = None
 
         super().__init__(
             command_prefix=get_prefix,
@@ -104,13 +108,23 @@ class Bot(BotBase):
     async def on_ready(self):
         if not self.ready:
             try:
-                self.market_db = MarketData.MarketDatabase(user=self.bot_config['db_user'],
-                                                                         password=self.bot_config['db_password'],
-                                                                         host=self.bot_config['db_host'],
-                                                                         database='market')
+                self.market_db: MarketDatabase = MarketDatabase(user=self.bot_config['db_user'],
+                                                                password=self.bot_config['db_password'],
+                                                                host=self.bot_config['db_host'],
+                                                                database='market')
+
             except OperationalError:
                 self.market_db = None
                 self.logger.error("Could not connect to database. Market cog will not be loaded.")
+
+            try:
+                self.database: MercuriusDatabase = MercuriusDatabase(user=self.bot_config['db_user'],
+                                                                     password=self.bot_config['db_password'],
+                                                                     host=self.bot_config['db_host'],
+                                                                     database='mercurius')
+            except OperationalError:
+                self.database = None
+                self.logger.error("Could not connect to database.")
 
             while not self.cogs_ready.all_ready():
                 await sleep(0.5)
