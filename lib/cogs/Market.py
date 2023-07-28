@@ -281,7 +281,9 @@ class MarketItemView(discord.ui.View):
     @staticmethod
     def format_user(user) -> str:
         max_length = 10
-        return f"[{user[:max_length] + '..' if len(user) > max_length else user}]({f'https://warframe.market/profile/{user}'})"
+        user_url_string = user.replace(' ', '%20')
+        return f"[{user[:max_length] + '..' if len(user) > max_length else user}]" \
+               f"({f'https://warframe.market/profile/{user_url_string}'})"
 
     def filter_orders(self, item, num_orders):
         filters, mode = self.item.create_filters(state='ingame', state_mode='whitelist')
