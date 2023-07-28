@@ -8,9 +8,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord import Intents
 from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import when_mentioned_or
-from market_engine.modules import MarketData
 from aiomysql import OperationalError
-from market_engine.modules.MarketData import MarketDatabase
+from market_engine.Models.MarketDatabase import MarketDatabase
 
 from lib.db.database import MercuriusDatabase
 
@@ -122,6 +121,7 @@ class Bot(BotBase):
                                                                      password=self.bot_config['db_password'],
                                                                      host=self.bot_config['db_host'],
                                                                      database='mercurius')
+                self.database.build_database()
             except OperationalError:
                 self.database = None
                 self.logger.error("Could not connect to database.")

@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
 
-import discord
+import git
 from discord.ext import commands
 from discord.ext.commands import Cog
-import git
 
 
 def fix_cog_name(cog_name):

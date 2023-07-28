@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import io
-from time import perf_counter
 from typing import Tuple, List
-import matplotlib.dates as mdates
 
 import discord
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pycountry as pycountry
 import relic_engine
 from bs4 import BeautifulSoup
@@ -15,12 +16,9 @@ from dateutil.parser import parse
 from discord import ButtonStyle, app_commands
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
-from market_engine.modules import MarketData
-from market_engine.modules.MarketData import MarketItem, MarketUser
-import matplotlib.pyplot as plt
-import pandas as pd
-from decimal import Decimal
-
+from market_engine.Models.MarketDatabase import MarketDatabase
+from market_engine.Models.MarketItem import MarketItem
+from market_engine.Models.MarketUser import MarketUser
 from scipy.interpolate import CubicSpline
 from scipy.stats import stats
 
@@ -39,7 +37,7 @@ class SubtypeSelectMenu(discord.ui.Select):
 
 
 class MarketItemView(discord.ui.View):
-    def __init__(self, item: MarketItem, database: MarketData.MarketDatabase, bot: commands.Bot,
+    def __init__(self, item: MarketItem, database: MarketDatabase, bot: commands.Bot,
                  user: discord.User, order_type: str = 'sell', subtype: str = None, platform: str = 'pc'):
         self.item = item
         self.database = database
@@ -261,7 +259,7 @@ class MarketItemView(discord.ui.View):
         return day_total, week_total, month_total
 
     async def get_volume(self) -> Tuple[list, list, list]:
-        volume = [x[0] for x in self.database.get_item_volume(self.item.item_id, 31)]
+        volume = [x[0] for x in self.database.get_item_volume(self.item.item_id, 31, self.platform)]
 
         day_total, week_total, month_total = self.get_sums(volume)
         return self.format_volume(day_total, week_total, month_total)
@@ -341,7 +339,7 @@ def get_discord_timestamp(wfm_timestamp):
 
 
 class MarketUserView(discord.ui.View):
-    def __init__(self, user: MarketUser, database: MarketData.MarketDatabase, bot: commands.Bot):
+    def __init__(self, user: MarketUser, database: MarketDatabase, bot: commands.Bot):
         super().__init__()
         self.user = user
         self.database = database
@@ -401,14 +399,15 @@ class MarketUserView(discord.ui.View):
 
 
 class MarketItemGraphView(discord.ui.View):
-    def __init__(self, items: List[MarketItem], database: MarketData.MarketDatabase, bot: commands.Bot,
-                 history_type: str = 'price'):
+    def __init__(self, items: List[MarketItem], database: MarketDatabase, bot: commands.Bot,
+                 history_type: str = 'price', platform: str = 'pc'):
         super().__init__()
         self.message = None
         self.items = items
         self.database = database
         self.bot = bot
         self.history_type = history_type
+        self.platform = platform
 
     def get_item_data(self, item: MarketItem):
         if self.history_type == 'price':
@@ -456,7 +455,7 @@ class MarketItemGraphView(discord.ui.View):
         # set axis labels and title
         ax.set_xlabel("Date")
         ax.set_ylabel(self.history_type.title())
-        ax.set_title(f"{self.history_type.title()} History")
+        ax.set_title(f"{self.history_type.title()} History ({self.platform.upper()}): ")
 
         # add legend
         ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
@@ -520,7 +519,6 @@ class Market(Cog):
         subtypes = []
         for target_item in input_items:
             target_item = target_item.strip()
-            print(platform)
             wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
                                                                      fetch_parts=fetch_parts,
                                                                      fetch_orders=fetch_orders,
@@ -597,11 +595,15 @@ class Market(Cog):
         elif history_type == 'demand':
             fetch_demand_history = True
 
+        platform = self.bot.database.get_platform(ctx.author.id)
+
         output_string, output_items, _, _ = await self.get_valid_items(input_string,
                                                                        fetch_price_history=fetch_price_history,
-                                                                       fetch_demand_history=fetch_demand_history)
+                                                                       fetch_demand_history=fetch_demand_history,
+                                                                       platform=platform)
 
-        view = MarketItemGraphView(output_items, self.bot.market_db, self.bot, history_type=history_type)
+        view = MarketItemGraphView(output_items, self.bot.market_db, self.bot,
+                                   history_type=history_type, platform=platform)
 
         buf = view.get_graph()
 

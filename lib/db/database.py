@@ -5,18 +5,26 @@ from pymysql import Connection
 
 
 class MercuriusDatabase:
-    _SET_PLATFORM_QUERY = """INSERT INTO user_platform (discord_id, platform) 
+    _SET_PLATFORM_QUERY = """INSERT INTO users (discord_id, platform) 
                              VALUES (%s, %s) 
                              ON DUPLICATE KEY UPDATE platform=VALUES(platform)
                           """
 
-    _GET_PLATFORM_QUERY = """SELECT platform FROM user_platform WHERE discord_id = %s"""
+    _GET_PLATFORM_QUERY = """SELECT platform FROM users WHERE discord_id = %s"""
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
                                                       password=password,
                                                       host=host,
                                                       database=database)
+
+    def build_database(self) -> None:
+        with open("lib/db/build.sql", "r") as f:
+            sql = f.read()
+
+        for sql in sql.split(";"):
+            if sql.strip() != "":
+                self._execute_query(sql)
 
     def _execute_query(self, query: str, *params, fetch: str = 'all',
                        commit: bool = False, many: bool = False) -> Union[Tuple, List[Tuple], None]:
