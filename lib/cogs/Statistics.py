@@ -116,7 +116,9 @@ class MarketItemGraphView(discord.ui.View):
         for dataframe, item in plot_list:
             item_name = item.item_name.title()
             ax.plot(dataframe.index, dataframe['Price'], label=item_name)
-            ax.bar(dataframe.index, dataframe['Volume'], alpha=0.4, label=f"{item_name} Demand")
+
+            if len(plot_list) == 1:
+                ax.bar(dataframe.index, dataframe['Volume'], alpha=0.4, label=f"{item_name} Demand")
 
         # get the maximum price across all items
         max_price = max(df['Price'].max() for df, _ in plot_list)
