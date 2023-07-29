@@ -142,6 +142,10 @@ class Bot(BotBase):
 
             output_items.append(wfm_item)
 
+            if len(output_items) >= 5:
+                output_strings.append("You can only show 5 items at a time.")
+                break
+
         return output_strings, output_items, subtypes, order_type
 
     async def on_connect(self):
