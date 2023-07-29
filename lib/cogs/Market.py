@@ -440,6 +440,8 @@ class MarketItemGraphView(discord.ui.View):
 
     def get_graph(self):
         # create plot
+        plt.style.use('ggplot')
+
         fig, ax = plt.subplots()
 
         plot_list = []
@@ -466,6 +468,8 @@ class MarketItemGraphView(discord.ui.View):
         ax.xaxis.set_major_locator(mdates.AutoDateLocator())
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+
+        ax.yaxis.grid(True)
 
         # save plot to a file-like object
         fig.tight_layout()
