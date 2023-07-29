@@ -52,7 +52,7 @@ class MarketItemGraphView(discord.ui.View):
         self.platform = platform
         self.date_menu = DateSelectMenu(self)
         self.add_item(self.date_menu)
-        self.date_window = None
+        self.date_window = 365
 
     async def send_message(self, ctx, output_string):
         buf = self.get_graph()
