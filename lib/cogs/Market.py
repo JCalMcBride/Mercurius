@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import io
-from typing import Tuple, List
+from typing import Tuple
 
 import discord
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import pycountry as pycountry
 import relic_engine
 from bs4 import BeautifulSoup
@@ -19,8 +14,6 @@ from discord.ext.commands import Cog
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 from market_engine.Models.MarketUser import MarketUser
-from scipy.interpolate import CubicSpline
-from scipy.stats import stats
 
 
 class SubtypeSelectMenu(discord.ui.Select):
@@ -400,88 +393,6 @@ class MarketUserView(discord.ui.View):
         return embed
 
 
-class MarketItemGraphView(discord.ui.View):
-    def __init__(self, items: List[MarketItem], database: MarketDatabase, bot: commands.Bot,
-                 history_type: str = 'price', platform: str = 'pc'):
-        super().__init__()
-        self.message = None
-        self.items = items
-        self.database = database
-        self.bot = bot
-        self.history_type = history_type
-        self.platform = platform
-
-    def get_item_data(self, item: MarketItem):
-        if self.history_type == 'price':
-            return item.price_history.items()
-        elif self.history_type == 'demand':
-            return item.demand_history.items()
-
-    def get_dataframe(self, item):
-        df = pd.DataFrame(list(self.get_item_data(item)), columns=['Date', 'Data'])
-
-        df.dropna(inplace=True)
-
-        # calculate Z-score for each data point
-        z_scores = np.abs(stats.zscore(df["Data"]))
-
-        # remove data points with a Z-score greater than 7
-        threshold = 7
-        df = df[(z_scores < threshold)]
-
-        cs = CubicSpline(df["Date"].values.astype(float), df["Data"].values.astype(float))
-        df["Data"].interpolate(method="spline", order=3, s=0, t=cs, inplace=True)
-
-        # smooth out the plot using a rolling mean
-        df["RollingMedian"] = df["Data"].rolling(window=7, min_periods=1).median()
-        df["Smoothed Data"] = df["RollingMedian"].rolling(window=5, min_periods=1).mean()
-
-        return df
-
-    def get_graph(self):
-        # create plot
-        plt.style.use('ggplot')
-
-        fig, ax = plt.subplots()
-
-        plot_list = []
-        for item in self.items:
-            df = self.get_dataframe(item)
-
-            plot_list += [(df["Date"], df["Smoothed Data"], item.item_name)]
-
-        for date, smoothed_data, item_name in plot_list:
-            ax.plot(date, smoothed_data, label=item_name.title())
-
-        # rotate x-axis labels by 30 degrees
-        fig.autofmt_xdate(rotation=30)
-
-        # set axis labels and title
-        ax.set_xlabel("Date")
-        ax.set_ylabel(self.history_type.title())
-        ax.set_title(f"{self.history_type.title()} History ({self.platform.upper()}): ")
-
-        # add legend
-        ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
-
-        # format date axis
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-
-        ax.yaxis.grid(True)
-
-        # save plot to a file-like object
-        fig.tight_layout()
-        plt.margins(x=0.002)
-
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png")
-        buf.seek(0)
-
-        return buf
-
-
 def get_alias_used_and_message(message, prefix):
     split_message = message[len(prefix):].split(' ', maxsplit=1)
 
@@ -507,55 +418,6 @@ class Market(Cog):
     async def update_usernames(self):
         self.bot.market_db.update_usernames()
 
-    async def get_valid_items(self, input_string: str,
-                              fetch_parts: bool = False, fetch_orders: bool = False, fetch_part_orders: bool = False,
-                              fetch_price_history: bool = False, fetch_demand_history: bool = False,
-                              order_type: str = 'sell', platform='pc') -> tuple[
-        list[str], list[MarketItem], list[str | None], str]:
-        if 'buy' in input_string:
-            order_type = 'buy'
-            input_string = input_string.replace('buy', '').strip()
-        elif 'sell' in input_string:
-            input_string = input_string.replace('sell', '').strip()
-
-        input_items = input_string.lower().strip().split(',')
-        output_strings = []
-        output_items = []
-
-        subtypes = []
-        for target_item in input_items:
-            target_item = target_item.strip()
-            wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
-                                                                     fetch_parts=fetch_parts,
-                                                                     fetch_orders=fetch_orders,
-                                                                     fetch_part_orders=fetch_part_orders,
-                                                                     fetch_price_history=fetch_price_history,
-                                                                     fetch_demand_history=fetch_demand_history,
-                                                                     platform=platform)
-
-            if wfm_item is None:
-                output_strings.append(f"Item {target_item} does not exist on Warframe.Market")
-                continue
-
-            item_subtypes = wfm_item.get_subtypes(order_type)
-
-            for valid_subtype in item_subtypes:
-                if valid_subtype.lower() in target_item:
-                    subtypes.append(valid_subtype)
-                    target_item = target_item.replace(valid_subtype.lower(), '').strip()
-                    break
-            else:
-                subtypes.append(None)
-
-            if wfm_item.item_name != target_item and target_item.lower() not in wfm_item.item_name.lower():
-                output_strings.append(f"{target_item} could not be found, closest match is {wfm_item.item_name}")
-            else:
-                output_strings.append("")
-
-            output_items.append(wfm_item)
-
-        return output_strings, output_items, subtypes, order_type
-
     async def item_embed_handler(self, input_string: str, ctx: commands.Context,
                                  embed_type: str) -> None:
         fetch_part_orders = False
@@ -564,7 +426,7 @@ class Market(Cog):
 
         platform = self.bot.database.get_platform(ctx.author.id)
 
-        output_strings, output_items, subtypes, order_type = await self.get_valid_items(
+        output_strings, output_items, subtypes, order_type = await self.bot.get_valid_items(
             input_string,
             fetch_part_orders=fetch_part_orders,
             fetch_orders=True,
@@ -592,30 +454,6 @@ class Market(Cog):
             message = await self.bot.send_message(ctx, content=output_string, embed=embed, view=view)
 
             view.message = message
-
-    async def graph_embed_handler(self, input_string: str, ctx: commands.Context, history_type: str) -> None:
-        fetch_price_history = False
-        fetch_demand_history = False
-        if history_type == 'price':
-            fetch_price_history = True
-        elif history_type == 'demand':
-            fetch_demand_history = True
-
-        platform = self.bot.database.get_platform(ctx.author.id)
-
-        output_string, output_items, _, _ = await self.get_valid_items(input_string,
-                                                                       fetch_price_history=fetch_price_history,
-                                                                       fetch_demand_history=fetch_demand_history,
-                                                                       platform=platform)
-
-        view = MarketItemGraphView(output_items, self.bot.market_db, self.bot,
-                                   history_type=history_type, platform=platform)
-
-        buf = view.get_graph()
-
-        await ctx.send(content='\n'.join([x for x in output_string if x]),
-                       file=discord.File(buf, 'plot.png'))
-        buf.close()
 
     async def user_embed_handler(self, target_user: str, ctx: commands.Context,
                                  embed_type: str) -> None:
@@ -750,18 +588,6 @@ class Market(Cog):
         wfm_item.remove_alias(alias.lower())
         await interaction.response.send_message(f"Alias {alias} removed from item {target_item}",
                                                 ephemeral=True)
-
-    @commands.hybrid_command(name='pricehistory',
-                             description="Gets price history for the requested item, if it exists.",
-                             aliases=["ph", "priceh", "pricehist", "pricehis"])
-    async def get_price_history(self, ctx: commands.Context, *, input_string: str) -> None:
-        await self.graph_embed_handler(input_string, ctx, 'price')
-
-    @commands.hybrid_command(name='demandhistory',
-                             description="Gets demand history for the requested item, if it exists.",
-                             aliases=["dh", "demandh", "demandhist", "demandhis"])
-    async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
-        await self.graph_embed_handler(input_string, ctx, 'demand')
 
     @commands.hybrid_command(name='setplatform',
                              description="Sets your platform for market commands.",

@@ -10,6 +10,7 @@ from discord.ext.commands import Bot as BotBase
 from discord.ext.commands import when_mentioned_or
 from aiomysql import OperationalError
 from market_engine.Models.MarketDatabase import MarketDatabase
+from market_engine.Models.MarketItem import MarketItem
 
 from lib.db.database import MercuriusDatabase
 
@@ -93,6 +94,55 @@ class Bot(BotBase):
 
         self.logger.info("Running bot.")
         super().run(self.token, reconnect=True, root_logger=True)
+
+    async def get_valid_items(self, input_string: str,
+                              fetch_parts: bool = False, fetch_orders: bool = False, fetch_part_orders: bool = False,
+                              fetch_price_history: bool = False, fetch_demand_history: bool = False,
+                              order_type: str = 'sell', platform='pc') -> tuple[
+        list[str], list[MarketItem], list[str | None], str]:
+        if 'buy' in input_string:
+            order_type = 'buy'
+            input_string = input_string.replace('buy', '').strip()
+        elif 'sell' in input_string:
+            input_string = input_string.replace('sell', '').strip()
+
+        input_items = input_string.lower().strip().split(',')
+        output_strings = []
+        output_items = []
+
+        subtypes = []
+        for target_item in input_items:
+            target_item = target_item.strip()
+            wfm_item: MarketItem = await self.market_db.get_item(target_item.lower(),
+                                                                 fetch_parts=fetch_parts,
+                                                                 fetch_orders=fetch_orders,
+                                                                 fetch_part_orders=fetch_part_orders,
+                                                                 fetch_price_history=fetch_price_history,
+                                                                 fetch_demand_history=fetch_demand_history,
+                                                                 platform=platform)
+
+            if wfm_item is None:
+                output_strings.append(f"Item {target_item} does not exist on Warframe.Market")
+                continue
+
+            item_subtypes = wfm_item.get_subtypes(order_type)
+
+            for valid_subtype in item_subtypes:
+                if valid_subtype.lower() in target_item:
+                    subtypes.append(valid_subtype)
+                    target_item = target_item.replace(valid_subtype.lower(), '').strip()
+                    break
+            else:
+                subtypes.append(None)
+
+            if wfm_item.item_name != target_item and target_item.lower() not in wfm_item.item_name.lower():
+                output_strings.append(f"{target_item} could not be found, closest match is {wfm_item.item_name}")
+            else:
+                output_strings.append("")
+
+            output_items.append(wfm_item)
+
+        return output_strings, output_items, subtypes, order_type
 
     async def on_connect(self):
         self.logger.info("Bot connected.")
