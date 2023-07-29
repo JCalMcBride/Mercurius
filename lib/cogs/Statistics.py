@@ -41,9 +41,10 @@ class DateSelectMenu(discord.ui.Select):
 
 class MarketItemGraphView(discord.ui.View):
     def __init__(self, items: List[MarketItem], database: MarketDatabase, bot: commands.Bot,
-                 history_type: str = 'price', platform: str = 'pc'):
+                 user: discord.Member, history_type: str = 'price', platform: str = 'pc'):
         super().__init__()
         self.message = None
+        self.user = user
         self.items = items
         self.database = database
         self.bot = bot
@@ -165,6 +166,12 @@ class MarketItemGraphView(discord.ui.View):
         return buf
 
     async def change_date_handler(self, interaction, date):
+        if interaction.user != self.user:
+            await interaction.response.send_message("Only the user who initiated this command "
+                                                    "can change the date window",
+                                                    ephemeral=True)
+            return
+
         self.date_window = date
 
         buf = self.get_graph()
@@ -189,7 +196,7 @@ class Statistics(Cog):
                                                                            fetch_demand_history=True,
                                                                            platform=platform)
 
-        view = MarketItemGraphView(output_items, self.bot.market_db, self.bot,
+        view = MarketItemGraphView(output_items, self.bot.market_db, self.bot, ctx.author,
                                    history_type=history_type, platform=platform)
 
         await view.send_message(ctx, output_string)
