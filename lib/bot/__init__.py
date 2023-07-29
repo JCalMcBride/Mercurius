@@ -98,8 +98,8 @@ class Bot(BotBase):
     async def get_valid_items(self, input_string: str,
                               fetch_parts: bool = False, fetch_orders: bool = False, fetch_part_orders: bool = False,
                               fetch_price_history: bool = False, fetch_demand_history: bool = False,
-                              order_type: str = 'sell', platform='pc') -> tuple[
-        list[str], list[MarketItem], list[str | None], str]:
+                              order_type: str = 'sell', platform='pc') -> tuple[list[str], list[MarketItem],
+    list[str], str]:
         if 'buy' in input_string:
             order_type = 'buy'
             input_string = input_string.replace('buy', '').strip()
