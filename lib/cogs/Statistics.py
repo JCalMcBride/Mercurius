@@ -202,7 +202,7 @@ class Statistics(Cog):
                              description="Gets demand history for the requested item, if it exists.",
                              aliases=["dh", "demandh", "demandhist", "demandhis"])
     async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
-        await self.graph_embed_handler(input_string, ctx, 'demand')
+        await self.graph_embed_handler(input_string, ctx, 'price')
 
     @Cog.listener()
     async def on_ready(self):
