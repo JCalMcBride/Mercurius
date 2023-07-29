@@ -80,9 +80,6 @@ class MarketItemGraphView(discord.ui.View):
         df = pd.concat([price_series, volume_series], axis=1)
         df.index = df.index.date
 
-        df['Price'] = df['Price'].rolling(window=3).median()
-        df['Price'] = df['Price'].rolling(window=3).mean()
-
         # create a full range of dates from the first to the last date in your data
         full_date_range = pd.date_range(start=df.index.min(), end=df.index.max() + pd.DateOffset(days=1))
         df = df.reindex(full_date_range)
@@ -94,6 +91,11 @@ class MarketItemGraphView(discord.ui.View):
         # If there's still NaNs (e.g., at the beginning of the series), do a backward fill
         df['Price'].fillna(method='bfill', inplace=True)
         df['Volume'].fillna(method='bfill', inplace=True)
+
+        df['Price'] = df['Price'].rolling(window=3).median()
+        df['Price'] = df['Price'].rolling(window=3).mean()
+
+        df['Volume'] = df['Volume'].rolling(window=3).mean()
 
         return df
 
