@@ -88,7 +88,7 @@ class MarketItemGraphView(discord.ui.View):
         # create plot
         style = self.bot.database.get_graph_style(self.user.id)
         with plt.style.context(style):
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=(10, 6))
 
             plot_list = []
             for item in self.items:
