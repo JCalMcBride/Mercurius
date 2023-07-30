@@ -8,6 +8,7 @@ import discord
 import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import mplcyberpunk
 import pandas as pd
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -54,12 +55,6 @@ class MarketItemGraphView(discord.ui.View):
         buf.close()
 
         self.message = message
-
-    def get_item_data(self, item: MarketItem):
-        if self.history_type == 'price':
-            return item.price_history.items()
-        elif self.history_type == 'demand':
-            return item.demand_history.items()
 
     @staticmethod
     def get_dataframe(item):
@@ -159,6 +154,9 @@ class MarketItemGraphView(discord.ui.View):
             fig.tight_layout()
             plt.margins(x=0.002)
 
+            if style == 'cyberpunk':
+                mplcyberpunk.make_lines_glow(ax)
+
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
             buf.seek(0)
@@ -213,14 +211,14 @@ class Statistics(Cog):
                              description="Gets demand history for the requested item, if it exists.",
                              aliases=["dh", "demandh", "demandhist", "demandhis"])
     async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
-        await self.graph_embed_handler(input_string, ctx, 'price')
+        await self.graph_embed_handler(input_string, ctx, 'demand')
 
     @commands.hybrid_command(name='setstyle', description="Sets the graph style for the user. (PREMIUM ONLY)",
                              aliases=["ss"])
     @commands.has_any_role(1086352745390419968, 1086359981860864151, 1086352740386603111, 780630958368882689, 962472802831704099)
     async def set_style(self, ctx: commands.Context, style: Optional[str]) -> None:
-        if style not in plt.style.available or style is None:
-            await ctx.send(f"Invalid style. Valid styles are: ``{'``, ``'.join(plt.style.available)}``")
+        if style not in plt.style.available + ['cyberpunk'] or style is None:
+            await ctx.send(f"Invalid style. Valid styles are: ``{'``, ``'.join(plt.style.available + ['cyberpunk'])}``")
             return
 
         self.bot.database.set_graph_style(ctx.author.id, style)
