@@ -1,28 +1,18 @@
 from __future__ import annotations
 
-import asyncio
 import io
 from datetime import datetime, timedelta
-from typing import Tuple, List
+from typing import List, Optional
 
 import discord
+import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import pycountry as pycountry
-import relic_engine
-from bs4 import BeautifulSoup
-from dateutil.parser import parse
-from discord import ButtonStyle, app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.ext.commands import Cog
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
-from market_engine.Models.MarketUser import MarketUser
-from pandas import DateOffset
-from scipy.interpolate import CubicSpline
-from scipy.stats import stats
 
 
 class DateSelectMenu(discord.ui.Select):
@@ -101,71 +91,71 @@ class MarketItemGraphView(discord.ui.View):
 
     def get_graph(self):
         # create plot
-        plt.style.use('ggplot')
+        style = self.bot.database.get_graph_style(self.user.id)
+        with plt.style.context(style):
+            fig, ax = plt.subplots()
 
-        fig, ax = plt.subplots()
+            plot_list = []
+            for item in self.items:
+                df = self.get_dataframe(item)
 
-        plot_list = []
-        for item in self.items:
-            df = self.get_dataframe(item)
+                # filter the dataframe if date window is specified
+                if self.date_window is not None:
+                    start_date = (datetime.now() - timedelta(days=int(self.date_window))).strftime('%Y-%m-%d')
+                    df = df.loc[df.index >= start_date]
 
-            # filter the dataframe if date window is specified
-            if self.date_window is not None:
-                start_date = (datetime.now() - timedelta(days=int(self.date_window))).strftime('%Y-%m-%d')
-                df = df.loc[df.index >= start_date]
+                plot_list += [(df, item)]
 
-            plot_list += [(df, item)]
+            for dataframe, item in plot_list:
+                item_name = item.item_name.title()
+                ax.plot(dataframe.index, dataframe['Price'], label=item_name)
 
-        for dataframe, item in plot_list:
-            item_name = item.item_name.title()
-            ax.plot(dataframe.index, dataframe['Price'], label=item_name)
+                if len(plot_list) == 1:
+                    ax.bar(dataframe.index, dataframe['Volume'], alpha=0.4, label=f"{item_name} Demand")
 
-            if len(plot_list) == 1:
-                ax.bar(dataframe.index, dataframe['Volume'], alpha=0.4, label=f"{item_name} Demand")
+            # get the maximum price across all items
+            max_price = max(df['Price'].max() for df, _ in plot_list)
 
-        # get the maximum price across all items
-        max_price = max(df['Price'].max() for df, _ in plot_list)
+            # get the maximum volume (demand) across all items
+            max_volume = max(df['Volume'].max() for df, _ in plot_list)
 
-        # get the maximum volume (demand) across all items
-        max_volume = max(df['Volume'].max() for df, _ in plot_list)
+            # if max_volume is more than 1.5x the max_price, cap the y limit at 1.1*max_price
+            if max_volume > 1.5 * max_price:
+                plt.ylim([0, max_price * 1.1])
 
-        # if max_volume is more than 1.5x the max_price, cap the y limit at 1.1*max_price
-        if max_volume > 1.5 * max_price:
-            plt.ylim([0, max_price * 1.1])
+            # rotate and increase size of x-axis labels
+            fig.autofmt_xdate(rotation=30)
+            ax.tick_params(axis='x', labelsize=10)
 
-        # rotate and increase size of x-axis labels
-        fig.autofmt_xdate(rotation=30)
-        ax.tick_params(axis='x', labelsize=10)
+            # increase size of y-axis labels
+            ax.tick_params(axis='y', labelsize=10)
 
-        # increase size of y-axis labels
-        ax.tick_params(axis='y', labelsize=10)
+            # set axis labels and title
+            ax.set_xlabel("Date")
+            ax.set_ylabel(self.history_type.title())
+            ax.set_title(f"{self.history_type.title()} History ({self.platform.upper()}): ")
 
-        # set axis labels and title
-        ax.set_xlabel("Date")
-        ax.set_ylabel(self.history_type.title())
-        ax.set_title(f"{self.history_type.title()} History ({self.platform.upper()}): ")
+            # add legend
+            ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
 
-        # add legend
-        ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
+            # format date axis
+            ax.xaxis.set_major_locator(mdates.AutoDateLocator())
 
-        # format date axis
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            ax.yaxis.grid(True)
 
-        ax.yaxis.grid(True)
+            # save plot to a file-like object
+            fig.tight_layout()
+            plt.margins(x=0.002)
 
-        # save plot to a file-like object
-        fig.tight_layout()
-        plt.margins(x=0.002)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            buf.seek(0)
 
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png")
-        buf.seek(0)
+            plt.close()
 
-        plt.close()
-
-        return buf
+            return buf
 
     async def change_date_handler(self, interaction, date):
         if interaction.user != self.user:
@@ -214,6 +204,22 @@ class Statistics(Cog):
                              aliases=["dh", "demandh", "demandhist", "demandhis"])
     async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
         await self.graph_embed_handler(input_string, ctx, 'price')
+
+    @commands.hybrid_command(name='setstyle', description="Sets the graph style for the user. (PREMIUM ONLY)",
+                             aliases=["ss"])
+    @commands.has_any_role(1086359981860864151, 1086352745390419968, 1086352740386603111, 780630958368882689, 962472802831704099)
+    async def set_style(self, ctx: commands.Context, style: Optional[str]) -> None:
+        if style not in plt.style.available or style is None:
+            await ctx.send(f"Invalid style. Valid styles are: ``{'``, ``'.join(plt.style.available)}``")
+            return
+
+        self.bot.database.set_graph_style(ctx.author.id, style)
+        await ctx.send(f"Graph style set to {style}")
+
+    @set_style.error
+    async def set_style_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
+        if isinstance(error, commands.MissingAnyRole):
+            await ctx.send("Sorry, this feature is limited to supporters and patrons.", delete_after=5)
 
     @Cog.listener()
     async def on_ready(self):

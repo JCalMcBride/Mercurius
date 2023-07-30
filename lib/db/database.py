@@ -12,6 +12,13 @@ class MercuriusDatabase:
 
     _GET_PLATFORM_QUERY = """SELECT platform FROM users WHERE discord_id = %s"""
 
+    _SET_GRAPH_STYLE_QUERY = """INSERT INTO users (discord_id, graph_style) 
+                             VALUES (%s, %s)
+                             ON DUPLICATE KEY UPDATE graph_style=VALUES(graph_style)
+                          """
+
+    _GET_GRAPH_STYLE_QUERY = """SELECT graph_style FROM users WHERE discord_id = %s"""
+
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
                                                       password=password,
@@ -51,3 +58,9 @@ class MercuriusDatabase:
         platform = self._execute_query(self._GET_PLATFORM_QUERY, user, fetch='one')
         return platform[0] if platform else 'pc'
 
+    def set_graph_style(self, user: str, style: str) -> None:
+        self._execute_query(self._SET_GRAPH_STYLE_QUERY, user, style, commit=True)
+
+    def get_graph_style(self, user: str) -> str:
+        style = self._execute_query(self._GET_GRAPH_STYLE_QUERY, user, fetch='one')
+        return style[0] if style else 'ggplot'
