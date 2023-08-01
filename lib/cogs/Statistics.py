@@ -113,21 +113,6 @@ class MarketItemGraphView(discord.ui.View):
                     elif self.history_type == 'demand':
                         ax.plot(dataframe.index, dataframe['Volume'], label=item_name)
 
-            # get the maximum price across all items
-            max_price = max(df['Price'].max() for df, _ in plot_list)
-
-            # get the maximum volume (demand) across all items
-            max_volume = max(df['Volume'].max() for df, _ in plot_list)
-
-            if len(plot_list) == 1:
-                if self.history_type == 'price':
-                    # if max_volume is more than 1.5x the max_price, cap the y limit at 1.1*max_price
-                    if max_volume > 1.5 * max_price:
-                        plt.ylim([0, max_price * 1.1])
-                elif self.history_type == 'demand':
-                    if max_price > 1.5 * max_volume:
-                        plt.ylim([0, max_volume * 1.1])
-
             # rotate and increase size of x-axis labels
             fig.autofmt_xdate(rotation=30)
             ax.tick_params(axis='x', labelsize=10)
