@@ -56,6 +56,8 @@ class Bot(BotBase):
         self.scheduler.start()
         self.market_db = None
         self.database = None
+        self.guild = 939271447065526315
+        self.emoji_dict = {}
 
         super().__init__(
             command_prefix=get_prefix,
@@ -160,6 +162,11 @@ class Bot(BotBase):
 
     async def on_ready(self):
         if not self.ready:
+            self.guild = self.get_guild(self.guild)
+
+            for emoji in self.guild.emojis:
+                self.emoji_dict[emoji.name] = emoji
+
             try:
                 self.market_db: MarketDatabase = MarketDatabase(user=self.bot_config['db_user'],
                                                                 password=self.bot_config['db_password'],
@@ -179,6 +186,8 @@ class Bot(BotBase):
             except OperationalError:
                 self.database = None
                 self.logger.error("Could not connect to database.")
+
+            self.database.insert_servers([x.id for x in self.guilds])
 
             while not self.cogs_ready.all_ready():
                 await sleep(0.5)

@@ -1,4 +1,5 @@
-from typing import Dict, Union, Tuple, List
+from collections import defaultdict
+from typing import Dict, Union, Tuple, List, Any
 
 import pymysql
 from pymysql import Connection
@@ -18,6 +19,30 @@ class MercuriusDatabase:
                           """
 
     _GET_GRAPH_STYLE_QUERY = """SELECT graph_style FROM users WHERE discord_id = %s"""
+
+    _SET_FISSURE_LOG_CHANNEL_QUERY = """
+    INSERT INTO fissure_log_channels (server_id, channel_id, fissure_type) 
+    VALUES (%s, %s, %s)"""
+
+    _UNSET_FISSURE_LOG_CHANNEL_QUERY = """
+    DELETE FROM fissure_log_channels WHERE 
+    server_id = %s AND channel_id = %s AND fissure_type = %s
+    """
+
+    _GET_FISSURE_LOG_CHANNEL_QUERY = """SELECT fissure_type, server_id, channel_id FROM fissure_log_channels"""
+
+    _SET_FISSURE_LIST_CHANNEL_QUERY = """
+    INSERT INTO fissure_list_channels (server_id, channel_id, fissure_type) 
+    VALUES (%s, %s, %s)"""
+
+    _UNSET_FISSURE_LIST_CHANNEL_QUERY = """
+    DELETE FROM fissure_list_channels WHERE 
+    server_id = %s AND channel_id = %s AND fissure_type = %s
+    """
+
+    _GET_FISSURE_LIST_CHANNEL_QUERY = """SELECT fissure_type, server_id, channel_id FROM fissure_log_channels"""
+
+    _INSERT_SERVER_QUERY = """INSERT IGNORE INTO servers (server_id) VALUES (%s)"""
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
@@ -51,6 +76,9 @@ class MercuriusDatabase:
             elif fetch == 'all':
                 return cur.fetchall()
 
+    def insert_servers(self, servers: List[int]) -> None:
+        self._execute_query(self._INSERT_SERVER_QUERY, servers, many=True, commit=True)
+
     def set_platform(self, user: str, platform: str) -> None:
         self._execute_query(self._SET_PLATFORM_QUERY, user, platform, commit=True)
 
@@ -64,3 +92,33 @@ class MercuriusDatabase:
     def get_graph_style(self, user: str) -> str:
         style = self._execute_query(self._GET_GRAPH_STYLE_QUERY, user, fetch='one')
         return style[0] if style else 'ggplot'
+
+    def set_fissure_log_channel(self, server_id: int, channel_id: int, fissure_type: str) -> None:
+        self._execute_query(self._SET_FISSURE_LOG_CHANNEL_QUERY, server_id, channel_id, fissure_type, commit=True)
+
+    def unset_fissure_log_channel(self, server_id: int, channel_id: int, fissure_type: str) -> None:
+        self._execute_query(self._UNSET_FISSURE_LOG_CHANNEL_QUERY, server_id, channel_id, fissure_type, commit=True)
+
+    def get_fissure_log_channels(self) -> defaultdict:
+        results = self._execute_query(self._GET_FISSURE_LOG_CHANNEL_QUERY, fetch='all')
+
+        fissure_log_dict = defaultdict(lambda: defaultdict(list))
+        for fissure_type, server_id, channel_id in results:
+            fissure_log_dict[fissure_type][server_id].append(channel_id)
+
+        return fissure_log_dict
+
+    def set_fissure_list_channel(self, server_id: int, channel_id: int, fissure_type: str) -> None:
+        self._execute_query(self._SET_FISSURE_LIST_CHANNEL_QUERY, server_id, channel_id, fissure_type, commit=True)
+
+    def unset_fissure_list_channel(self, server_id: int, channel_id: int, fissure_type: str) -> None:
+        self._execute_query(self._UNSET_FISSURE_LIST_CHANNEL_QUERY, server_id, channel_id, fissure_type, commit=True)
+
+    def get_fissure_list_channels(self) -> defaultdict:
+        results = self._execute_query(self._GET_FISSURE_LIST_CHANNEL_QUERY, fetch='all')
+
+        fissure_log_dict = defaultdict(lambda: defaultdict(list))
+        for fissure_type, server_id, channel_id in results:
+            fissure_log_dict[fissure_type][server_id].append(channel_id)
+
+        return fissure_log_dict
