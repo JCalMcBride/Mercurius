@@ -1,0 +1,10 @@
+{
+    "discord_token": "YOUR TOKEN HERE",
+    "discord_guild_id": YOUR GUILD ID HERE,
+    "owner_ids": [
+        YOUR DISCORD ID HERE
+    ],
+    "db_user": "mercurius",
+    "db_password": "YOUR DB PASSWORD HERE",
+    "db_host": "localhost"
+}
