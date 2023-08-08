@@ -7,13 +7,14 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 from pymysql import IntegrityError
 
-from fissure_engine.FissureEngine import FissureEngine, Fissure
+import fissure_engine
+from fissure_engine.FissureEngine import FissureEngine
 
 
 class FissureView(discord.ui.View):
     def __init__(self):
         super().__init__()
-        self.value = None
+        self.last_update_time = None
 
 
 class Fissure(Cog):
@@ -65,7 +66,7 @@ class Fissure(Cog):
 
         await asyncio.gather(*fissure_tasks)
 
-    def get_fissure_info_embed(self, fissure: Fissure):
+    def get_fissure_info_embed(self, fissure: fissure_engine.FissureEngine.Fissure):
         embed = discord.Embed(colour=self.color_dict[fissure.era])
 
         embed.set_author(name=f'New {fissure.era} Fissure ({fissure.fissure_type})',
@@ -178,17 +179,17 @@ class Fissure(Cog):
                                         Choice(name='Steel Path', value='sp'),
                                         Choice(name='Void Storm', value='vs')])
     async def fissure_list_channel(self, ctx,
-                                  fissure_type: str = commands.parameter(
-                                      default='normal',
-                                      description="The type of fissures to list."),
-                                  channel: discord.TextChannel = commands.parameter(
-                                      default=lambda ctx: ctx.channel,
-                                      displayed_default='current channel',
-                                      description="The channel to list the fissures in."),
-                                  max_tier: int = commands.parameter(
-                                      default=3,
-                                      description="The maximum tier of fissures to list."),
-                                  ):
+                                   fissure_type: str = commands.parameter(
+                                       default='normal',
+                                       description="The type of fissures to list."),
+                                   channel: discord.TextChannel = commands.parameter(
+                                       default=lambda ctx: ctx.channel,
+                                       displayed_default='current channel',
+                                       description="The channel to list the fissures in."),
+                                   max_tier: int = commands.parameter(
+                                       default=3,
+                                       description="The maximum tier of fissures to list."),
+                                   ):
         """
         If no channel is provided, the current channel is used.
 
