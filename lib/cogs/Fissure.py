@@ -181,6 +181,8 @@ class ButtonView(discord.ui.View):
         view = FissureView(self.bot, self.button_configs)
         message = await interaction.channel.send(content=self.message_text, view=view)
 
+
+
         # Save the data associated with the view to the database
         self.bot.database.save_fissure_view(self.message_text, self.button_configs, interaction.channel.id, message.id)
 
@@ -264,6 +266,8 @@ class ButtonModal(discord.ui.Modal):
                 await interaction.response.send_message("Invalid emoji. Please enter a valid custom server emoji.",
                                                         ephemeral=True)
                 return
+
+            emoji = str(emoji)  # Convert to string for display
         else:
             emoji = None  # Handle case where no emoji is provided
 
