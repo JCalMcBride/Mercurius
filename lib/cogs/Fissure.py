@@ -1318,23 +1318,6 @@ class Fissure(Cog):
         self.update_fissure_list.cancel()
         self.update_all_fissure_lists.cancel()
 
-    async def cog_load(self) -> None:
-        self.update_fissure_list.start()
-        self.update_all_fissure_lists.start()
-
-        if self.bot.ready:
-            # Recreate all saved fissure views on startup
-            fissure_views = self.bot.database.get_all_fissure_views()
-            for view_data in fissure_views:
-                message_text = view_data['message_text']
-                button_configs = view_data['button_configs']
-                channel_id = view_data['channel_id']
-
-                view = FissureView(self.bot, button_configs)
-                channel = self.bot.get_channel(channel_id)
-                if channel:
-                    await channel.send(message_text, view=view)
-
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
