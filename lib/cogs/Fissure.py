@@ -1318,6 +1318,10 @@ class Fissure(Cog):
         self.update_fissure_list.cancel()
         self.update_all_fissure_lists.cancel()
 
+    async def cog_load(self) -> None:
+        self.update_fissure_list.start()
+        self.update_all_fissure_lists.start()
+
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
