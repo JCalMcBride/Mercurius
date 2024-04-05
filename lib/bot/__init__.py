@@ -13,7 +13,7 @@ from aiomysql import OperationalError
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 
-from fissure_engine import FissureEngine
+from fissure_engine.fissure_engine import FissureEngine
 from lib.db.database import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")

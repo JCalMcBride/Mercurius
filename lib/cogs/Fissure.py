@@ -9,12 +9,10 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
+from fissure_engine import fissure_engine
+from fissure_engine.common import sol_nodes
+from fissure_engine.fissure_engine import FissureEngine
 from pymysql import IntegrityError
-
-import fissure_engine
-from common import sol_nodes
-from fissure_engine import FissureEngine
-
 
 class FissureSubscriptionView(discord.ui.View):
     def __init__(self, bot, user, subscriptions, embeds):
