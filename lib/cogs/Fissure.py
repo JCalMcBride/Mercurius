@@ -670,7 +670,6 @@ class Fissure(Cog):
         Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
         Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
     ])
-    @app_commands.guilds(939271447065526315)
     async def set_fissure_defaults(self, ctx,
                                    show_normal: bool = True,
                                    show_steel_path: bool = False,
@@ -888,6 +887,9 @@ class Fissure(Cog):
 
     def get_choices(self, nodes: List[dict], current: str, key: str) -> List[Choice[str]]:
         choices = {node[key] for node in nodes if key in node} - {''}
+
+        print(choices)
+
 
         return [Choice(name=choice, value=choice) for choice in choices if current.lower() in choice.lower()][:10]
 
@@ -1216,7 +1218,7 @@ class Fissure(Cog):
         await ctx.send("Subscribe to the following fissures:", view=FissureView(self.bot, button_configs))
 
     @app_commands.command(name='create_fissure_view', description='Create a fissure view')
-    @app_commands.guilds(939271447065526315)
+    @commands.has_permissions(manage_channels=True)
     async def create_fissure_view(self, interaction: discord.Interaction):
         view = ButtonView(self.bot, interaction)
         await interaction.response.send_message("Click the 'Add Button' button to add buttons to the fissure view.",
