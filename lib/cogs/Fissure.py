@@ -228,13 +228,17 @@ class ButtonModal(discord.ui.Modal):
 
         if emoji:
             try:
-                # Try to get the emoji from the guild's emojis
-                guild_emoji = discord.utils.get(interaction.guild.emojis, name=emoji)
-                if guild_emoji:
-                    emoji = str(guild_emoji)
+                if emoji in self.bot.emoji_dict:
+                    emoji = self.bot.emoji_dict[emoji]
                 else:
-                    await interaction.response.send_message("Invalid emoji. Please enter a valid custom server emoji.", ephemeral=True)
-                    return
+                    # Try to get the emoji from the guild's emojis
+                    guild_emoji = discord.utils.get(interaction.guild.emojis, name=emoji)
+
+                    if guild_emoji:
+                        emoji = guild_emoji
+                    else:
+                        await interaction.response.send_message("Invalid emoji. Please enter a valid custom server emoji.", ephemeral=True)
+                        return
             except Exception:
                 await interaction.response.send_message("An error occurred while validating the emoji. Please try again.", ephemeral=True)
                 return
@@ -708,7 +712,8 @@ class Fissure(Cog):
                                                     max_tier, show_lith, show_meso, show_neo, show_axi,
                                                     show_requiem, show_omnia)
 
-        await self.bot.send_message(ctx, "Your fissure list defaults have been updated.")
+        await self.bot.send_message(ctx, "Your fissure list defaults have been updated.",
+                                    ephemeral=True)
 
     @commands.hybrid_command(name='add_fissure_subscription', aliases=['afs', 'addfissuresubscription'])
     @app_commands.describe(
@@ -774,7 +779,7 @@ class Fissure(Cog):
             self.bot.database.add_fissure_subscription(user_id, fissure_type, era, node, mission, planet, tileset,
                                                        enemy,
                                                        max_tier)
-            await self.bot.send_message(ctx, "Your fissure subscription has been added.")
+            await self.bot.send_message(ctx, "Your fissure subscription has been added.", ephemeral=True)
         except ValueError as e:
             await self.bot.send_message(ctx, str(e), ephemeral=True)
         except IntegrityError:
@@ -893,7 +898,9 @@ class Fissure(Cog):
 
         filtered_nodes = [
             node for node in filtered_nodes
-            if all(attr in node and node[attr] == value for attr, value in selected_values.items() if attr in node)
+            if all(
+                attr in node and node[attr].lower().startswith(value.lower()) for attr, value in selected_values.items()
+                if attr in node)
         ]
 
         return filtered_nodes
@@ -902,7 +909,6 @@ class Fissure(Cog):
         choices = {node[key] for node in nodes if key in node} - {''}
 
         return [Choice(name=choice, value=choice) for choice in choices if current.lower() in choice.lower()][:10]
-
     @add_fissure_subscription.autocomplete('node')
     async def node_autocomplete(self, interaction: discord.Interaction, current: str) -> List[Choice[str]]:
         filtered_nodes = self.filter_nodes(interaction)
@@ -955,13 +961,13 @@ class Fissure(Cog):
         user_exists = self.bot.database.user_exists(user_id)
 
         if not user_exists:
-            await self.bot.send_message(ctx, "You have no subscriptions to remove.")
+            await self.bot.send_message(ctx, "You have no subscriptions to remove.", ephemeral=True)
             return
 
         self.bot.database.remove_fissure_subscription(user_id, fissure_type, era, node, mission, planet, tileset, enemy,
                                                       max_tier)
 
-        await self.bot.send_message(ctx, "Your fissure subscription has been removed.")
+        await self.bot.send_message(ctx, "Your fissure subscription has been removed.", ephemeral=True)
 
     @commands.hybrid_command(name='list_fissure_subscriptions', aliases=['lfs', 'listfissuresubscriptions'])
     async def list_fissure_subscriptions(self, ctx):
@@ -971,7 +977,7 @@ class Fissure(Cog):
         subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
 
         if not subscriptions:
-            await self.bot.send_message(ctx, "You have no active fissure subscriptions.")
+            await self.bot.send_message(ctx, "You have no active fissure subscriptions.", ephemeral=True)
             return
 
         embeds = []
@@ -988,7 +994,7 @@ class Fissure(Cog):
             embeds.append(embed)
 
         view = FissureSubscriptionView(self.bot, ctx.author, subscriptions, embeds)
-        message = await ctx.send(embed=embeds[0], view=view)
+        message = await ctx.send(embed=embeds[0], view=view, ephemeral=True)
         view.message = message
 
     @commands.hybrid_command(name='fissure_log_channel', aliases=['flc', 'flogc', 'flogchannel', 'fissurelogchannel'],
@@ -1024,7 +1030,7 @@ class Fissure(Cog):
             channel = ctx.channel
 
         if fissure_type.lower() not in self.bot.fissure_engine.ALIASES:
-            await self.bot.send_message(ctx, f'Invalid fissure type: {fissure_type}')
+            await self.bot.send_message(ctx, f'Invalid fissure type: {fissure_type}', ephemeral=True)
             return
 
         fissure_type = self.bot.fissure_engine.ALIASES[fissure_type.lower()]
@@ -1034,10 +1040,12 @@ class Fissure(Cog):
         except IntegrityError:
             self.bot.database.unset_fissure_log_channel(channel.guild.id, channel.id, fissure_type)
             await self.bot.send_message(ctx,
-                                        f'You will no longer receive {fissure_type} fissure logs in {channel.mention}')
+                                        f'You will no longer receive {fissure_type} fissure logs in {channel.mention}',
+                                        ephemeral=True)
             return
 
-        await self.bot.send_message(ctx, f'New {fissure_type} fissures will now be logged in {channel.mention}')
+        await self.bot.send_message(ctx, f'New {fissure_type} fissures will now be logged in {channel.mention}',
+                                    ephemeral=True)
 
     def get_era_list_from_config(self, channel_config: dict) -> List[str]:
         era_mapping = {
@@ -1198,10 +1206,12 @@ class Fissure(Cog):
                                                        show_void_storm)
         except IntegrityError:
             self.bot.database.unset_fissure_list_channel(channel.guild.id, channel.id, None)
-            await self.bot.send_message(ctx, f'The fissure list will no longer be posted/updated in {channel.mention}')
+            await self.bot.send_message(ctx, f'The fissure list will no longer be posted/updated in {channel.mention}',
+                                        ephemeral=True)
             return
 
-        await self.bot.send_message(ctx, f'A fissure list will now be posted and then updated in {channel.mention}')
+        await self.bot.send_message(ctx, f'A fissure list will now be posted and then updated in {channel.mention}',
+                                    ephemeral=True)
 
     @commands.hybrid_command(name='update_fissure_lists', aliases=['ufl', 'updatefissurelists'],
                              brief='Update all fissure lists.')
@@ -1212,9 +1222,11 @@ class Fissure(Cog):
 
         try:
             await self.update_all_fissure_lists()
-            await self.bot.send_message(ctx, 'All fissure lists have been updated.')
+            await self.bot.send_message(ctx, 'All fissure lists have been updated.',
+                                        ephemeral=True)
         except Exception as e:
-            await self.bot.send_message(ctx, f'An error occurred while updating the fissure lists: {str(e)}')
+            await self.bot.send_message(ctx, f'An error occurred while updating the fissure lists: {str(e)}',
+                                        ephemeral=True)
 
     @commands.hybrid_command(name='sendview',
                              brief='Sends the view.')
