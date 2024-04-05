@@ -392,7 +392,7 @@ class DataModal(discord.ui.Modal):
 
 class FissureView(discord.ui.View):
     def __init__(self, bot, button_configs):
-        super().__init__()
+        super().__init__(timeout=None)
         self.bot = bot
 
         for config in button_configs[:15]:
