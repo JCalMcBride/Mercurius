@@ -466,11 +466,6 @@ class FissureView(discord.ui.View):
                 await interaction.response.send_message("Cannot add a blank subscription.", ephemeral=True)
                 return
 
-            print(text)
-            print(fissure_data)
-            for item in self.children:
-                print(item)
-
             try:
                 self.bot.database.add_fissure_subscription(user_id, **fissure_data)
                 await interaction.response.send_message(f"You have subscribed to {text} fissures.", ephemeral=True)
