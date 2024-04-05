@@ -631,9 +631,22 @@ class Fissure(Cog):
                   ('Mission', '{mission} - {node} ({planet})'),
                   ('Ends', '{expiry}')]
 
-        for field, value in self.bot.fissure_engine.get_fields(fissures, fields, display_type,
-                                                               self.bot.emoji_dict).items():
-            embed.add_field(name=field, value='\n'.join(value), inline=True)
+        field_values = self.bot.fissure_engine.get_fields(fissures, fields, display_type, self.bot.emoji_dict)
+
+        if not fissures:
+            embed.description = "There are no valid fissures available right now."
+        else:
+            for field, value in field_values.items():
+                embed.add_field(name=field, value='\n'.join(value), inline=True)
+
+            description = []
+            for fissure_type in fissure_types:
+                filtered_fissures = [fissure for fissure in fissures if fissure.fissure_type == fissure_type]
+                if not filtered_fissures:
+                    description.append(f"There are no valid {fissure_type} fissures available right now.")
+
+            if description:
+                embed.description = '\n'.join(description)
 
         reset_embed = discord.Embed(colour=discord.Colour.dark_gold()) if len(fissure_types) >= 3 else None
         for fissure_type, resets in era_resets.items():
@@ -645,10 +658,10 @@ class Fissure(Cog):
             else:
                 embed.add_field(name='', value='\n'.join(resets), inline=True)
 
-        embeds.append(embed)
-
         if reset_embed:
             embeds.append(reset_embed)
+
+        embeds.append(embed)
 
         return embeds
 
@@ -888,9 +901,6 @@ class Fissure(Cog):
     def get_choices(self, nodes: List[dict], current: str, key: str) -> List[Choice[str]]:
         choices = {node[key] for node in nodes if key in node} - {''}
 
-        print(choices)
-
-
         return [Choice(name=choice, value=choice) for choice in choices if current.lower() in choice.lower()][:10]
 
     @add_fissure_subscription.autocomplete('node')
@@ -1057,7 +1067,10 @@ class Fissure(Cog):
         Choice(name='Tier 3 - + Excavation/Disruption', value=3),
         Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
         Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
-    ])
+    ],
+        display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
+                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
+    )
     async def fissures(self, ctx,
                        show_normal: bool = None,
                        show_steel_path: bool = None,
@@ -1068,7 +1081,8 @@ class Fissure(Cog):
                        show_neo: bool = None,
                        show_axi: bool = None,
                        show_requiem: bool = None,
-                       show_omnia: bool = None):
+                       show_omnia: bool = None,
+                       display_type: str = FissureEngine.DISPLAY_TYPE_DISCORD):
         """Get the current list of fissures."""
         user_id = ctx.author.id
         defaults = self.bot.database.get_fissure_list_defaults(user_id) or {}
@@ -1083,7 +1097,8 @@ class Fissure(Cog):
             "show_neo": True,
             "show_axi": True,
             "show_requiem": True,
-            "show_omnia": True
+            "show_omnia": True,
+            "display_type": FissureEngine.DISPLAY_TYPE_DISCORD
         }
 
         options = {key: value if value is not None else defaults.get(key, default_values[key])
@@ -1097,7 +1112,8 @@ class Fissure(Cog):
                                                            FissureEngine.FISSURE_TYPE_VOID_STORMS]
                          if options.get(f"show_{fissure_type.lower().replace(' ', '_')}", False)]
 
-        embeds = await self.get_fissure_list_embed(fissure_types, era_list=era_list, max_tier=options["max_tier"])
+        embeds = await self.get_fissure_list_embed(fissure_types, era_list=era_list, max_tier=options["max_tier"],
+                                                   display_type=options["display_type"])
         await self.bot.send_message(ctx, embed=embeds)
 
     @commands.hybrid_command(name='fissure_list_channel', aliases=['fissure_list', 'flist', 'flistchannel'],
