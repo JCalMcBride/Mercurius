@@ -2,16 +2,18 @@ import asyncio
 import logging
 from asyncio import sleep
 from pathlib import Path
+from typing import Union, List
 
 import discord
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from discord import Intents
-from discord.ext.commands import Bot as BotBase
+from discord import Intents, HTTPException, Forbidden, NotFound
+from discord.ext.commands import Bot as BotBase, MissingRole, MissingPermissions, CommandOnCooldown, CommandNotFound
 from discord.ext.commands import when_mentioned_or
 from aiomysql import OperationalError
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 
+from fissure_engine import FissureEngine
 from lib.db.database import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")
@@ -58,6 +60,7 @@ class Bot(BotBase):
         self.database = None
         self.guild = 939271447065526315
         self.emoji_dict = {}
+        self.fissure_engine = FissureEngine()
 
         super().__init__(
             command_prefix=get_prefix,
@@ -72,8 +75,9 @@ class Bot(BotBase):
 
         self.logger.info("Setup complete.")
 
-    async def send_message(self, ctx, content: str = None, error: Exception = None, embed: discord.Embed = None,
-                           view: discord.ui.View = None):
+    async def send_message(self, ctx, content: str = None, error: Exception = None,
+                           embed: Union[discord.Embed, List, None] = None,
+                           view: discord.ui.View = None, ephemeral: bool = False):
         if ctx is None:
             if error:
                 self.logger.error(f"{content}", exc_info=error)
@@ -82,13 +86,41 @@ class Bot(BotBase):
             self.logger.info(f"{content}")
             return
 
-        message = await ctx.send(content=content, embed=embed, view=view)
+        embeds = [embed] if isinstance(embed, discord.Embed) else embed
+
+        message = await ctx.send(content=content, view=view, embeds=embeds, ephemeral=ephemeral)
         if error:
             self.logger.error(format_log_message(ctx, content), exc_info=error)
         else:
             self.logger.info(format_log_message(ctx, content))
 
         return message
+
+    async def message_delete_handler(self, original_message, message, channel, delete_delay=15, delete_original=True):
+        if message.guild:
+            if delete_original:
+                try:
+                    await original_message.delete(delay=1)
+                except NotFound:
+                    pass
+                except Forbidden:
+                    pass
+                except HTTPException:
+                    pass
+
+            if channel.name != "bot-spam":
+                await sleep(delete_delay)
+                try:
+                    await message.delete()
+                except NotFound:
+                    pass
+                except Forbidden:
+                    pass
+                except HTTPException:
+                    pass
+
+    def mdh(self, original_message, message, channel, delete_delay=15, delete_original=True):
+        self.loop.create_task(self.message_delete_handler(original_message, message, channel, delete_delay, delete_original))
 
     def run(self):
         self.logger.info('Running setup.')
@@ -157,8 +189,32 @@ class Bot(BotBase):
         self.logger.info("Bot disconnected.")
 
     async def on_error(self, err, *args, **kwargs):
+        if err == "on_command_error":
+            await args[0].send("This command has an unspecified error. Please try again later.")
+
         self.logger.error(f"An error occurred: {err}", exc_info=True)
         raise
+
+    async def on_command_error(self, ctx, exc):
+        if isinstance(exc, CommandNotFound):
+            pass
+        elif isinstance(exc, CommandOnCooldown):
+            await self.send_message(ctx, "Command is currently on cooldown, try again later.")
+        elif isinstance(exc, MissingPermissions):
+            await self.send_message(ctx, "You lack the permissions to use this command here.")
+        elif isinstance(exc, MissingRole):
+            await self.send_message(ctx, "You lack the role required to use this command here.")
+        elif hasattr(exc, "original"):
+            if isinstance(exc.original, SyntaxError):
+                await self.send_message(ctx, "Something is wrong with the syntax of that command.")
+            elif isinstance(exc, HTTPException):
+                await self.send_message(ctx, "Unable to send message.")
+            elif isinstance(exc, Forbidden):
+                await self.send_message(ctx, "I do not have permission to do that.")
+            else:
+                raise exc.original
+        else:
+            raise exc
 
     async def on_ready(self):
         if not self.ready:
@@ -175,7 +231,7 @@ class Bot(BotBase):
 
             except OperationalError:
                 self.market_db = None
-                self.logger.error("Could not connect to database. Market cog will not be loaded.")
+                self.logger.error("Could not connect to database. Market cog will not be loaded.", exc_info=True)
 
             try:
                 self.database: MercuriusDatabase = MercuriusDatabase(user=self.bot_config['db_user'],
@@ -183,9 +239,9 @@ class Bot(BotBase):
                                                                      host=self.bot_config['db_host'],
                                                                      database='mercurius')
                 self.database.build_database()
-            except OperationalError:
+            except OperationalError as e:
                 self.database = None
-                self.logger.error("Could not connect to database.")
+                self.logger.error("Could not connect to database.", exc_info=e)
 
             self.database.insert_servers([x.id for x in self.guilds])
 

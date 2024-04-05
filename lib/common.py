@@ -26,3 +26,10 @@ def get_config(path:str) -> Dict[str, str]:
     with open(path, 'r') as f:
         ret = json.load(f)
     return ret
+
+with open('lib/data/misc_bot_data.json') as f:
+    misc_bot_data = json.load(f)
+
+
+def get_emoji(emoji):
+    return f"<:{emoji}:{misc_bot_data['emojis'][emoji]}>"
