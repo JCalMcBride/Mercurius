@@ -460,8 +460,6 @@ class Fissure(Cog):
     async def update_fissure_list(self):
         new_fissures, changed_fissure_types = await self.bot.fissure_engine.build_fissure_list()
 
-        print(new_fissures)
-
         if new_fissures:
             self.bot.loop.create_task(self.send_new_fissures(new_fissures))
 
