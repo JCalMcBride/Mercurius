@@ -7,8 +7,9 @@ import numpy as np
 import relic_engine
 from PIL import Image
 from discord import Embed
-from setuputils import strtobool
+
 from simulation_engine import get_drop_priority, num_runs_dict
+from strtobool import strtobool
 
 from lib.common import get_emoji
 from lib.relic_utils import era_list, style_list, refinement_list, fix_refinement, \
