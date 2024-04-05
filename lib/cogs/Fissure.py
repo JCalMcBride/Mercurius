@@ -1246,7 +1246,7 @@ class Fissure(Cog):
         await ctx.send("Subscribe to the following fissures:", view=FissureView(self.bot, button_configs))
 
     @app_commands.command(name='create_fissure_view', description='Create a fissure view')
-    @commands.has_permissions(manage_channels=True)
+    @app_commands.checks.has_permissions(manage_channels=True)
     async def create_fissure_view(self, interaction: discord.Interaction):
         view = ButtonView(self.bot, interaction)
         await interaction.response.send_message("Click the 'Add Button' button to add buttons to the fissure view.",
