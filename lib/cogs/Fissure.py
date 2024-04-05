@@ -1,5 +1,6 @@
 import asyncio
 import traceback
+import uuid
 from asyncio import sleep
 from collections import defaultdict
 from typing import List, Union
@@ -13,6 +14,7 @@ from fissure_engine import fissure_engine
 from fissure_engine.common import sol_nodes
 from fissure_engine.fissure_engine import FissureEngine
 from pymysql import IntegrityError
+
 
 class FissureSubscriptionView(discord.ui.View):
     def __init__(self, bot, user, subscriptions, embeds):
@@ -61,7 +63,8 @@ class FissureSubscriptionView(discord.ui.View):
 
     def update_delete_buttons(self):
         for child in self.children:
-            if isinstance(child, discord.ui.Button) and child.label.startswith("Delete") and child.label != "Delete All Subscriptions":
+            if isinstance(child, discord.ui.Button) and child.label.startswith(
+                    "Delete") and child.label != "Delete All Subscriptions":
                 self.remove_item(child)
 
         start_index = self.current_page * 5
@@ -78,7 +81,8 @@ class FissureSubscriptionView(discord.ui.View):
 
     async def confirm_delete_all_subscriptions(self, interaction: discord.Interaction):
         confirm_view = ConfirmDeleteAllView(self.bot, self.user, self.subscriptions, self)
-        await interaction.response.send_message("Are you sure you want to delete all fissure subscriptions?", view=confirm_view, ephemeral=True)
+        await interaction.response.send_message("Are you sure you want to delete all fissure subscriptions?",
+                                                view=confirm_view, ephemeral=True)
 
     async def delete_all_subscriptions(self):
         user_id = self.user.id
@@ -98,14 +102,16 @@ class FissureSubscriptionView(discord.ui.View):
             self.subscriptions.remove(subscription)
 
             if not self.subscriptions:
-                await interaction.response.edit_message(content="You have no active fissure subscriptions.", embed=None, view=None)
+                await interaction.response.edit_message(content="You have no active fissure subscriptions.", embed=None,
+                                                        view=None)
                 self.stop()
             else:
                 self.embeds = []
                 for i in range(0, len(self.subscriptions), 5):
                     embed = discord.Embed(title="Your Fissure Subscriptions", color=discord.Color.blue())
                     for j, sub in enumerate(self.subscriptions[i:i + 5], start=i + 1):
-                        fields = [f"{field.replace('_', ' ').capitalize()}: {value}" for field, value in sub.items() if value]
+                        fields = [f"{field.replace('_', ' ').capitalize()}: {value}" for field, value in sub.items() if
+                                  value]
                         embed.add_field(name=str(j), value="\n".join(fields), inline=True)
                     self.embeds.append(embed)
 
@@ -223,28 +229,52 @@ class ButtonModal(discord.ui.Modal):
         self.add_item(self.emoji_input)
 
     async def on_submit(self, interaction: discord.Interaction):
-        emoji = self.emoji_input.value.strip() if self.emoji_input.value else ''
-        text = self.text_input.value
+        # Trim whitespace and check if emoji input is provided
+        emoji_input = self.emoji_input.value.strip() if self.emoji_input.value else ''
+        text_input = self.text_input.value
 
-        if emoji:
+        # Function to attempt converting an emoji input into a Discord Emoji object
+        async def get_emoji(emoji_key):
+            if emoji_key in self.bot.emoji_dict:  # Check bot's local emoji dictionary first
+                return self.bot.emoji_dict[emoji_key]
+
+            # Attempt to find the emoji in the guild's emojis
+            guild_emoji = discord.utils.get(interaction.guild.emojis, name=emoji_key)
+            if guild_emoji:
+                return guild_emoji
+
+            # Attempt to extract emoji ID from custom emoji format <:Name:ID>
+            if emoji_key.startswith('<:') and emoji_key.endswith('>'):
+                id_part = emoji_key.split(':')[-1][:-1]
+                try:
+                    potential_id = int(id_part)
+                    return await self.bot.fetch_emoji(potential_id)
+                except (ValueError, discord.NotFound):
+                    return None  # Invalid format or not found
+
+            # Last resort: try fetching the emoji directly by ID, if it's purely numeric
             try:
-                if emoji in self.bot.emoji_dict:
-                    emoji = self.bot.emoji_dict[emoji]
-                else:
-                    # Try to get the emoji from the guild's emojis
-                    guild_emoji = discord.utils.get(interaction.guild.emojis, name=emoji)
+                return await self.bot.fetch_emoji(int(emoji_key))
+            except discord.NotFound:
+                return None
 
-                    if guild_emoji:
-                        emoji = guild_emoji
-                    else:
-                        await interaction.response.send_message("Invalid emoji. Please enter a valid custom server emoji.", ephemeral=True)
-                        return
-            except Exception:
-                await interaction.response.send_message("An error occurred while validating the emoji. Please try again.", ephemeral=True)
+        if emoji_input:
+            emoji = await get_emoji(emoji_input)
+            if not emoji:
+                await interaction.response.send_message("Invalid emoji. Please enter a valid custom server emoji.",
+                                                        ephemeral=True)
                 return
+        else:
+            emoji = None  # Handle case where no emoji is provided
 
-        view = DataView(self.bot, self.interaction, self, emoji, text)
-        await interaction.response.edit_message(content='Select the fissure data:', view=view)
+        # Proceed with valid emoji or None if not provided
+        try:
+            view = DataView(self.bot, self.interaction, self, emoji, text_input)
+            await interaction.response.edit_message(content='Select the fissure data:', view=view)
+        except Exception as e:
+            await interaction.response.send_message(f"An error occurred while updating the message: {str(e)}",
+                                                    ephemeral=True)
+
 
 class DataView(discord.ui.View):
     def __init__(self, bot, interaction, button_modal, emoji, text):
@@ -395,16 +425,23 @@ class FissureView(discord.ui.View):
         super().__init__(timeout=None)
         self.bot = bot
 
+        used_custom_ids = []
+
         for config in button_configs[:15]:
             emoji = config['emoji']
             text = config['text']
             fissure_data = config['fissure_data']
 
+            custom_id = f"fissure_button_{text.lower()}"
+            if custom_id in used_custom_ids:
+                custom_id += custom_id + str(uuid.uuid4())
+
+            used_custom_ids.append(custom_id)
             button = discord.ui.Button(
                 label=text,
                 emoji=emoji if emoji else None,
                 style=discord.ButtonStyle.primary,
-                custom_id=f"fissure_subscribe_{text.lower()}"
+                custom_id=custom_id
             )
             button.callback = self.create_button_callback(text, fissure_data)
             self.add_item(button)
@@ -909,6 +946,7 @@ class Fissure(Cog):
         choices = {node[key] for node in nodes if key in node} - {''}
 
         return [Choice(name=choice, value=choice) for choice in choices if current.lower() in choice.lower()][:10]
+
     @add_fissure_subscription.autocomplete('node')
     async def node_autocomplete(self, interaction: discord.Interaction, current: str) -> List[Choice[str]]:
         filtered_nodes = self.filter_nodes(interaction)
