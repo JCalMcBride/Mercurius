@@ -265,9 +265,9 @@ class MarketItemView(discord.ui.View):
 
         period, volume, daily_average = await self.get_volume()
 
-        embed.add_field(name='Period', value='```\n' + '\n'.join(period) + '```', inline=True)
-        embed.add_field(name='Volume', value='```\n' + '\n'.join(volume) + '```', inline=True)
-        embed.add_field(name='Daily Average', value='```\n' + '\n'.join(daily_average) + '```', inline=True)
+        embed.add_field(name='Period', value='\n' + '\n'.join(period) + '', inline=True)
+        embed.add_field(name='Volume', value='\n' + '\n'.join(volume) + '', inline=True)
+        embed.add_field(name='Daily Average', value='\n' + '\n'.join(daily_average) + '', inline=True)
 
         return embed
 
