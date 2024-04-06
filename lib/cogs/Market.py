@@ -229,8 +229,9 @@ class MarketItemView(discord.ui.View):
     async def get_part_prices(self, order_type: str = 'sell'):
         embed = await self.embed()
 
-        for field in self.get_part_price_embed_fields(order_type):
-            embed.add_field(name=field[0], value=field[1], inline=True)
+        fields = self.get_part_price_embed_fields(order_type)
+        for i, field in enumerate(fields):
+            embed.insert_field_at(i, name=field[0], value=field[1], inline=True)
 
         return embed
 
@@ -309,8 +310,9 @@ class MarketItemView(discord.ui.View):
 
         embed = await self.embed()
 
-        for field in self.get_order_embed_fields(num_orders=num_orders):
-            embed.add_field(name=field[0], value=field[1], inline=True)
+        fields = self.get_order_embed_fields(num_orders=num_orders)
+        for i, field in enumerate(fields):
+            embed.insert_field_at(i, name=field[0], value=field[1], inline=True)
 
         return embed
 
