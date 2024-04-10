@@ -78,13 +78,13 @@ class MercuriusDatabase:
     _INSERT_SERVER_QUERY = """INSERT IGNORE INTO servers (server_id) VALUES (%s)"""
 
     _SET_FISSURE_LIST_DEFAULTS_QUERY = """
-    INSERT INTO fissure_list_defaults (user_id, show_normal, show_steel_path, show_void_storm, max_tier, 
+    INSERT INTO fissure_list_defaults (user_id, show_normal, show_steel_path, show_void_storms, max_tier, 
                                        show_lith, show_meso, show_neo, show_axi, show_requiem, show_omnia)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE 
         show_normal = VALUES(show_normal),
         show_steel_path = VALUES(show_steel_path),
-        show_void_storm = VALUES(show_void_storm),
+        show_void_storms = VALUES(show_void_storms),
         max_tier = VALUES(max_tier),
         show_lith = VALUES(show_lith),
         show_meso = VALUES(show_meso),
@@ -95,7 +95,7 @@ class MercuriusDatabase:
     """
 
     _GET_FISSURE_LIST_DEFAULTS_QUERY = """
-    SELECT show_normal, show_steel_path, show_void_storm, max_tier, 
+    SELECT show_normal, show_steel_path, show_void_storms, max_tier, 
            show_lith, show_meso, show_neo, show_axi, show_requiem, show_omnia
     FROM fissure_list_defaults
     WHERE user_id = %s
@@ -272,11 +272,11 @@ class MercuriusDatabase:
             fissure_list_dict[row[1]].append(channel_config)
 
         return fissure_list_dict
-    def set_fissure_list_defaults(self, user_id: int, show_normal: bool, show_steel_path: bool, show_void_storm: bool,
+    def set_fissure_list_defaults(self, user_id: int, show_normal: bool, show_steel_path: bool, show_void_storms: bool,
                                   max_tier: int, show_lith: bool, show_meso: bool, show_neo: bool, show_axi: bool,
                                   show_requiem: bool, show_omnia: bool) -> None:
         self._execute_query(self._SET_FISSURE_LIST_DEFAULTS_QUERY, user_id, show_normal, show_steel_path,
-                            show_void_storm, max_tier, show_lith, show_meso, show_neo, show_axi, show_requiem,
+                            show_void_storms, max_tier, show_lith, show_meso, show_neo, show_axi, show_requiem,
                             show_omnia, commit=True)
 
     def get_fissure_list_defaults(self, user_id: int) -> Dict[str, Any]:
@@ -285,7 +285,7 @@ class MercuriusDatabase:
             return {
                 "show_normal": defaults[0],
                 "show_steel_path": defaults[1],
-                "show_void_storm": defaults[2],
+                "show_void_storms": defaults[2],
                 "max_tier": defaults[3],
                 "show_lith": defaults[4],
                 "show_meso": defaults[5],

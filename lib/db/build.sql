@@ -46,7 +46,7 @@ CREATE TABLE if not exists fissure_list_defaults
     user_id      bigint PRIMARY KEY,
     show_normal  boolean DEFAULT true,
     show_steel_path boolean DEFAULT false,
-    show_void_storm boolean DEFAULT false,
+    show_void_storms boolean DEFAULT false,
     max_tier     int DEFAULT 5,
     show_lith    boolean DEFAULT true,
     show_meso    boolean DEFAULT true,

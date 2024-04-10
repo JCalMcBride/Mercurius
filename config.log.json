@@ -37,7 +37,7 @@
             "filename": "logs/apscheduler.log",
             "maxBytes": 5242880,
             "backupCount": 100,
-            "level": "INFO",
+            "level": "DEBUG",
             "encoding": "utf8",
             "formatter": "verbose"
         },

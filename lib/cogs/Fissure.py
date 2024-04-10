@@ -3,6 +3,7 @@ import traceback
 import uuid
 from asyncio import sleep
 from collections import defaultdict
+from pprint import pprint
 from typing import List, Union
 
 import discord
@@ -183,7 +184,8 @@ class ButtonView(discord.ui.View):
     async def edit_buttons_callback(self, interaction: discord.Interaction):
         select = discord.ui.Select(
             placeholder="Select a button to edit",
-            options=[discord.SelectOption(label=config['text'], value=str(i)) for i, config in enumerate(self.button_configs)]
+            options=[discord.SelectOption(label=config['text'], value=str(i)) for i, config in
+                     enumerate(self.button_configs)]
         )
         select.callback = self.edit_button_select_callback
         view = discord.ui.View()
@@ -210,7 +212,8 @@ class ButtonView(discord.ui.View):
             message = await interaction.channel.send(content=self.message_text, view=view)
 
             # Save the data associated with the view to the database
-            self.bot.database.save_fissure_view(self.message_text, self.button_configs, interaction.channel.id, message.id)
+            self.bot.database.save_fissure_view(self.message_text, self.button_configs, interaction.channel.id,
+                                                message.id)
 
             await interaction.response.edit_message(content="Fissure view created successfully.", view=None, embed=None)
         else:
@@ -264,7 +267,8 @@ class ButtonModal(discord.ui.Modal):
         self.text_input = discord.ui.TextInput(label='Button Text', placeholder='Enter the text for the button',
                                                default=button_config['text'] if button_config else None)
         self.emoji_input = discord.ui.TextInput(label='Emoji', placeholder='Enter the custom emoji for the button',
-                                                required=False, default=button_config['emoji'] if button_config else None)
+                                                required=False,
+                                                default=button_config['emoji'] if button_config else None)
         self.add_item(self.text_input)
         self.add_item(self.emoji_input)
 
@@ -706,6 +710,19 @@ class Fissure(Cog):
 
         return embed
 
+    def list_to_field_string(self, field_list: List[str], max_length: int = 40):
+        """
+        Converts list of strings to a string that can be used as a field value in an embed.
+        Any string that is longer than max_length will be cut off and appended with '..'.
+        """
+        field_string = ""
+        for field in field_list:
+            if len(field) > max_length:
+                field_string += field[:max_length - 2] + "..\n"
+            else:
+                field_string += field + "\n"
+        return field_string
+
     async def get_fissure_list_embed(self, fissure_types: Union[List, str] = 'Normal',
                                      display_type: str = FissureEngine.DISPLAY_TYPE_DISCORD,
                                      era_list: list = None,
@@ -722,6 +739,7 @@ class Fissure(Cog):
                                                         era=era_list,
                                                         tier=list(range(1, max_tier + 1)))
 
+
         era_resets = self.bot.fissure_engine.get_resets(fissure_type=fissure_types,
                                                         display_type=display_type,
                                                         emoji_dict=self.bot.emoji_dict,
@@ -735,45 +753,33 @@ class Fissure(Cog):
 
         field_values = self.bot.fissure_engine.get_fields(fissures, fields, display_type, self.bot.emoji_dict)
 
+
         if not fissures:
             embed.description = "There are no valid fissures available right now."
         else:
-            cut_in_half = False
-            if any((len('\n'.join(value))) > 1024 for value in field_values.values()):
-                cut_in_half = True
+            # Determine the number of sublists (one per fissure type) in field_values
+            num_fissure_types = max(len(values) for values in field_values.values())
 
-            new_field_values = []
-            for field, value in field_values.items():
-                if cut_in_half:
-                    embed.add_field(name=field, value='\n'.join(value[:len(value) // 2]), inline=True)
-                    new_field_values.append('\n'.join(value[len(value) // 2:]))
-                else:
-                    embed.add_field(name=field, value='\n'.join(value), inline=True)
+            # Create an embed for each fissure type
+            for fissure_type_index in range(num_fissure_types):
+                for field_name, _ in fields:
+                    max_length = 40 if field_name == 'Mission' else 1024
 
-            for value in new_field_values:
-                embed.add_field(name='', value=value, inline=True)
+                    # Access the appropriate sublist for the current fissure type
+                    # and handle cases where some fields might have fewer entries
+                    value_list = field_values.get(field_name, [])
+                    value = value_list[fissure_type_index] if fissure_type_index < len(value_list) else "N/A"
 
-            description = []
-            for fissure_type in fissure_types:
-                filtered_fissures = [fissure for fissure in fissures if fissure.fissure_type == fissure_type]
-                if not filtered_fissures:
-                    description.append(f"There are no valid {fissure_type} fissures available right now.")
+                    # Only add field names for the first fissure type
+                    field_name = field_name if fissure_type_index == 0 else ""
 
-            if description:
-                embed.description = '\n'.join(description)
+                    embed.add_field(name=field_name, value=self.list_to_field_string(value, max_length), inline=True)
 
-        reset_embed = discord.Embed(colour=discord.Colour.dark_gold()) if len(fissure_types) >= 3 else None
-        for fissure_type, resets in era_resets.items():
+        for i, (fissure_type, resets) in enumerate(era_resets.items()):
             fissure_type_identifier = fissure_engine.get_fissure_type_identifier(fissure_type, self.bot.emoji_dict)
             resets = [f"{fissure_type_identifier} {item}" for item in resets]
 
-            if reset_embed:
-                reset_embed.add_field(name='', value='\n'.join(resets), inline=True)
-            else:
-                embed.add_field(name='', value='\n'.join(resets), inline=True)
-
-        if reset_embed:
-            embeds.append(reset_embed)
+            embed.add_field(name='', value='\n'.join(resets), inline=True if i < 2 else False)
 
         embeds.append(embed)
 
@@ -782,7 +788,7 @@ class Fissure(Cog):
     @commands.hybrid_command(name='set_fissure_defaults', aliases=['sfd', 'setfissuredefaults'])
     @app_commands.describe(show_normal='Whether to show normal fissures by default.',
                            show_steel_path='Whether to show Steel Path fissures by default.',
-                           show_void_storm='Whether to show Void Storm fissures by default.',
+                           show_void_storms='Whether to show Void Storm fissures by default.',
                            max_tier='The maximum tier of fissures to show by default.',
                            show_lith='Whether to show Lith fissures by default.',
                            show_meso='Whether to show Meso fissures by default.',
@@ -800,7 +806,7 @@ class Fissure(Cog):
     async def set_fissure_defaults(self, ctx,
                                    show_normal: bool = True,
                                    show_steel_path: bool = False,
-                                   show_void_storm: bool = False,
+                                   show_void_storms: bool = False,
                                    max_tier: int = 5,
                                    show_lith: bool = True,
                                    show_meso: bool = True,
@@ -818,7 +824,7 @@ class Fissure(Cog):
             # Create a new entry for the user in the users table
             self.bot.database.create_user(user_id)
 
-        self.bot.database.set_fissure_list_defaults(user_id, show_normal, show_steel_path, show_void_storm,
+        self.bot.database.set_fissure_list_defaults(user_id, show_normal, show_steel_path, show_void_storms,
                                                     max_tier, show_lith, show_meso, show_neo, show_axi,
                                                     show_requiem, show_omnia)
 
@@ -1172,7 +1178,7 @@ class Fissure(Cog):
     @commands.hybrid_command(name='fissures', aliases=['fissure', 'fiss', 'f'])
     @app_commands.describe(show_normal='Whether to show normal fissures.',
                            show_steel_path='Whether to show Steel Path fissures.',
-                           show_void_storm='Whether to show Void Storm fissures.',
+                           show_void_storms='Whether to show Void Storm fissures.',
                            max_tier='The maximum tier of fissures to show.',
                            show_lith='Whether to show Lith fissures.',
                            show_meso='Whether to show Meso fissures.',
@@ -1193,7 +1199,7 @@ class Fissure(Cog):
     async def fissures(self, ctx,
                        show_normal: bool = None,
                        show_steel_path: bool = None,
-                       show_void_storm: bool = None,
+                       show_void_storms: bool = None,
                        max_tier: int = None,
                        show_lith: bool = None,
                        show_meso: bool = None,
@@ -1209,7 +1215,7 @@ class Fissure(Cog):
         default_values = {
             "show_normal": True,
             "show_steel_path": False,
-            "show_void_storm": False,
+            "show_void_storms": False,
             "max_tier": 5,
             "show_lith": True,
             "show_meso": True,
@@ -1240,7 +1246,7 @@ class Fissure(Cog):
     @commands.has_permissions(manage_channels=True)
     @app_commands.describe(show_normal='Whether to show normal fissures.',
                            show_steel_path='Whether to show Steel Path fissures.',
-                           show_void_storm='Whether to show Void Storm fissures.',
+                           show_void_storms='Whether to show Void Storm fissures.',
                            max_tier='The maximum tier of fissures to show.',
                            show_lith='Whether to show Lith fissures.',
                            show_meso='Whether to show Meso fissures.',
@@ -1267,7 +1273,7 @@ class Fissure(Cog):
                                    show_steel_path: bool = commands.parameter(
                                        default=False,
                                        description="Whether to show Steel Path fissures."),
-                                   show_void_storm: bool = commands.parameter(
+                                   show_void_storms: bool = commands.parameter(
                                        default=False,
                                        description="Whether to show Void Storm fissures."),
                                    max_tier: int = commands.parameter(
@@ -1305,7 +1311,7 @@ class Fissure(Cog):
         You must have the `manage_channels` permission to use this command.
 
         By default, it will show all fissure types. You can specify which fissure types to show using the
-        `show_normal`, `show_steel_path`, and `show_void_storm` parameters.
+        `show_normal`, `show_steel_path`, and `show_void_storms` parameters.
         """
         if channel is None:
             channel = ctx.channel
@@ -1314,7 +1320,7 @@ class Fissure(Cog):
             self.bot.database.set_fissure_list_channel(channel.guild.id, channel.id, None, max_tier,
                                                        show_lith, show_meso, show_neo, show_axi, show_requiem,
                                                        show_omnia, display_type, show_normal, show_steel_path,
-                                                       show_void_storm)
+                                                       show_void_storms)
         except IntegrityError:
             self.bot.database.unset_fissure_list_channel(channel.guild.id, channel.id, None)
             await self.bot.send_message(ctx, f'The fissure list will no longer be posted/updated in {channel.mention}',
@@ -1415,7 +1421,6 @@ class Fissure(Cog):
             for channel_config in channel_configs:
                 await update_channel_fissure_list(channel_config)
                 await asyncio.sleep(1)
-
 
         server_update_tasks = [update_server_fissure_lists(server_id, channel_configs) for server_id, channel_configs in
                                fissure_list_dict.items()]
