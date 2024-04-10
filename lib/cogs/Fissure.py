@@ -739,15 +739,19 @@ class Fissure(Cog):
             embed.description = "There are no valid fissures available right now."
         else:
             cut_in_half = False
-            if any((len('\n'.join(value))) for value in field_values.values()):
+            if any((len('\n'.join(value))) > 1024 for value in field_values.values()):
                 cut_in_half = True
 
+            new_field_values = []
             for field, value in field_values.items():
                 if cut_in_half:
                     embed.add_field(name=field, value='\n'.join(value[:len(value) // 2]), inline=True)
-                    embed.add_field(name='\u200b', value='\n'.join(value[len(value) // 2:]), inline=True)
+                    new_field_values.append('\n'.join(value[len(value) // 2:]))
                 else:
                     embed.add_field(name=field, value='\n'.join(value), inline=True)
+
+            for value in new_field_values:
+                embed.add_field(name='', value=value, inline=True)
 
             description = []
             for fissure_type in fissure_types:
