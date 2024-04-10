@@ -125,8 +125,7 @@ class Fun(Cog):
 
         supporter_role = self.bot.get_guild(780376195182493707).get_role(1086352745390419968)
         patrons = [await self.bot.fetch_user(182359932518006794),
-                   await self.bot.fetch_user(137365776121200650),
-                   await self.bot.fetch_user(474458695351402497)]
+                   await self.bot.fetch_user(137365776121200650)]
 
         emoji_dict = {419095972568891403: "<:Sui:1097540744958459977>",
                       137914401658241024: "<:Hathena:1097540748557160508>",
