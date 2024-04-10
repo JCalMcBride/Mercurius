@@ -278,6 +278,20 @@ class Fun(Cog):
             else:
                 await ctx.send("Could not receive image, please try again later.")
 
+    @commands.hybrid_command(name='bunny', description="Display a random bunny.")
+    @app_commands.checks.cooldown(1, 5)
+    async def bunny_picture(self, ctx: commands.Context):
+        """Sends an image of a random bunny."""
+        url = "https://api.bunnies.io/v2/loop/random/?media=gif,png"
+
+        async with request("GET", url, headers={}) as response:
+            if response.status == 200:
+                data = await response.json()
+
+                await ctx.send(data['media']["gif"])
+            else:
+                await ctx.send("Could not receive image, please try again later.")
+
     @commands.hybrid_command(name='cat', description="Display a random cat.")
     @app_commands.checks.cooldown(1, 5)
     async def cat_picture(self, ctx: commands.Context):
@@ -314,7 +328,9 @@ class Fun(Cog):
 
         async with request("GET", url, headers={}) as response:
             if response.status == 200:
-                data = await response.json()
+                data = await response.text()
+
+                data = json.loads(data)
 
                 await ctx.send(data["link"])
             else:
