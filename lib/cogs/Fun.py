@@ -118,15 +118,15 @@ class Fun(Cog):
     async def credits_command(self, ctx):
         """Mercurius credits"""
         heart_list = ["<:pepeheart:780599565039697981>", "<:jaxheart:780515012279402536>", "❤️", "💙", "💚", "💛", "💜"]
-        guthix = self.bot.fetch_user(585035501929758721)
-        rav = self.bot.fetch_user(113361399727558656)
-        mojober = self.bot.fetch_user(492255815160430593)
-        snap = self.bot.fetch_user(148706546308612096)
+        guthix = await self.bot.fetch_user(585035501929758721)
+        rav = await self.bot.fetch_user(113361399727558656)
+        mojober = await self.bot.fetch_user(492255815160430593)
+        snap = await self.bot.fetch_user(148706546308612096)
 
         supporter_role = self.bot.get_guild(780376195182493707).get_role(1086352745390419968)
-        patrons = [self.bot.fetch_user(182359932518006794),
-                   self.bot.fetch_user(137365776121200650),
-                   self.bot.fetch_user(474458695351402497)]
+        patrons = [await self.bot.fetch_user(182359932518006794),
+                   await self.bot.fetch_user(137365776121200650),
+                   await self.bot.fetch_user(474458695351402497)]
 
         emoji_dict = {419095972568891403: "<:Sui:1097540744958459977>",
                       137914401658241024: "<:Hathena:1097540748557160508>",
