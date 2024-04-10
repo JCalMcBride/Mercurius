@@ -132,6 +132,18 @@ class MercuriusDatabase:
     FROM fissure_views
     """
 
+    _GET_FISSURE_VIEW_BY_MESSAGE_ID_QUERY = """
+    SELECT message_text, button_configs, channel_id, message_id
+    FROM fissure_views
+    WHERE message_id = %s
+    """
+
+    _UPDATE_FISSURE_VIEW_QUERY = """
+    UPDATE fissure_views
+    SET message_text = %s, button_configs = %s
+    WHERE message_id = %s
+    """
+
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
                                                       password=password,
@@ -396,3 +408,18 @@ class MercuriusDatabase:
             }
             for row in results
         ]
+
+    def get_fissure_view_by_message_id(self, message_id: int) -> Union[dict, None]:
+        result = self._execute_query(self._GET_FISSURE_VIEW_BY_MESSAGE_ID_QUERY, message_id, fetch='one')
+        if result:
+            return {
+                "message_text": result[0],
+                "button_configs": json.loads(result[1]),
+                "channel_id": result[2],
+                "message_id": result[3]
+            }
+        return None
+
+    def update_fissure_view(self, message_text: str, button_configs: List[dict], message_id: int) -> None:
+        self._execute_query(self._UPDATE_FISSURE_VIEW_QUERY, message_text, json.dumps(button_configs), message_id,
+                            commit=True)

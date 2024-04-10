@@ -11,6 +11,7 @@ from discord import NotFound, Forbidden, HTTPException, app_commands, Embed
 from discord.app_commands import Choice, CheckFailure
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
+from pytz import UTC
 
 with open('lib/data/giveaway_data.json') as f:
     x = json.load(f)
@@ -89,7 +90,7 @@ def get_embed(giveaway_prize, author, role, winners, current_time, giveaway_time
         description_text = f"Winners:\n" \
                            f"{chr(10).join(winner_list)}\n"
 
-        end_time = datetime.utcfromtimestamp(start_time) + timedelta(seconds=duration)
+        end_time = datetime.fromtimestamp(start_time, tz=UTC) + timedelta(seconds=duration)
 
     description_text += f"Hosted by: {author.mention}"
     footer_text += f"End{'s' if winner_list is None else 'ed'} at {end_time.strftime('%Y-%m-%d %I:%M:%S %p')} UTC"
@@ -191,7 +192,7 @@ class Giveaway(Cog):
     async def update_post(self, message_id):
         giveaway_data = get_giveaway_data(message_id)
 
-        current_time = datetime.utcnow()
+        current_time = datetime.now(tz=UTC)
 
         giveaway_time = get_giveaway_time(giveaway_data['start_time'], giveaway_data['duration'], current_time)
 
@@ -325,7 +326,7 @@ class Giveaway(Cog):
                                           f"[Jump to giveaway!]({message_obj.jump_url})")
         try:
             set_giveaway_complete(message_id)
-            msg_embed = get_embed(giveaway_data['prize'], author, role_obj, giveaway_data['winners'], datetime.utcnow(),
+            msg_embed = get_embed(giveaway_data['prize'], author, role_obj, giveaway_data['winners'], datetime.now(tz=UTC),
                                   None, winner_list, giveaway_data['start_time'], giveaway_data['duration'])
             await message_obj.edit(embed=msg_embed)
             await channel_obj.send(content=" ".join(winner_list), embed=embed)
@@ -347,7 +348,7 @@ class Giveaway(Cog):
                       f" could not be found during giveaway creation process.")
             return
 
-        current_time = datetime.utcnow()
+        current_time = datetime.now(tz=UTC)
 
         winner_list = None
 
@@ -383,10 +384,11 @@ class Giveaway(Cog):
                              duration,
                              winners, giveaway_prize)
 
-        self.bot.scheduler.add_job(self.complete_giveaway, "date",
-                                   run_date=datetime.utcnow() + timedelta(seconds=duration),
+        test = self.bot.scheduler.add_job(self.complete_giveaway, "date",
+                                   run_date=datetime.now(tz=UTC) + timedelta(seconds=duration),
                                    args=[giveaway_msg.id],
                                    id=str(giveaway_msg.id))
+
 
     @app_commands.command(name='startgiveaway', description="Starts a giveaway.")
     @app_commands.describe(giveaway_prize="The prize you want to give away.",
@@ -579,8 +581,8 @@ class Giveaway(Cog):
 
             for giveaway in giveaway_list:
                 giveaway_data = get_giveaway_data(giveaway)
-                current_time = datetime.utcnow()
-                start_time = datetime.fromtimestamp(giveaway_data['start_time'])
+                current_time = datetime.now(tz=UTC)
+                start_time = datetime.fromtimestamp(giveaway_data['start_time'], tz=UTC)
 
                 if start_time + timedelta(seconds=giveaway_data['duration']) > current_time:
                     self.bot.scheduler.add_job(self.complete_giveaway, "date",

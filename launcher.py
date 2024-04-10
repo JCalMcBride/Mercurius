@@ -21,6 +21,7 @@ def main(ctx, **kwargs):
     logging.basicConfig()
     try:
         cfgdict = get_config(os.path.join(ctx.obj['basepath'], 'config.log.json'))
+        logging.getLogger('apscheduler').setLevel(logging.DEBUG)
     except Exception as e:
         logging.error(e)
         quit()

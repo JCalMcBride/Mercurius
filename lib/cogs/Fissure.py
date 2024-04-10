@@ -147,16 +147,20 @@ class ConfirmDeleteAllView(discord.ui.View):
 
 
 class ButtonView(discord.ui.View):
-    def __init__(self, bot, interaction):
+    def __init__(self, bot, interaction, message_text=None, button_configs=None, fissure_view_message=None):
         super().__init__()
         self.bot = bot
         self.interaction = interaction
-        self.button_configs = []
-        self.message_text = "Fissure view created:"
+        self.button_configs = [] if button_configs is None else button_configs
+        self.message_text = "Fissure view created:" if message_text is None else message_text
 
         self.add_button = discord.ui.Button(label='Add Button', style=discord.ButtonStyle.primary)
         self.add_button.callback = self.add_button_callback
         self.add_item(self.add_button)
+
+        self.edit_buttons = discord.ui.Button(label='Edit Buttons', style=discord.ButtonStyle.secondary)
+        self.edit_buttons.callback = self.edit_buttons_callback
+        self.add_item(self.edit_buttons)
 
         self.set_message_text_button = discord.ui.Button(label='Set Message Text', style=discord.ButtonStyle.secondary)
         self.set_message_text_button.callback = self.set_message_text_callback
@@ -166,8 +170,30 @@ class ButtonView(discord.ui.View):
         self.done_button.callback = self.done_button_callback
         self.add_item(self.done_button)
 
+        self.content = None
+        self.fissure_view_message = fissure_view_message
+
+    async def send_initial_message(self):
+        self.get_message_content()
+        await self.interaction.response.send_message(content=self.content, view=self, ephemeral=True)
+
     async def add_button_callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(ButtonModal(self.bot, interaction, self))
+
+    async def edit_buttons_callback(self, interaction: discord.Interaction):
+        select = discord.ui.Select(
+            placeholder="Select a button to edit",
+            options=[discord.SelectOption(label=config['text'], value=str(i)) for i, config in enumerate(self.button_configs)]
+        )
+        select.callback = self.edit_button_select_callback
+        view = discord.ui.View()
+        view.add_item(select)
+        await interaction.response.edit_message(content="Select a button to edit:", view=view)
+
+    async def edit_button_select_callback(self, interaction: discord.Interaction):
+        index = int(interaction.data['values'][0])
+        button_config = self.button_configs[index]
+        await interaction.response.send_modal(ButtonModal(self.bot, interaction, self, button_config, index))
 
     async def set_message_text_callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(MessageTextModal(self.bot, interaction, self))
@@ -179,20 +205,30 @@ class ButtonView(discord.ui.View):
             return
 
         view = FissureView(self.bot, self.button_configs)
-        message = await interaction.channel.send(content=self.message_text, view=view)
 
+        if self.fissure_view_message is None:
+            message = await interaction.channel.send(content=self.message_text, view=view)
 
+            # Save the data associated with the view to the database
+            self.bot.database.save_fissure_view(self.message_text, self.button_configs, interaction.channel.id, message.id)
 
-        # Save the data associated with the view to the database
-        self.bot.database.save_fissure_view(self.message_text, self.button_configs, interaction.channel.id, message.id)
+            await interaction.response.edit_message(content="Fissure view created successfully.", view=None, embed=None)
+        else:
+            await self.fissure_view_message.edit(content=self.message_text, view=view)
 
-        await interaction.response.edit_message(content="Fissure view created successfully.", view=None, embed=None)
+            await interaction.response.edit_message(content="Fissure view updated successfully.", view=None, embed=None)
+
+            self.bot.database.update_fissure_view(self.message_text, self.button_configs, self.fissure_view_message.id)
+
         self.stop()
 
-    async def update_message(self, interaction: discord.Interaction):
+    def get_message_content(self):
         button_list = '\n'.join([self.format_button_config(config) for config in self.button_configs])
-        content = f"Click the 'Add Button' button to add buttons to the fissure view.\n\nMessage Text: {self.message_text}\n\nCurrent Buttons:\n{button_list}"
-        await interaction.response.edit_message(content=content, view=self)
+        self.content = f"Click the 'Add Button' button to add buttons to the fissure view.\n\nMessage Text: {self.message_text}\n\nCurrent Buttons:\n{button_list}"
+
+    async def update_message(self, interaction: discord.Interaction):
+        self.get_message_content()
+        await interaction.response.edit_message(content=self.content, view=self)
 
     def format_button_config(self, config):
         fissure_data = ', '.join([f"{k.capitalize()}: {v}" for k, v in config['fissure_data'].items() if v])
@@ -217,46 +253,43 @@ class MessageTextModal(discord.ui.Modal):
 
 
 class ButtonModal(discord.ui.Modal):
-    def __init__(self, bot, interaction, button_view):
-        super().__init__(title='Add Button')
+    def __init__(self, bot, interaction, button_view, button_config=None, index=None):
+        super().__init__(title='Add/Edit Button')
         self.bot = bot
         self.interaction = interaction
         self.button_view = button_view
-        self.fissure_data = {}
+        self.fissure_data = button_config['fissure_data'] if button_config else {}
+        self.index = index
 
-        self.text_input = discord.ui.TextInput(label='Button Text', placeholder='Enter the text for the button')
+        self.text_input = discord.ui.TextInput(label='Button Text', placeholder='Enter the text for the button',
+                                               default=button_config['text'] if button_config else None)
         self.emoji_input = discord.ui.TextInput(label='Emoji', placeholder='Enter the custom emoji for the button',
-                                                required=False)
+                                                required=False, default=button_config['emoji'] if button_config else None)
         self.add_item(self.text_input)
         self.add_item(self.emoji_input)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Trim whitespace and check if emoji input is provided
         emoji_input = self.emoji_input.value.strip() if self.emoji_input.value else ''
         text_input = self.text_input.value
 
-        # Function to attempt converting an emoji input into a Discord Emoji object
         async def get_emoji(emoji_key):
-            if emoji_key in self.bot.emoji_dict:  # Check bot's local emoji dictionary first
+            if emoji_key in self.bot.emoji_dict:
                 return self.bot.emoji_dict[emoji_key]
 
-            # Attempt to find the emoji in the guild's emojis
             guild_emoji = discord.utils.get(interaction.guild.emojis, name=emoji_key)
             if guild_emoji:
                 return guild_emoji
 
-            # Attempt to extract emoji ID from custom emoji format <:Name:ID>
             if emoji_key.startswith('<:') and emoji_key.endswith('>'):
                 id_part = emoji_key.split(':')[-1][:-1]
                 try:
                     potential_id = int(id_part)
-                    return await self.bot.fetch_emoji(potential_id)
+                    return self.bot.get_emoji(potential_id)
                 except (ValueError, discord.NotFound):
-                    return None  # Invalid format or not found
+                    return None
 
-            # Last resort: try fetching the emoji directly by ID, if it's purely numeric
             try:
-                return await self.bot.fetch_emoji(int(emoji_key))
+                return self.bot.get_emoji(int(emoji_key))
             except discord.NotFound:
                 return None
 
@@ -267,27 +300,38 @@ class ButtonModal(discord.ui.Modal):
                                                         ephemeral=True)
                 return
 
-            emoji = str(emoji)  # Convert to string for display
+            emoji = str(emoji)
         else:
-            emoji = None  # Handle case where no emoji is provided
+            emoji = None
 
-        # Proceed with valid emoji or None if not provided
         try:
-            view = DataView(self.bot, self.interaction, self, emoji, text_input)
-            await interaction.response.edit_message(content='Select the fissure data:', view=view)
+            fissure_data_message = self.get_fissure_data_message()
+            view = DataView(self.bot, self.interaction, self, emoji, text_input, self.fissure_data, self.index)
+            await interaction.response.edit_message(content=fissure_data_message, view=view)
         except Exception as e:
             await interaction.response.send_message(f"An error occurred while updating the message: {str(e)}",
                                                     ephemeral=True)
 
+    def get_fissure_data_message(self):
+        content = "Current Fissure Data:\n"
+        if self.fissure_data:
+            content += '\n'.join([f'{k.capitalize()}: {v}' for k, v in self.fissure_data.items()])
+        else:
+            content += "No fissure data selected."
+
+        return content
+
 
 class DataView(discord.ui.View):
-    def __init__(self, bot, interaction, button_modal, emoji, text):
+    def __init__(self, bot, interaction, button_modal, emoji, text, fissure_data, index=None):
         super().__init__()
         self.bot = bot
         self.interaction = interaction
         self.button_modal = button_modal
         self.emoji = emoji
         self.text = text
+        self.fissure_data = fissure_data
+        self.index = index
 
         self.data_select = discord.ui.Select(
             placeholder='Select Fissure Data',
@@ -305,6 +349,10 @@ class DataView(discord.ui.View):
         self.data_select.callback = self.data_select_callback
         self.add_item(self.data_select)
 
+        self.clear_data_button = discord.ui.Button(label='Clear Fissure Data', style=discord.ButtonStyle.danger)
+        self.clear_data_button.callback = self.clear_data_callback
+        self.add_item(self.clear_data_button)
+
         self.done_button = discord.ui.Button(label='Done', style=discord.ButtonStyle.success)
         self.done_button.callback = self.done_button_callback
         self.add_item(self.done_button)
@@ -314,7 +362,7 @@ class DataView(discord.ui.View):
         if selected_option in ['fissure_type', 'era', 'tier']:
             await self.show_data_dropdown(interaction, selected_option)
         else:
-            filtered_nodes = self.bot.cogs['Fissure'].filter_nodes(interaction, self.button_modal.fissure_data)
+            filtered_nodes = self.bot.cogs['Fissure'].filter_nodes(interaction, self.fissure_data)
             key_mapping = {
                 'mission': 'type'
             }
@@ -348,7 +396,8 @@ class DataView(discord.ui.View):
         self.data_dropdown.callback = self.data_dropdown_callback
         self.add_item(self.data_dropdown)
 
-        await interaction.response.edit_message(content=interaction.message.content, view=self)
+        fissure_data_message = self.button_modal.get_fissure_data_message()
+        await interaction.response.edit_message(content=fissure_data_message, view=self)
 
     async def data_dropdown_callback(self, interaction: discord.Interaction):
         value = self.data_dropdown.values[0]
@@ -357,18 +406,28 @@ class DataView(discord.ui.View):
             value = int(value)
 
         data_type = self.data_dropdown.placeholder.split(' ')[1].lower()
-        self.button_modal.fissure_data[data_type] = value
+        self.fissure_data[data_type] = value
 
-        content = '\n'.join(
-            [f'{k.capitalize()}: {v}' for k, v in self.button_modal.fissure_data.items() if v is not None])
+        fissure_data_message = self.button_modal.get_fissure_data_message()
         self.remove_item(self.data_dropdown)
-        await interaction.response.edit_message(content=content, view=self)
+        await interaction.response.edit_message(content=fissure_data_message, view=self)
+
+    async def clear_data_callback(self, interaction: discord.Interaction):
+        self.fissure_data.clear()
+        fissure_data_message = self.button_modal.get_fissure_data_message()
+        await interaction.response.edit_message(content=fissure_data_message, view=self)
 
     async def done_button_callback(self, interaction: discord.Interaction):
-        # Remove any invalid fissure data before appending
-        valid_fissure_data = {k: v for k, v in self.button_modal.fissure_data.items() if v is not None}
-        self.button_modal.button_view.button_configs.append(
-            {'emoji': self.emoji, 'text': self.text, 'fissure_data': valid_fissure_data})
+        valid_fissure_data = {k: v for k, v in self.fissure_data.items() if v is not None}
+        if self.index is not None:
+            self.button_modal.button_view.button_configs[self.index] = {
+                'emoji': self.emoji,
+                'text': self.text,
+                'fissure_data': valid_fissure_data
+            }
+        else:
+            self.button_modal.button_view.button_configs.append(
+                {'emoji': self.emoji, 'text': self.text, 'fissure_data': valid_fissure_data})
         await self.button_modal.button_view.update_message(interaction)
         self.stop()
 
@@ -473,8 +532,6 @@ class FissureView(discord.ui.View):
                 await interaction.response.send_message(str(e), ephemeral=True)
             except IntegrityError:
                 await interaction.response.send_message("You're already subscribed.", ephemeral=True)
-
-        return button_callback
 
         return button_callback
 
@@ -681,8 +738,16 @@ class Fissure(Cog):
         if not fissures:
             embed.description = "There are no valid fissures available right now."
         else:
+            cut_in_half = False
+            if any((len('\n'.join(value))) for value in field_values.values()):
+                cut_in_half = True
+
             for field, value in field_values.items():
-                embed.add_field(name=field, value='\n'.join(value), inline=True)
+                if cut_in_half:
+                    embed.add_field(name=field, value='\n'.join(value[:len(value) // 2]), inline=True)
+                    embed.add_field(name='\u200b', value='\n'.join(value[len(value) // 2:]), inline=True)
+                else:
+                    embed.add_field(name=field, value='\n'.join(value), inline=True)
 
             description = []
             for fissure_type in fissure_types:
@@ -846,16 +911,16 @@ class Fissure(Cog):
                 {
                     'field': 'planet',
                     'type': 'whitelist',
-                    'values': ['Neptune', 'Void', 'Europa', 'Uranus'],
+                    'values': ['Neptune', 'Europa', 'Uranus', 'Void'],
                     'condition': FissureEngine.ERA_NEO,
-                    'exclusive': True
+                    'exclusive': False
                 },
                 {
                     'field': 'planet',
                     'type': 'whitelist',
-                    'values': ['Pluto', 'Void', 'Sedna', 'Eris'],
+                    'values': ['Pluto', 'Sedna', 'Eris', 'Void'],
                     'condition': FissureEngine.ERA_AXI,
-                    'exclusive': True
+                    'exclusive': False
                 },
                 {
                     'field': 'planet',
@@ -1291,28 +1356,62 @@ class Fissure(Cog):
     @app_commands.checks.has_permissions(manage_channels=True)
     async def create_fissure_view(self, interaction: discord.Interaction):
         view = ButtonView(self.bot, interaction)
-        await interaction.response.send_message("Click the 'Add Button' button to add buttons to the fissure view.",
-                                                view=view, ephemeral=True)
+        await view.send_initial_message()
+
+    @app_commands.command(name='edit_fissure_view', description='Edit a fissure view')
+    @app_commands.describe(message_id='The ID of the message containing the fissure view to edit')
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def edit_fissure_view(self, interaction: discord.Interaction, message_id: str):
+        try:
+            message_id = int(message_id)
+        except ValueError:
+            await interaction.response.send_message("Invalid message ID. Please provide a valid message ID.",
+                                                    ephemeral=True)
+            return
+
+        # Fetch the fissure view data from the database based on the message ID
+        fissure_view_data = self.bot.database.get_fissure_view_by_message_id(message_id)
+
+        if fissure_view_data:
+            message_text = fissure_view_data['message_text']
+            button_configs = fissure_view_data['button_configs']
+            channel_id = fissure_view_data['channel_id']
+
+            try:
+                channel = self.bot.get_channel(channel_id)
+                message = await channel.fetch_message(message_id)
+            except discord.NotFound:
+                await interaction.response.send_message("No fissure view found with the provided message ID.",
+                                                        ephemeral=True)
+                return
+
+            # Create a new ButtonView instance with the fetched data
+            view = ButtonView(self.bot, interaction, message_text, button_configs, message)
+
+            await view.send_initial_message()
+
+        else:
+            await interaction.response.send_message("No fissure view found with the provided message ID.",
+                                                    ephemeral=True)
 
     @tasks.loop(seconds=30)
     async def update_all_fissure_lists(self):
         fissure_list_dict = self.bot.database.get_fissure_list_channels()
 
         async def update_server_fissure_lists(server_id, channel_configs):
-            semaphore = asyncio.Semaphore(1)
-
             async def update_channel_fissure_list(channel_config):
                 try:
-                    async with semaphore:
-                        channel_id = channel_config["channel_id"]
-                        await self.post_or_update_fissure_list(server_id, channel_id, channel_config)
-                        await asyncio.sleep(5)
+                    channel_id = channel_config["channel_id"]
+                    await self.post_or_update_fissure_list(server_id, channel_id, channel_config)
+                    await asyncio.sleep(1)
                 except Exception as e:
                     self.bot.logger.error(f"Error updating fissure list for server {server_id}, "
                                           f"channel {channel_config['channel_id']}", exc_info=e)
 
-            update_tasks = [update_channel_fissure_list(channel_config) for channel_config in channel_configs]
-            await asyncio.gather(*update_tasks, return_exceptions=True)
+            for channel_config in channel_configs:
+                await update_channel_fissure_list(channel_config)
+                await asyncio.sleep(1)
+
 
         server_update_tasks = [update_server_fissure_lists(server_id, channel_configs) for server_id, channel_configs in
                                fissure_list_dict.items()]
@@ -1345,7 +1444,9 @@ class Fissure(Cog):
 
         try:
             await self.update_fissure_list_message(channel, message_id, embeds)
-        except (discord.NotFound, Exception):
+        except (discord.NotFound, Exception) as e:
+            self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
+                                    channel {channel_config['channel_id']}", exc_info=e)
             message = await channel.send(embeds=embeds)
             self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
 

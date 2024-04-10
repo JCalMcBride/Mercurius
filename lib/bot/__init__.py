@@ -14,6 +14,8 @@ from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 
 from fissure_engine.fissure_engine import FissureEngine
+from pytz import utc
+
 from lib.db.database import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")
@@ -54,8 +56,7 @@ class Bot(BotBase):
         self.logger = logging.getLogger('bot')
         self.token = bot_config['discord_token']
         self.bot_config = bot_config
-        self.scheduler = AsyncIOScheduler()
-        self.scheduler.start()
+        self.scheduler = AsyncIOScheduler(timezone=utc)
         self.market_db = None
         self.database = None
         self.guild = 939271447065526315
@@ -218,6 +219,8 @@ class Bot(BotBase):
 
     async def on_ready(self):
         if not self.ready:
+            self.scheduler.start()
+
             self.guild = self.get_guild(self.guild)
 
             for emoji in self.guild.emojis:
