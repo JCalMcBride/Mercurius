@@ -631,7 +631,7 @@ class Fissure(Cog):
         if not thread_user_ids:
             return
 
-        thread = await log_message.create_thread(name=f"{log_message.embeds[0].description}")
+        thread = await log_message.create_thread(name=f"{log_message.embeds[0].description.split('\n')[0]}")
 
         thread_mentions = [f"<@{user_id}>" for user_id in thread_user_ids]
         mention_chunks = self.split_mentions(" ".join(thread_mentions))
