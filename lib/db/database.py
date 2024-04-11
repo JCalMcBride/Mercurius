@@ -423,3 +423,6 @@ class MercuriusDatabase:
     def update_fissure_view(self, message_text: str, button_configs: List[dict], message_id: int) -> None:
         self._execute_query(self._UPDATE_FISSURE_VIEW_QUERY, message_text, json.dumps(button_configs), message_id,
                             commit=True)
+
+    def delete_all_fissure_views(self) -> None:
+        self._execute_query("DELETE FROM fissure_views", commit=True)
