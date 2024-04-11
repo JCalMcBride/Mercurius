@@ -646,8 +646,7 @@ class Fissure(Cog):
                 channels = list(filter(None, map(server.get_channel, channel_ids)))
                 for channel in channels:
                     for fissure, embed in zip(fissures_of_type, embeds_of_type):
-                        message_content = self.get_message_content(server, fissure)
-                        log_message = await channel.send(content=message_content, embed=embed)
+                        log_message = await channel.send(embed=embed)
                         await self.send_thread_notifications(fissure, log_message)
 
         await self.send_fissure_subscription_dms(new_fissures)
@@ -770,19 +769,6 @@ class Fissure(Cog):
             short_identifier = ''.join(word[0].upper() for word in fissure_type.split())
             return f"{short_identifier} "
         return ""
-
-    def get_message_content(self, server, fissure):
-        fissure_type_identifier = self.get_fissure_type_identifier(fissure.fissure_type)
-        era_mission_identifier = f"{fissure_type_identifier}{fissure.era} {fissure.mission}"
-        era_node_identifier = f"{fissure_type_identifier}{fissure.era} {fissure.node}"
-
-        message_content = ""
-        for identifier in [era_mission_identifier, era_node_identifier]:
-            role = discord.utils.get(server.roles, name=identifier)
-            if role:
-                message_content += f"{role.mention} "
-
-        return message_content.strip()
 
     def sort_new_fissures(self, new_fissures):
         fissure_type_order = [FissureEngine.FISSURE_TYPE_NORMAL, FissureEngine.FISSURE_TYPE_STEEL_PATH,
