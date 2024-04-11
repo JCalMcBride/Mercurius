@@ -1370,7 +1370,7 @@ class Fissure(Cog):
 
     @app_commands.command(name='resend_fissure_views', description='Resend all saved fissure views')
     @app_commands.checks.has_permissions(manage_channels=True)
-    @app_commands.guilds(939271447065526315)
+    @app_commands.guilds(780376195182493707)
     async def resend_fissure_views(self, interaction: discord.Interaction):
         # Recreate all saved fissure views
         await interaction.response.defer()
