@@ -789,6 +789,8 @@ class Fissure(Cog):
                 continue
             if value is None:
                 continue
+            if key == "mission" and value.lower() in fissure.mission.lower():
+                return True
             if key == "max_tier":
                 if fissure.tier > value:
                     return False
