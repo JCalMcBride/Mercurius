@@ -1331,9 +1331,9 @@ class Fissure(Cog):
 
     @app_commands.command(name='fissure_notifications_status',
                           description='Set fissure notification options based on your current Discord status.')
-    async def fissure_notifications_status(self, ctx):
+    async def fissure_notifications_status(self, interaction: discord.Interaction):
         """Set fissure notification options based on your current Discord status."""
-        user_id = ctx.author.id
+        user_id = interaction.user.id
 
         # Check if the user exists in the users table
         user_exists = self.bot.database.user_exists(user_id)
@@ -1344,11 +1344,8 @@ class Fissure(Cog):
 
         status_settings = self.bot.database.get_fissure_notification_status(user_id)
         view = StatusNotificationView(self.bot, user_id, status_settings)
-        await self.bot.send_message(ctx,
-                                    "Select the Discord statuses for which you want "
-                                    "to receive fissure notifications:",
-                                    view=view,
-                                    ephemeral=True)
+        await interaction.response.send_message("Select the Discord statuses for which you want to receive fissure notifications:",
+                                                view=view, ephemeral=True)
 
     @commands.hybrid_command(name='fissure_log_channel', aliases=['flc', 'flogc', 'flogchannel', 'fissurelogchannel'],
                              brief='Set the channel for the fissure log.')
