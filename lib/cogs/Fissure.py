@@ -1368,6 +1368,34 @@ class Fissure(Cog):
         view = ButtonView(self.bot, interaction)
         await view.send_initial_message()
 
+    @app_commands.command(name='resend_fissure_views', description='Resend all saved fissure views')
+    @app_commands.checks.has_permissions(manage_channels=True)
+    @app_commands.guilds(939271447065526315)
+    async def resend_fissure_views(self, interaction: discord.Interaction):
+        # Recreate all saved fissure views
+        await interaction.response.defer()
+
+        fissure_views = self.bot.database.get_all_fissure_views()
+        for view_data in fissure_views:
+            message_text = view_data['message_text']
+            button_configs = view_data['button_configs']
+            channel_id = view_data['channel_id']
+            message_id = view_data['message_id']
+
+            view = FissureView(self.bot, button_configs)
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                try:
+                    message = await channel.fetch_message(message_id)
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
+            message = await interaction.channel.send(content=message_text, view=view)
+            self.bot.database.update_fissure_view(message_text, button_configs, message.id)
+
+        await interaction.followup.send("All saved fissure views have been resent.", ephemeral=True)
+
     @app_commands.command(name='edit_fissure_view', description='Edit a fissure view')
     @app_commands.describe(message_id='The ID of the message containing the fissure view to edit')
     @app_commands.checks.has_permissions(manage_channels=True)
