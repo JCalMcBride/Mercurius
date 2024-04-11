@@ -910,11 +910,11 @@ class Fissure(Cog):
     @commands.has_permissions(administrator=True)
     async def sync_rolesubscriptions(self, ctx):
         for role in ctx.guild.roles:
-            if role.name.startswith(("Lith", "Meso", "Neo", "Axi")) and len(role.members) > 0:
+            if role.name.startswith(("Lith", "Meso", "Neo", "Axi")) and len(role.members) > 2:
                 era = role.name.split()[0]
                 mission_or_node = ' '.join(role.name.split()[1:])
 
-                if mission_or_node in ["Capture", "Rescue", "Exterminate", "Sabotage"]:
+                if mission_or_node in ["Capture", "Rescue", "Exterminate", "Sabotage", "Disruption"]:
                     mission = mission_or_node
                     node = None
                 else:
