@@ -3,11 +3,12 @@ import traceback
 import uuid
 from asyncio import sleep
 from collections import defaultdict
+from datetime import datetime, timedelta
 from pprint import pprint
 from typing import List, Union
 
 import discord
-from discord import app_commands
+from discord import app_commands, DiscordServerError
 from discord.app_commands import Choice
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
@@ -15,7 +16,29 @@ from fissure_engine import fissure_engine
 from fissure_engine.common import sol_nodes
 from fissure_engine.fissure_engine import FissureEngine
 from pymysql import IntegrityError
+from pytz import UTC
 
+class ThreadNotificationServerSelectView(discord.ui.View):
+    def __init__(self, bot, ctx, user_servers, message):
+        super().__init__()
+        self.bot = bot
+        self.ctx = ctx
+        self.user_servers = user_servers
+        self.message = message
+
+        server_select = discord.ui.Select(
+            placeholder="Select a server",
+            options=[discord.SelectOption(label=server.name, value=str(server.id)) for server in user_servers]
+        )
+        server_select.callback = self.on_server_select
+        self.add_item(server_select)
+
+    async def on_server_select(self, interaction: discord.Interaction):
+        selected_server_id = int(interaction.data['values'][0])
+        selected_server = self.bot.get_guild(selected_server_id)
+        self.bot.database.set_thread_notification_server(self.ctx.author.id, selected_server_id)
+        await self.message.edit(content=f"Your thread notification server has been set to {selected_server.name}.", view=None)
+        self.stop()
 
 class FissureSubscriptionView(discord.ui.View):
     def __init__(self, bot, user, subscriptions, embeds):
@@ -574,7 +597,6 @@ class Fissure(Cog):
 
         fissure_log_dict = self.bot.database.get_fissure_log_channels()
 
-        fissure_tasks = []
         for fissure_type, server_dict in fissure_log_dict.items():
             fissures_of_type = [fissure for fissure in new_fissures if fissure.fissure_type == fissure_type]
             embeds_of_type = [self.get_fissure_info_embed(fissure) for fissure in fissures_of_type]
@@ -586,23 +608,102 @@ class Fissure(Cog):
 
                 channels = list(filter(None, map(server.get_channel, channel_ids)))
                 for channel in channels:
-                    grouped_embeds = []
                     for fissure, embed in zip(fissures_of_type, embeds_of_type):
                         message_content = self.get_message_content(server, fissure)
-                        if message_content:
-                            fissure_tasks.append(channel.send(content=message_content, embed=embed))
-                        else:
-                            grouped_embeds.append(embed)
+                        log_message = await channel.send(content=message_content, embed=embed)
+                        await self.send_thread_notifications(fissure, log_message)
 
-                    if grouped_embeds:
-                        embed_chunks = [grouped_embeds[i:i + 10] for i in range(0, len(grouped_embeds), 10)]
-                        for chunk in embed_chunks:
-                            fissure_tasks.append(channel.send(embeds=chunk))
-
-        await asyncio.gather(*fissure_tasks)
-
-        # Send DMs to subscribed users
         await self.send_fissure_subscription_dms(new_fissures)
+
+    async def send_thread_notifications(self, fissure, log_message: discord.Message):
+        subscriptions = self.bot.database.get_all_fissure_subscriptions('Thread')
+        thread_users = [sub['user_id'] for sub in subscriptions if self.match_subscription(sub, fissure)]
+
+        if not thread_users:
+            return
+
+        thread_user_ids = []
+        for user_id in thread_users:
+            thread_server_id = self.bot.database.get_thread_notification_server(user_id)
+            if thread_server_id is None or thread_server_id == log_message.guild.id:
+                thread_user_ids.append(user_id)
+
+        if not thread_user_ids:
+            return
+
+        thread = await log_message.create_thread(name=f"{log_message.embeds[0].description}")
+
+        thread_mentions = [f"<@{user_id}>" for user_id in thread_user_ids]
+        mention_chunks = self.split_mentions(" ".join(thread_mentions))
+
+        for chunk in mention_chunks:
+            await thread.send(chunk)
+
+        # Schedule a job to lock and archive the thread when the fissure expires
+        self.bot.scheduler.add_job(
+            self.lock_and_archive_thread,
+            'date',
+            run_date=fissure.expiry,
+            args=[thread]
+        )
+
+    async def send_fissure_subscription_dms(self, new_fissures):
+        subscriptions = self.bot.database.get_all_fissure_subscriptions('DM')
+        user_embeds = await self.get_user_embeds(new_fissures, subscriptions)
+
+        user_send_tasks = []
+        for user_id, embeds in user_embeds.items():
+            user = self.bot.get_user(user_id)
+            if user:
+                for embed in embeds:
+                    user_send_tasks.append(self.send_embeds_to_user(user, [embed]))
+
+        await asyncio.gather(*user_send_tasks)
+
+    async def send_embeds_to_user(self, user, embeds):
+        try:
+            await user.send(embeds=embeds)
+        except discord.Forbidden:
+            pass
+
+    async def get_user_embeds(self, new_fissures, subscriptions):
+        user_embeds = defaultdict(list)
+        user_fissure_sent = defaultdict(set)
+
+        for fissure in new_fissures:
+            matching_subscriptions = [sub for sub in subscriptions if self.match_subscription(sub, fissure)]
+
+            for subscription in matching_subscriptions:
+                user_id = subscription["user_id"]
+
+                if fissure in user_fissure_sent[user_id]:
+                    continue
+
+                embed = self.get_fissure_info_embed(fissure)
+                user_embeds[user_id].append(embed)
+                user_fissure_sent[user_id].add(fissure)
+
+        return user_embeds
+
+    async def lock_and_archive_thread(self, thread: discord.Thread):
+        # Lock and archive the thread
+        await thread.edit(locked=True, archived=True)
+
+    def split_mentions(self, mentions: str, max_length: int = 2000) -> List[str]:
+        mentions_list = mentions.split()
+        chunks = []
+        current_chunk = []
+
+        for mention in mentions_list:
+            if len(' '.join(current_chunk)) + len(mention) + 1 > max_length:
+                chunks.append(' '.join(current_chunk))
+                current_chunk = []
+            current_chunk.append(mention)
+
+        if current_chunk:
+            chunks.append(' '.join(current_chunk))
+
+        return chunks
 
     def get_fissure_type_identifier(self, fissure_type):
         if fissure_type != FissureEngine.FISSURE_TYPE_NORMAL:
@@ -623,26 +724,6 @@ class Fissure(Cog):
 
         return message_content.strip()
 
-    async def send_fissure_subscription_dms(self, new_fissures):
-        subscriptions = self.bot.database.get_all_fissure_subscriptions()
-        user_embeds = await self.get_user_embeds(new_fissures, subscriptions)
-
-        user_send_tasks = []
-        for user_id, embeds in user_embeds.items():
-            user = self.bot.get_user(user_id)
-            if user:
-                embed_chunks = [embeds[i:i + 10] for i in range(0, len(embeds), 10)]
-                for chunk in embed_chunks:
-                    user_send_tasks.append(self.send_embeds_to_user(user, chunk))
-
-        await asyncio.gather(*user_send_tasks)
-
-    async def send_embeds_to_user(self, user, embeds):
-        try:
-            await user.send(embeds=embeds)
-        except discord.Forbidden:
-            pass
-
     def sort_new_fissures(self, new_fissures):
         fissure_type_order = [FissureEngine.FISSURE_TYPE_NORMAL, FissureEngine.FISSURE_TYPE_STEEL_PATH,
                               FissureEngine.FISSURE_TYPE_VOID_STORMS]
@@ -655,25 +736,6 @@ class Fissure(Cog):
             return fissure_type_index, era_index
 
         return sorted(new_fissures, key=sort_key)
-
-    async def get_user_embeds(self, new_fissures, subscriptions):
-        user_embeds = defaultdict(list)
-        user_fissure_sent = defaultdict(set)
-
-        for fissure in new_fissures:
-            matching_subscriptions = [sub for sub in subscriptions if self.match_subscription(sub, fissure)]
-
-            for subscription in matching_subscriptions:
-                user_id = subscription["user_id"]
-
-                if fissure in user_fissure_sent[user_id]:
-                    continue
-
-                embed = self.get_fissure_info_embed(fissure)
-                user_embeds[user_id].append(embed)
-                user_fissure_sent[user_id].add(fissure)
-
-        return user_embeds
 
     def match_subscription(self, subscription: dict, fissure: fissure_engine.Fissure) -> bool:
         for key, value in subscription.items():
@@ -739,7 +801,6 @@ class Fissure(Cog):
                                                         era=era_list,
                                                         tier=list(range(1, max_tier + 1)))
 
-
         era_resets = self.bot.fissure_engine.get_resets(fissure_type=fissure_types,
                                                         display_type=display_type,
                                                         emoji_dict=self.bot.emoji_dict,
@@ -752,7 +813,6 @@ class Fissure(Cog):
                   ('Ends', '{expiry}')]
 
         field_values = self.bot.fissure_engine.get_fields(fissures, fields, display_type, self.bot.emoji_dict)
-
 
         if not fissures:
             embed.description = "There are no valid fissures available right now."
@@ -785,6 +845,45 @@ class Fissure(Cog):
 
         return embeds
 
+    @commands.hybrid_command(name='set_thread_notification_server', aliases=['stns'])
+    async def set_thread_notification_server(self, ctx, server: discord.Guild = None):
+        """Set the server where you want to receive thread notifications."""
+        user_id = ctx.author.id
+
+        if server is None:
+            user_servers = [guild for guild in self.bot.guilds if guild.get_member(user_id)]
+            message = await ctx.send("Please select the server where you want to receive thread notifications:",
+                                     ephemeral=True)
+            view = ThreadNotificationServerSelectView(self.bot, ctx, user_servers, message)
+            await message.edit(view=view)
+        else:
+            self.bot.database.set_thread_notification_server(user_id, server.id)
+            await ctx.send(f"Your thread notification server has been set to {server.name}.", ephemeral=True)
+
+    @commands.hybrid_command(name='mute_fissure_notifications', aliases=['mute'])
+    @app_commands.describe(
+        enabled='Whether to enable or disable fissure notifications. If not provided, the current setting will be toggled.')
+    async def fissure_notifications(self, ctx, enabled: bool = None):
+        """Enable, disable, or toggle fissure notifications."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        if enabled is None:
+            # If no argument is provided, toggle the current setting
+            current_setting = self.bot.database.get_fissure_notifications_enabled(user_id)
+            enabled = not current_setting
+
+        self.bot.database.set_fissure_notifications_enabled(user_id, enabled)
+
+        status = "enabled" if enabled else "disabled"
+        await self.bot.send_message(ctx, f"Fissure notifications have been {status}.", ephemeral=True)
+
     @commands.hybrid_command(name='set_fissure_defaults', aliases=['sfd', 'setfissuredefaults'])
     @app_commands.describe(show_normal='Whether to show normal fissures by default.',
                            show_steel_path='Whether to show Steel Path fissures by default.',
@@ -804,16 +903,16 @@ class Fissure(Cog):
         Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
     ])
     async def set_fissure_defaults(self, ctx,
-                                   show_normal: bool = True,
-                                   show_steel_path: bool = False,
-                                   show_void_storms: bool = False,
-                                   max_tier: int = 5,
-                                   show_lith: bool = True,
-                                   show_meso: bool = True,
-                                   show_neo: bool = True,
-                                   show_axi: bool = True,
-                                   show_requiem: bool = True,
-                                   show_omnia: bool = True):
+                                   show_normal: bool = None,
+                                   show_steel_path: bool = None,
+                                   show_void_storms: bool = None,
+                                   max_tier: int = None,
+                                   show_lith: bool = None,
+                                   show_meso: bool = None,
+                                   show_neo: bool = None,
+                                   show_axi: bool = None,
+                                   show_requiem: bool = None,
+                                   show_omnia: bool = None):
         """Set your default preferences for the fissure list command."""
         user_id = ctx.author.id
 
@@ -824,9 +923,24 @@ class Fissure(Cog):
             # Create a new entry for the user in the users table
             self.bot.database.create_user(user_id)
 
-        self.bot.database.set_fissure_list_defaults(user_id, show_normal, show_steel_path, show_void_storms,
-                                                    max_tier, show_lith, show_meso, show_neo, show_axi,
-                                                    show_requiem, show_omnia)
+        # Create a dictionary of the provided parameters
+        update_params = {
+            'show_normal': show_normal,
+            'show_steel_path': show_steel_path,
+            'show_void_storms': show_void_storms,
+            'max_tier': max_tier,
+            'show_lith': show_lith,
+            'show_meso': show_meso,
+            'show_neo': show_neo,
+            'show_axi': show_axi,
+            'show_requiem': show_requiem,
+            'show_omnia': show_omnia
+        }
+
+        # Filter out the parameters that were not provided by the user
+        update_params = {k: v for k, v in update_params.items() if v is not None}
+
+        self.bot.database.set_fissure_list_defaults(user_id, **update_params)
 
         await self.bot.send_message(ctx, "Your fissure list defaults have been updated.",
                                     ephemeral=True)
@@ -1241,6 +1355,28 @@ class Fissure(Cog):
                                                    display_type=options["display_type"])
         await self.bot.send_message(ctx, embed=embeds)
 
+    @commands.hybrid_command(name='set_fissure_notification_type', aliases=['sfnt', 'setfissurenotificationtype'])
+    @app_commands.describe(notification_type='The type of notification to receive for fissure subscriptions.')
+    @app_commands.choices(notification_type=[
+        Choice(name='DM', value='DM'),
+        Choice(name='Thread', value='Thread')
+    ])
+    async def set_fissure_notification_type(self, ctx, notification_type: str):
+        """Set your preferred notification type for fissure subscriptions."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        self.bot.database.set_fissure_notification_type(user_id, notification_type)
+
+        await self.bot.send_message(ctx, f"Your fissure notification type has been set to {notification_type}.",
+                                    ephemeral=True)
+
     @commands.hybrid_command(name='fissure_list_channel', aliases=['fissure_list', 'flist', 'flistchannel'],
                              brief='Show a constantly updating fissure list in the given channel.')
     @commands.has_permissions(manage_channels=True)
@@ -1370,7 +1506,6 @@ class Fissure(Cog):
 
     @app_commands.command(name='resend_fissure_views', description='Resend all saved fissure views')
     @app_commands.checks.has_permissions(manage_channels=True)
-    @app_commands.guilds(780376195182493707, 939271447065526315)
     async def resend_fissure_views(self, interaction: discord.Interaction):
         # Recreate all saved fissure views
         await interaction.response.defer()
@@ -1488,6 +1623,8 @@ class Fissure(Cog):
 
         try:
             await self.update_fissure_list_message(channel, message_id, embeds)
+        except DiscordServerError:
+            pass
         except (discord.NotFound, Exception) as e:
             self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
                                     channel {channel_config['channel_id']}", exc_info=e)
@@ -1531,7 +1668,8 @@ class Fissure(Cog):
                 if channel:
                     try:
                         message = await channel.fetch_message(message_id)
-                        await message.edit(view=view)
+                        await message.edit(content=message_text, view=view)
+                        await sleep(1)
                     except discord.NotFound:
                         pass
 

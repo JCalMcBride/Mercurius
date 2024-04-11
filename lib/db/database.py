@@ -144,6 +144,30 @@ class MercuriusDatabase:
     WHERE message_id = %s
     """
 
+    _GET_FISSURE_NOTIFICATION_TYPE_QUERY = """
+    SELECT fissure_notification_type 
+    FROM users 
+    WHERE discord_id = %s
+    """
+
+    _SET_FISSURE_NOTIFICATION_TYPE_QUERY = """
+    UPDATE users
+    SET fissure_notification_type = %s
+    WHERE discord_id = %s
+    """
+
+    _GET_FISSURE_NOTIFICATIONS_ENABLED_QUERY = """
+        SELECT fissure_notifications_enabled
+        FROM users
+        WHERE discord_id = %s
+        """
+
+    _SET_FISSURE_NOTIFICATIONS_ENABLED_QUERY = """
+        UPDATE users
+        SET fissure_notifications_enabled = %s
+        WHERE discord_id = %s
+        """
+
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         self.connection: Connection = pymysql.connect(user=user,
                                                       password=password,
@@ -272,12 +296,42 @@ class MercuriusDatabase:
             fissure_list_dict[row[1]].append(channel_config)
 
         return fissure_list_dict
-    def set_fissure_list_defaults(self, user_id: int, show_normal: bool, show_steel_path: bool, show_void_storms: bool,
-                                  max_tier: int, show_lith: bool, show_meso: bool, show_neo: bool, show_axi: bool,
-                                  show_requiem: bool, show_omnia: bool) -> None:
-        self._execute_query(self._SET_FISSURE_LIST_DEFAULTS_QUERY, user_id, show_normal, show_steel_path,
-                            show_void_storms, max_tier, show_lith, show_meso, show_neo, show_axi, show_requiem,
-                            show_omnia, commit=True)
+
+    def set_fissure_list_defaults(self, user_id: int, **kwargs) -> None:
+        query = """
+        INSERT INTO fissure_list_defaults (user_id, show_normal, show_steel_path, show_void_storms, max_tier, 
+                                           show_lith, show_meso, show_neo, show_axi, show_requiem, show_omnia)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE 
+            show_normal = COALESCE(VALUES(show_normal), show_normal),
+            show_steel_path = COALESCE(VALUES(show_steel_path), show_steel_path),
+            show_void_storms = COALESCE(VALUES(show_void_storms), show_void_storms),
+            max_tier = COALESCE(VALUES(max_tier), max_tier),
+            show_lith = COALESCE(VALUES(show_lith), show_lith),
+            show_meso = COALESCE(VALUES(show_meso), show_meso),
+            show_neo = COALESCE(VALUES(show_neo), show_neo),
+            show_axi = COALESCE(VALUES(show_axi), show_axi),
+            show_requiem = COALESCE(VALUES(show_requiem), show_requiem),
+            show_omnia = COALESCE(VALUES(show_omnia), show_omnia)
+        """
+        params = [user_id] + [kwargs.get(field, None) for field in [
+            'show_normal', 'show_steel_path', 'show_void_storms', 'max_tier',
+            'show_lith', 'show_meso', 'show_neo', 'show_axi', 'show_requiem', 'show_omnia'
+        ]]
+        self._execute_query(query, *params, commit=True)
+
+    def update_fissure_list_defaults(self, user_id: int, **kwargs) -> None:
+        update_fields = [f"{field} = %s" for field in kwargs]
+        if not update_fields:
+            return
+
+        query = f"""
+        UPDATE fissure_list_defaults
+        SET {', '.join(update_fields)}
+        WHERE user_id = %s
+        """
+        params = list(kwargs.values()) + [user_id]
+        self._execute_query(query, *params, commit=True)
 
     def get_fissure_list_defaults(self, user_id: int) -> Dict[str, Any]:
         defaults = self._execute_query(self._GET_FISSURE_LIST_DEFAULTS_QUERY, user_id, fetch='one')
@@ -366,12 +420,15 @@ class MercuriusDatabase:
             for row in subscriptions
         ]
 
-    def get_all_fissure_subscriptions(self) -> List[Dict[str, Union[str, int]]]:
+    def get_all_fissure_subscriptions(self, notification_type: str = 'DM') -> List[Dict[str, Union[str, int]]]:
         query = """
-        SELECT user_id, fissure_type, era, node, mission, planet, tileset, enemy, max_tier
-        FROM fissure_subscriptions
+        SELECT fs.user_id, fs.fissure_type, fs.era, fs.node, fs.mission, fs.planet, fs.tileset, fs.enemy, fs.max_tier
+        FROM fissure_subscriptions fs
+        JOIN users u ON fs.user_id = u.discord_id
+        WHERE u.fissure_notification_type = %s
+        AND u.fissure_notifications_enabled = true
         """
-        subscriptions = self._execute_query(query, fetch='all')
+        subscriptions = self._execute_query(query, notification_type, fetch='all')
         return [
             {
                 "user_id": row[0],
@@ -426,3 +483,34 @@ class MercuriusDatabase:
 
     def delete_all_fissure_views(self) -> None:
         self._execute_query("DELETE FROM fissure_views", commit=True)
+
+    def get_fissure_notification_type(self, user_id: int) -> str:
+        result = self._execute_query(self._GET_FISSURE_NOTIFICATION_TYPE_QUERY, user_id, fetch='one')
+        return result[0] if result else 'DM'
+
+    def set_fissure_notification_type(self, user_id: int, notification_type: str) -> None:
+        self._execute_query(self._SET_FISSURE_NOTIFICATION_TYPE_QUERY, notification_type, user_id, commit=True)
+
+    def set_thread_notification_server(self, user_id: int, server_id: int) -> None:
+        query = """
+        UPDATE users
+        SET thread_notification_server_id = %s
+        WHERE discord_id = %s
+        """
+        self._execute_query(query, server_id, user_id, commit=True)
+
+    def get_thread_notification_server(self, user_id: int) -> int:
+        query = """
+        SELECT thread_notification_server_id
+        FROM users
+        WHERE discord_id = %s
+        """
+        result = self._execute_query(query, user_id, fetch='one')
+        return result[0] if result else None
+
+    def get_fissure_notifications_enabled(self, user_id: int) -> bool:
+        result = self._execute_query(self._GET_FISSURE_NOTIFICATIONS_ENABLED_QUERY, user_id, fetch='one')
+        return result[0] if result else True
+
+    def set_fissure_notifications_enabled(self, user_id: int, enabled: bool) -> None:
+        self._execute_query(self._SET_FISSURE_NOTIFICATIONS_ENABLED_QUERY, enabled, user_id, commit=True)

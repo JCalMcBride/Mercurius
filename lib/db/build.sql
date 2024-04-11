@@ -2,7 +2,10 @@ CREATE TABLE if not exists users
 (
     discord_id  bigint PRIMARY KEY NOT NULL,
     platform    ENUM ('pc', 'xbox', 'switch', 'ps4') DEFAULT 'pc',
-    graph_style varchar(255)                         DEFAULT 'ggplot'
+    graph_style varchar(255)                         DEFAULT 'ggplot',
+    fissure_notification_type ENUM('DM', 'Thread') DEFAULT 'DM',
+    thread_notification_server_id BIGINT,
+    fissure_notifications_enabled BOOLEAN DEFAULT true
 );
 
 CREATE TABLE if not exists servers
