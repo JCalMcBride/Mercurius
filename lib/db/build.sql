@@ -81,3 +81,12 @@ CREATE TABLE IF NOT EXISTS fissure_views (
     channel_id BIGINT NOT NULL,
     message_id BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS fissure_notification_status (
+    user_id BIGINT PRIMARY KEY,
+    online BOOLEAN DEFAULT true,
+    idle BOOLEAN DEFAULT true,
+    dnd BOOLEAN DEFAULT true,
+    offline BOOLEAN DEFAULT true,
+    FOREIGN KEY (user_id) REFERENCES users (discord_id)
+);

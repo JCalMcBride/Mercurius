@@ -18,6 +18,41 @@ from fissure_engine.fissure_engine import FissureEngine
 from pymysql import IntegrityError
 from pytz import UTC
 
+
+class StatusNotificationView(discord.ui.View):
+    def __init__(self, bot, user_id, status_settings):
+        super().__init__(timeout=None)
+        self.bot = bot
+        self.user_id = user_id
+        self.status_options = {
+            'Online': 'online',
+            'Idle': 'idle',
+            'Do Not Disturb': 'dnd',
+            'Offline': 'offline'
+        }
+        self.status_settings = status_settings
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.clear_items()
+        for status, status_key in self.status_options.items():
+            enabled = self.status_settings.get(status_key, True)
+            style = discord.ButtonStyle.success if enabled else discord.ButtonStyle.danger
+            button = discord.ui.Button(label=status, style=style)
+            button.callback = self.create_button_callback(status_key)
+            self.add_item(button)
+
+    def create_button_callback(self, status_key):
+        async def button_callback(interaction: discord.Interaction):
+            self.status_settings[status_key] = not self.status_settings.get(status_key, True)
+            self.bot.database.set_fissure_notification_status(self.user_id, status_key,
+                                                              self.status_settings[status_key])
+            self.update_buttons()
+            await interaction.response.edit_message(view=self)
+
+        return button_callback
+
+
 class ThreadNotificationServerSelectView(discord.ui.View):
     def __init__(self, bot, ctx, user_servers, message):
         super().__init__()
@@ -37,8 +72,10 @@ class ThreadNotificationServerSelectView(discord.ui.View):
         selected_server_id = int(interaction.data['values'][0])
         selected_server = self.bot.get_guild(selected_server_id)
         self.bot.database.set_thread_notification_server(self.ctx.author.id, selected_server_id)
-        await self.message.edit(content=f"Your thread notification server has been set to {selected_server.name}.", view=None)
+        await self.message.edit(content=f"Your thread notification server has been set to {selected_server.name}.",
+                                view=None)
         self.stop()
+
 
 class FissureSubscriptionView(discord.ui.View):
     def __init__(self, bot, user, subscriptions, embeds):
@@ -615,6 +652,22 @@ class Fissure(Cog):
 
         await self.send_fissure_subscription_dms(new_fissures)
 
+    async def get_user_status(self, user_id):
+        user = self.bot.get_user(user_id)
+        if user is None:
+            return 'Offline'
+
+        member = None
+        for guild in self.bot.guilds:
+            member = guild.get_member(user_id)
+            if member:
+                break
+
+        if member is None:
+            return 'Offline'
+
+        return str(member.status)
+
     async def send_thread_notifications(self, fissure, log_message: discord.Message):
         subscriptions = self.bot.database.get_all_fissure_subscriptions('Thread')
         thread_users = [sub['user_id'] for sub in subscriptions if self.match_subscription(sub, fissure)]
@@ -625,7 +678,11 @@ class Fissure(Cog):
         thread_user_ids = []
         for user_id in thread_users:
             thread_server_id = self.bot.database.get_thread_notification_server(user_id)
-            if thread_server_id is None or thread_server_id == log_message.guild.id:
+
+            member_status = await self.get_user_status(user_id)
+
+            if ((thread_server_id is None or thread_server_id == log_message.guild.id) and
+                    self.bot.database.get_fissure_notification_status(user_id).get(member_status, True)):
                 thread_user_ids.append(user_id)
 
         if not thread_user_ids:
@@ -655,8 +712,11 @@ class Fissure(Cog):
         for user_id, embeds in user_embeds.items():
             user = self.bot.get_user(user_id)
             if user:
-                for embed in embeds:
-                    user_send_tasks.append(self.send_embeds_to_user(user, [embed]))
+                member_status = await self.get_user_status(user_id)
+
+                if self.bot.database.get_fissure_notification_status(user_id).get(member_status, True):
+                    for embed in embeds:
+                        user_send_tasks.append(self.send_embeds_to_user(user, [embed]))
 
         await asyncio.gather(*user_send_tasks)
 
@@ -859,6 +919,59 @@ class Fissure(Cog):
         else:
             self.bot.database.set_thread_notification_server(user_id, server.id)
             await ctx.send(f"Your thread notification server has been set to {server.name}.", ephemeral=True)
+
+    @commands.command(name='sync_rolesubscriptions', aliases=['syncrs'])
+    @commands.has_permissions(administrator=True)
+    async def sync_rolesubscriptions(self, ctx):
+        for role in ctx.guild.roles:
+            if role.name.startswith(("Lith", "Meso", "Neo", "Axi")) and len(role.members) > 0:
+                era = role.name.split()[0]
+                mission_or_node = ' '.join(role.name.split()[1:])
+
+                if mission_or_node in ["Capture", "Rescue", "Exterminate", "Sabotage"]:
+                    mission = mission_or_node
+                    node = None
+                else:
+                    mission = None
+                    node = mission_or_node
+
+                for member in role.members:
+                    user_id = member.id
+
+                    # Check if the user exists in the users table
+                    user_exists = self.bot.database.user_exists(user_id)
+
+                    if not user_exists:
+                        # Create a new entry for the user in the users table
+                        self.bot.database.create_user(user_id)
+
+                    # Set the user's notification type to "Thread"
+                    self.bot.database.set_fissure_notification_type(user_id, "Thread")
+
+                    # Check if the user already has the subscription
+                    existing_subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
+                    new_subscription = {
+                        "fissure_type": "Normal",
+                        "era": era,
+                        "node": node,
+                        "mission": mission,
+                        "planet": None,
+                        "tileset": None,
+                        "enemy": None,
+                        "max_tier": None
+                    }
+
+                    if new_subscription not in existing_subscriptions:
+                        # Add the equivalent subscription
+                        self.bot.database.add_fissure_subscription(user_id, fissure_type="Normal", era=era, node=node,
+                                                                   mission=mission)
+                        self.bot.logger.info(
+                            f"Added subscription for user {member.id}: Era={era}, Mission={mission}, Node={node}")
+                    else:
+                        self.bot.logger.info(
+                            f"User {member.id} already subscribed: Era={era}, Mission={mission}, Node={node}")
+
+        await ctx.send("Role subscriptions synced successfully.")
 
     @commands.hybrid_command(name='mute_fissure_notifications', aliases=['mute', 'unmute'])
     @app_commands.describe(
@@ -1227,6 +1340,27 @@ class Fissure(Cog):
         view = FissureSubscriptionView(self.bot, ctx.author, subscriptions, embeds)
         message = await ctx.send(embed=embeds[0], view=view, ephemeral=True)
         view.message = message
+
+    @app_commands.command(name='fissure_notifications_status',
+                          description='Set fissure notification options based on your current Discord status.')
+    async def fissure_notifications_status(self, ctx):
+        """Set fissure notification options based on your current Discord status."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        status_settings = self.bot.database.get_fissure_notification_status(user_id)
+        view = StatusNotificationView(self.bot, user_id, status_settings)
+        await self.bot.send_message(ctx,
+                                    "Select the Discord statuses for which you want "
+                                    "to receive fissure notifications:",
+                                    view=view,
+                                    ephemeral=True)
 
     @commands.hybrid_command(name='fissure_log_channel', aliases=['flc', 'flogc', 'flogchannel', 'fissurelogchannel'],
                              brief='Set the channel for the fissure log.')

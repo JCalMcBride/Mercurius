@@ -514,3 +514,33 @@ class MercuriusDatabase:
 
     def set_fissure_notifications_enabled(self, user_id: int, enabled: bool) -> None:
         self._execute_query(self._SET_FISSURE_NOTIFICATIONS_ENABLED_QUERY, enabled, user_id, commit=True)
+
+    def get_fissure_notification_status(self, user_id: int) -> dict:
+        query = """
+        SELECT online, idle, dnd, offline
+        FROM fissure_notification_status
+        WHERE user_id = %s
+        """
+        result = self._execute_query(query, user_id, fetch='one')
+        if result:
+            return {
+                'online': result[0],
+                'idle': result[1],
+                'dnd': result[2],
+                'offline': result[3]
+            }
+        else:
+            return {
+                'online': True,
+                'idle': True,
+                'dnd': True,
+                'offline': True
+            }
+
+    def set_fissure_notification_status(self, user_id: int, status: str, enabled: bool) -> None:
+        query = f"""
+        INSERT INTO fissure_notification_status (user_id, {status})
+        VALUES (%s, %s)
+        ON DUPLICATE KEY UPDATE {status} = VALUES({status})
+        """
+        self._execute_query(query, user_id, enabled, commit=True)
