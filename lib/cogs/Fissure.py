@@ -860,7 +860,7 @@ class Fissure(Cog):
             self.bot.database.set_thread_notification_server(user_id, server.id)
             await ctx.send(f"Your thread notification server has been set to {server.name}.", ephemeral=True)
 
-    @commands.hybrid_command(name='mute_fissure_notifications', aliases=['mute'])
+    @commands.hybrid_command(name='mute_fissure_notifications', aliases=['mute', 'unmute'])
     @app_commands.describe(
         enabled='Whether to enable or disable fissure notifications. If not provided, the current setting will be toggled.')
     async def fissure_notifications(self, ctx, enabled: bool = None):
