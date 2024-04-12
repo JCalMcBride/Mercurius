@@ -8,6 +8,7 @@ from pprint import pprint
 from typing import List, Union
 
 import discord
+from aiohttp import ClientOSError
 from discord import app_commands, DiscordServerError
 from discord.app_commands import Choice
 from discord.ext import commands, tasks
@@ -1742,7 +1743,7 @@ class Fissure(Cog):
 
         try:
             await self.update_fissure_list_message(channel, message_id, embeds)
-        except DiscordServerError:
+        except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
             pass
         except (discord.NotFound, Exception) as e:
             self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
