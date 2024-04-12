@@ -672,6 +672,9 @@ class Fissure(Cog):
         subscriptions = self.bot.database.get_all_fissure_subscriptions('Thread')
         thread_users = [sub['user_id'] for sub in subscriptions if self.match_subscription(sub, fissure)]
 
+        # Remove duplicates
+        thread_users = list(set(thread_users))
+
         if not thread_users:
             return
 
