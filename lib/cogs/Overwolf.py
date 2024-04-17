@@ -493,7 +493,10 @@ def parse_data(overwolf_data, sync_time, return_value):
     upgrade_dict = {}
     if 'Upgrades' in overwolf_data:
         for mod in overwolf_data['Upgrades']:
-            upgrade_dict[mod['ItemId']['$oid']] = parse_name(mod['ItemType'])
+            try:
+                upgrade_dict[mod['ItemId']['$oid']] = parse_name(mod['ItemType'])
+            except KeyError:
+                continue
 
             mod_name = parse_name(mod['ItemType'])
             if mod_name in parsed_data['Inventory']['Mods']:
