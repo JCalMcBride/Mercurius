@@ -1030,7 +1030,7 @@ class Overwolf(GroupCog, name="overwolf"):
         return self.bot.market_db.get_item_price(item)
 
     def get_inventory_embed(self, overwolf_data, data_type, name, search, quantity, changes, min_value=None,
-                            value_key='Platinum'):
+                            value_key='Platinum', sort_key=1):
         if data_type == "Missions":
             if not changes:
                 dict_location = overwolf_data[data_type]
@@ -1112,7 +1112,7 @@ class Overwolf(GroupCog, name="overwolf"):
                     if relic not in dict_location:
                         embed_list.append([relic, 0, 0, 0])
 
-        embed_list.sort(key=lambda x: x[1], reverse=True)
+        embed_list.sort(key=lambda x: x[sort_key], reverse=True)
 
         title = f"{name} {data_type}"
         if changes:
@@ -1195,16 +1195,24 @@ class Overwolf(GroupCog, name="overwolf"):
         Choice(name='Components', value='Components'),
         Choice(name='Gems', value='Gems'),
         Choice(name='Miscellaneous', value='Misc'),
-    ])
+    ],
+        sort_column=[
+            Choice(name='Quantity', value=1),
+            Choice(name='Value', value=2),
+            Choice(name='Total Value', value=3)
+        ]
+    )
     @app_commands.describe(data_type="The data you wish to get.",
                            search="Something in the data to search for.",
                            quantity="Quantity of item you want, "
                                     "add + after to specify that number or higher, or - for that number or lower.",
                            min_value="Value of the item you want, "
                                      "add + after to specify that number or higher, or - for that number or lower.",
-                           changes="Whether you only want to show changes since last sync, defaults to false.")
+                           changes="Whether you only want to show changes since last sync, defaults to false.",
+                           sort_column="The column you want to sort by, defaults to quantity.")
     async def get_inventory_data(self, ctx: commands.Context, data_type: str, search: Optional[str],
-                                 quantity: Optional[str], min_value: Optional[str], changes: bool = False):
+                                 quantity: Optional[str], min_value: Optional[str], changes: bool = False,
+                                 sort_column: int = 1):
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1243,6 +1251,11 @@ class Overwolf(GroupCog, name="overwolf"):
             Choice(name='Platinum', value='Platinum'),
             Choice(name='Ducats / Platinum', value='Ducats/Platinum')
         ],
+        sort_column=[
+            Choice(name='Quantity', value=1),
+            Choice(name='Value', value=2),
+            Choice(name='Total Value', value=3)
+        ]
     )
     @app_commands.describe(data_type="The data you wish to get.",
                            value_type="Whether to get platinum or ducat values.",
@@ -1251,10 +1264,11 @@ class Overwolf(GroupCog, name="overwolf"):
                                     "add + after to specify that number or higher, or - for that number or lower.",
                            min_value="Value of the item you want, "
                                      "add + after to specify that number or higher, or - for that number or lower.",
-                           changes="Whether you only want to show changes since last sync, defaults to false.")
+                           changes="Whether you only want to show changes since last sync, defaults to false.",
+                           sort_column="The column you want to sort by, defaults to quantity.")
     async def get_prime_data(self, ctx: commands.Context, data_type: Optional[str], value_type: Optional[str],
                              search: Optional[str], quantity: Optional[str], min_value: Optional[str],
-                             changes: bool = False):
+                             changes: bool = False, sort_column: int = 1):
         if ctx.message is not None:
             split_message = ctx.message.content.split()
             if len(split_message) == 2:
@@ -1285,7 +1299,8 @@ class Overwolf(GroupCog, name="overwolf"):
             value_type = 'Platinum'
 
         embeds = self.get_inventory_embed(overwolf_data, data_type, ctx.author.name,
-                                          search, quantity, changes, min_value, value_type)
+                                          search, quantity, changes, min_value, value_type,
+                                          sort_key=sort_column)
 
         if len(embeds) > 0:
             await self.embed_handler(ctx, embeds)
@@ -1293,14 +1308,21 @@ class Overwolf(GroupCog, name="overwolf"):
             await ctx.send("Could not find any items that matches the criteria you specified.")
 
     @commands.hybrid_command(name='relics', description="Get overwolf relic data.", aliases=['rv', 'relicvalue'])
+    @app_commands.choices(sort_column=[
+        Choice(name='Quantity', value=1),
+        Choice(name='Value', value=2),
+        Choice(name='Total Value', value=3)
+    ])
     @app_commands.describe(search="Something in the data to search for.",
                            quantity="Quantity of item you want, "
                                     "add + after to specify that number or higher, or - for that number or lower.",
                            min_value="Value of the item you want, "
                                      "add + after to specify that number or higher, or - for that number or lower.",
-                           changes="Whether you only want to show changes since last sync, defaults to false.")
+                           changes="Whether you only want to show changes since last sync, defaults to false.",
+                           sort_column="The column you want to sort by, defaults to quantity.")
     async def get_relic_data(self, ctx: commands.Context, search: Optional[str],
-                             quantity: Optional[str], min_value: Optional[str], changes: bool = False):
+                             quantity: Optional[str], min_value: Optional[str], changes: bool = False,
+                             sort_column: int = 1):
         split_message = ctx.message.content.split()
         if len(split_message) == 2:
             if split_message[1] == "kill" and split_message[0] == "--rv":
@@ -1328,7 +1350,7 @@ class Overwolf(GroupCog, name="overwolf"):
             quantity = None
 
         embeds = self.get_inventory_embed(overwolf_data, "Relics", ctx.author.name, search, quantity, changes,
-                                          min_value)
+                                          min_value, sort_key=sort_column)
 
         if len(embeds) > 0:
             await self.embed_handler(ctx, embeds)
@@ -1336,14 +1358,21 @@ class Overwolf(GroupCog, name="overwolf"):
             await ctx.send("Could not find any items that matches the criteria you specified.")
 
     @commands.hybrid_command(name='mods', description="Get overwolf mod data.")
+    @app_commands.choices(sort_column=[
+        Choice(name='Quantity', value=1),
+        Choice(name='Value', value=2),
+        Choice(name='Total Value', value=3)
+    ])
     @app_commands.describe(search="Something in the data to search for.",
                            quantity="Quantity of item you want, "
                                     "add + after to specify that number or higher, or - for that number or lower.",
                            min_value="Value of the item you want, "
                                      "add + after to specify that number or higher, or - for that number or lower.",
-                           changes="Whether you only want to show changes since last sync, defaults to false.")
+                           changes="Whether you only want to show changes since last sync, defaults to false.",
+                           sort_column="The column you want to sort by, defaults to quantity.")
     async def get_mod_data(self, ctx: commands.Context, search: Optional[str],
-                           quantity: Optional[str], min_value: Optional[str], changes: bool = False):
+                           quantity: Optional[str], min_value: Optional[str], changes: bool = False,
+                           sort_column: int = 1):
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1364,7 +1393,8 @@ class Overwolf(GroupCog, name="overwolf"):
         if not quantity:
             quantity = None
 
-        embeds = self.get_inventory_embed(overwolf_data, "Mods", ctx.author.name, search, quantity, changes, min_value)
+        embeds = self.get_inventory_embed(overwolf_data, "Mods", ctx.author.name, search, quantity, changes,
+                                          min_value, sort_key=sort_column)
 
         if len(embeds) > 0:
             await self.embed_handler(ctx, embeds)
