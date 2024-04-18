@@ -258,7 +258,8 @@ class Simulator(Cog):
             f"It took you ... {'{:,}'.format(counter)} runs to get a {refinement.lower()} quad rare reward screen!\n"
             f"{prob_string}", reference=ctx.message)
 
-    async def get_leaderboard_embed(self, leaderboard: dict, refinement: str, best: bool = True):
+    async def get_leaderboard_embed(self, leaderboard: dict, refinement: str, best: bool = True,
+                                    ctx_user_id: int = None):
         user_dict = leaderboard[refinement]
 
         # Choose index 0 (best runs) or 1 (worst runs)
@@ -270,6 +271,7 @@ class Simulator(Cog):
                               reverse=not best)
 
         user_list, rank, last_run = [], 0, None
+        user_in_list = False
         for i, (user_id, run) in enumerate(sorted_items, 1):
             run_val, run_prob = run[index].split(' ')
             run_val = int(run_val)
@@ -280,10 +282,19 @@ class Simulator(Cog):
             if user is None:
                 user = user_id
 
-            user_list.append([rank, user, f"{'{:,}'.format(run_val)} {run_prob}"])
+            if ctx_user_id == user_id:
+                user_in_list = True
+
+                if i > 10:
+                    user_list.append(["...", "...", "..."])
+
+                user_list.append([f"**{rank}**", f"**{user}**", f"**{'{:,}'.format(run_val)} {run_prob}**"])
+            elif i <= 10:
+                user_list.append([rank, user, f"{'{:,}'.format(run_val)} {run_prob}"])
+
             last_run = run_val
 
-            if i == 10:
+            if i >= 10 and user_in_list:
                 break
 
         embed = discord.Embed(title=f"{refinement.title()} Quad Rare {'Leader' if best else 'Loser'}board", colour=discord.Colour.blue())
@@ -329,14 +340,14 @@ class Simulator(Cog):
     @command(name='quadrareleaderboard', aliases=['qrlb', 'qlb', 'qleader'])
     async def quad_rare_leaderboard(self, ctx, refinement: str = 'radiant'):
         refinement = self.refinement_dict[refinement.lower()[0]]
-        embed = await self.get_leaderboard_embed(self.leaderboard, refinement, True)
+        embed = await self.get_leaderboard_embed(self.leaderboard, refinement, True, ctx.author.id)
 
         await ctx.send(embed=embed)
 
     @command(name='quadrareloserboard', aliases=['qrloser', 'qloser'])
     async def quad_rare_loserboard(self, ctx, refinement: str = 'radiant'):
         refinement = self.refinement_dict[refinement.lower()[0]]
-        embed = await self.get_leaderboard_embed(self.leaderboard, refinement, False)
+        embed = await self.get_leaderboard_embed(self.leaderboard, refinement, False, ctx.author.id)
 
         await ctx.send(embed=embed)
 
