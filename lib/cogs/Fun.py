@@ -75,10 +75,19 @@ class Fun(Cog):
 
     @commands.hybrid_command(name='signgen',
                              description="Creates a sign with the given text. Default is {person} is cute!",
-                             aliases=['cutegen'])
+                             aliases=['cutegen', 'sign'])
     @app_commands.checks.dynamic_cooldown(no_botspam_cooldown)
     async def cute_gen(self, ctx: commands.Context, person: str, adjective: Optional[str], verb: Optional[str],
                        text_size: Optional[int]):
+        """
+        Creates a sign with the given text. Default is {person} is cute!
+
+        Word order is important. The first word is the person's name, and the second is the adjective you want to describe them with.
+        So, if you want to say "Sui is cute!" you would use the command like this: --signgen Sui cute
+        You only need to include the verb if you want to change it. The default is "is". If you're describing a person, you can leave it out.
+
+        Example: --signgen DK best -> DK is best | --signgen Relics cool are -> Relics are cool
+        """
         if adjective is None:
             adjective = "cute!"
 
@@ -99,7 +108,8 @@ class Fun(Cog):
 
         await ctx.send(file=File(fp=b, filename="image.png"))
 
-    @command(name="rank")
+    @command(name="rank",
+             hidden=True)
     async def get_rank(self, ctx, *, args):
         """Test command."""
         if "add Test --role Peacekeeper" in args:
@@ -116,7 +126,11 @@ class Fun(Cog):
 
     @command(name="credits")
     async def credits_command(self, ctx):
-        """Mercurius credits"""
+        """
+        Shows the credits for the bot.
+
+        Includes the current supporters and patrons.
+        """
         heart_list = ["<:pepeheart:780599565039697981>", "<:jaxheart:780515012279402536>", "❤️", "💙", "💚", "💛", "💜"]
         guthix = await self.bot.fetch_user(585035501929758721)
         rav = await self.bot.fetch_user(113361399727558656)
@@ -138,7 +152,7 @@ class Fun(Cog):
                       280792322134900737: "<:baran:1135263593332494368>",
                       328145199845081088: "🐢",
                       281471947177459712: "<:silvaandaege:1124178791665766410>",
-                      474458695351402497: "<a:catkiss:1226994912315183145>",}
+                      474458695351402497: "<a:catkiss:1226994912315183145>", }
 
         for supporter in supporter_role.members + patrons:
             if supporter.id in emoji_dict:
@@ -161,16 +175,11 @@ class Fun(Cog):
 
         await ctx.send(embed=embed)
 
-    @command(name="shesh")
-    async def shesh(self, ctx):
-        """Shesh."""
-        await ctx.message.delete()
-        await ctx.send(f"{ctx.author.mention} shesh (1)")
-        await ctx.send("<:sheesh:895290930595254343>")
-
     @commands.hybrid_command(name='cringe', description="CRINGE.")
     async def get_cringe(self, ctx: commands.Context):
-        """CRINGE."""
+        """
+        Shows a random cringe video.
+        """
         await ctx.send(choice(misc_bot_data['cringe_list']))
 
     @commands.hybrid_command(name='pat', description="pat people :)")
@@ -230,6 +239,9 @@ class Fun(Cog):
     @app_commands.checks.cooldown(1, 5)
     async def echo_message(self, ctx: commands.Context, echoed_message: str):
         """Echoes whatever text was given in embed format."""
+        if ctx.interaction is None:
+            echoed_message = ctx.message.content.split(maxsplit=1)[1]
+
         await ctx.send(embed=Embed(title="", description=echoed_message))
 
     @commands.hybrid_command(name='calculate', description="Calculates the given expression.", aliases=["calc"])
@@ -243,97 +255,70 @@ class Fun(Cog):
 
         await ctx.send(answer)
 
-    @command(name="becomeselfaware", aliases=["selfaware"])
+    @command(name="becomeselfaware", aliases=["selfaware"],
+             hidden=True)
     async def self_aware(self, ctx):
         """error"""
         await ctx.message.delete()
         await ctx.send("Jokes on you.. I'm already self aware..", delete_after=2)
 
+    async def get_image(self, ctx: commands.Context, url: str, data_type: str = "json"):
+        async with request("GET", url, headers={}) as response:
+            if response.status == 200:
+                data = await response.read()
+
+                return json.loads(data)
+            else:
+                await ctx.send("Could not receive image, please try again later.")
+
     @commands.hybrid_command(name='dog', description="Display a random dog.")
     @app_commands.checks.cooldown(1, 5)
     async def dog_picture(self, ctx: commands.Context):
         """Sends an image of a random dog."""
-        url = "https://dog.ceo/api/breeds/image/random"
+        data = await self.get_image(ctx, "https://dog.ceo/api/breeds/image/random")
 
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data["message"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        if data:
+            await ctx.send(data["message"])
 
     @commands.hybrid_command(name='capybara', description="Display a random capybara.")
     @app_commands.checks.cooldown(1, 5)
     async def capybara_picture(self, ctx: commands.Context):
         """Sends an image of a random capybara."""
-        url = "https://api.capy.lol/v1/capybara?json=true"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data['data']["url"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        data = await self.get_image(ctx, "https://api.capy.lol/v1/capybara?json=true")
+        if data:
+            await ctx.send(data['data']["url"])
 
     @commands.hybrid_command(name='bunny', description="Display a random bunny.")
     @app_commands.checks.cooldown(1, 5)
     async def bunny_picture(self, ctx: commands.Context):
         """Sends an image of a random bunny."""
-        url = "https://api.bunnies.io/v2/loop/random/?media=gif,png"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data['media']["gif"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        data = await self.get_image(ctx, "https://api.bunnies.io/v2/loop/random/?media=gif,png")
+        if data:
+            await ctx.send(data['media']["gif"])
 
     @commands.hybrid_command(name='cat', description="Display a random cat.")
     @app_commands.checks.cooldown(1, 5)
     async def cat_picture(self, ctx: commands.Context):
         """Sends an image of a random cat."""
-        url = "https://api.thecatapi.com/v1/images/search"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data[0]["url"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        data = await self.get_image(ctx, "https://api.thecatapi.com/v1/images/search")
+        if data:
+            await ctx.send(data[0]["url"])
 
     @commands.hybrid_command(name='fox', description="Display a random fox.")
     @app_commands.checks.cooldown(1, 5)
     async def fox_picture(self, ctx: commands.Context):
         """Sends an image of a random fox."""
-        url = "https://randomfox.ca/floof/?ref=public-apis"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data["image"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        data = await self.get_image(ctx, "https://randomfox.ca/floof/?ref=public-apis")
+        if data:
+            await ctx.send(data["image"])
 
     @commands.hybrid_command(name='panda', description="Display a random panda.")
     @app_commands.checks.cooldown(1, 5)
     async def panda_picture(self, ctx: commands.Context):
         """Sends an image of a random panda."""
-        url = "https://some-random-api.ml/img/panda"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.text()
-
-                data = json.loads(data)
-
-                await ctx.send(data["link"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        data = await self.get_image(ctx, "https://some-random-api.ml/img/panda")
+        if data:
+            await ctx.send(data["link"])
 
     @commands.hybrid_command(name='duck', description="Display a random duck.")
     @app_commands.checks.cooldown(1, 5)

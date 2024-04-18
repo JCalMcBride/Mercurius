@@ -5,21 +5,162 @@ from pathlib import Path
 from typing import Union, List
 
 import discord
+from aiomysql import OperationalError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord import Intents, HTTPException, Forbidden, NotFound
+from discord.ext import commands
 from discord.ext.commands import Bot as BotBase, MissingRole, MissingPermissions, CommandOnCooldown, CommandNotFound
 from discord.ext.commands import when_mentioned_or
-from aiomysql import OperationalError
+from fissure_engine.fissure_engine import FissureEngine
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
-
-from fissure_engine.fissure_engine import FissureEngine
 from pytz import utc
 
 from lib.db.database import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")
 COGS = [p.stem for p in cogs_dir.glob("*.py")]
+
+
+class CustomHelpCommand(commands.HelpCommand):
+    def __init__(self):
+        super().__init__()
+        self.cog_embeds = {}
+        self.home_embed = None
+
+    async def send_bot_help(self, mapping):
+        self.cog_embeds = {}
+        self.home_embed = discord.Embed(title="Help", color=discord.Color.blue())
+        self.home_embed.description = "Click on a button below to view the commands for a specific category. The current category will be highlighted in blue."
+
+        for cog, commands in mapping.items():
+            if cog is None or len(commands) == 0:
+                continue
+
+            filtered_commands = await self.filter_commands(commands, sort=True)
+            if not filtered_commands:
+                continue
+
+            command_list = ", ".join([f"`{command.name}`" for command in filtered_commands])
+            self.home_embed.add_field(name=cog.qualified_name, value=command_list, inline=False)
+
+            embed = discord.Embed(title=f"Help - {cog.qualified_name}", color=discord.Color.blue())
+
+            for command in filtered_commands:
+                command_info = f"**{command.name}**\n"
+                if command.help:
+                    command_info += f"{command.help}\n\n"
+                if command.aliases:
+                    aliases = ", ".join(command.aliases)
+                    command_info += f"**Aliases:** {aliases}\n"
+                if command.signature:
+                    command_info += f"**Usage:** `{command.name} {command.signature}`\n"
+                if hasattr(command, 'app_command'):
+                    command_info += f"**Slash Usage:** `/{command.qualified_name}`\n"
+                command_info += "\n"
+                embed.add_field(name="\u200b", value=command_info, inline=False)
+
+            self.cog_embeds[cog.qualified_name] = embed
+
+        view = HelpNavigationView(self, interaction_user=self.context.author)
+        await self.context.send(embed=self.home_embed, view=view)
+
+    async def send_cog_help(self, cog):
+        filtered_commands = await self.filter_commands(cog.get_commands(), sort=True)
+        if not filtered_commands:
+            await self.context.send(f"No accessible commands found for the {cog.qualified_name} cog.")
+            return
+
+        embed = discord.Embed(title=f"Help - {cog.qualified_name}", color=discord.Color.blue())
+
+        for command in filtered_commands:
+            command_info = f"**{command.name}**\n"
+            if command.help:
+                command_info += f"{command.help}\n\n"
+            if command.aliases:
+                aliases = ", ".join(command.aliases)
+                command_info += f"**Aliases:** {aliases}\n"
+            if command.signature:
+                command_info += f"**Usage:** `{command.name} {command.signature}`\n"
+            if hasattr(command, 'app_command'):
+                command_info += f"**Slash Usage:** `/{command.qualified_name}`\n"
+            command_info += "\n"
+            embed.add_field(name="\u200b", value=command_info, inline=False)
+
+        command_options = [discord.SelectOption(label=command.name, value=command.name) for command in filtered_commands]
+        dropdown = discord.ui.Select(placeholder="Select a command for detailed help", options=command_options)
+        dropdown.callback = self.command_dropdown_callback
+
+        view = HelpNavigationView(self, cog.qualified_name, interaction_user=self.context.author)
+        view.add_item(dropdown)
+        await self.context.send(embed=embed, view=view)
+
+    async def command_dropdown_callback(self, interaction: discord.Interaction):
+        command_name = interaction.data["values"][0]
+        command = self.context.bot.get_command(command_name)
+        if command:
+            embed = discord.Embed(title=f"Help - {command.name}", color=discord.Color.blue())
+            embed.add_field(name="Description", value=command.help, inline=False)
+            embed.add_field(name="Usage", value=f"`{command.name} {command.signature}`", inline=False)
+
+            if command.aliases:
+                aliases = ", ".join(command.aliases)
+                embed.add_field(name="Aliases", value=aliases, inline=False)
+
+            params_info = ""
+            for param in command.clean_params.values():
+                param_info = f"- {param.name}: {param.annotation.__name__}"
+                if param.default != param.empty:
+                    param_info += f" (default: {param.default})"
+                params_info += f"{param_info}\n"
+
+            if params_info:
+                embed.add_field(name="Parameters", value=params_info, inline=False)
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.response.send_message("Command not found.", ephemeral=True)
+
+class HelpNavigationView(discord.ui.View):
+    def __init__(self, help_command, current_cog=None, interaction_user=None):
+        super().__init__()
+        self.help_command = help_command
+        self.current_cog = current_cog
+        self.interaction_user = interaction_user
+
+        home_button = discord.ui.Button(label="Home", style=discord.ButtonStyle.success, custom_id="home", row=0)
+        home_button.callback = self.home_button_callback
+        self.add_item(home_button)
+
+        for i, cog_name in enumerate(self.help_command.cog_embeds, start=1):
+            button_style = discord.ButtonStyle.primary if cog_name == self.current_cog else discord.ButtonStyle.secondary
+            button = discord.ui.Button(label=cog_name, style=button_style, custom_id=f"cog:{cog_name}", row=i // 5 + 1)
+            button.callback = self.cog_button_callback
+            self.add_item(button)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user == self.interaction_user:
+            return True
+        else:
+            await interaction.response.send_message("You are not allowed to use this help command.", ephemeral=True)
+            return False
+
+    async def cog_button_callback(self, interaction: discord.Interaction):
+        cog_name = interaction.data["custom_id"].split(":")[1]
+        embed = self.help_command.cog_embeds[cog_name]
+        view = HelpNavigationView(self.help_command, cog_name, interaction_user=self.interaction_user)
+
+        filtered_commands = await self.help_command.filter_commands(self.help_command.context.bot.get_cog(cog_name).get_commands(), sort=True)
+        command_options = [discord.SelectOption(label=command.name, value=command.name) for command in filtered_commands]
+        dropdown = discord.ui.Select(placeholder="Select a command for detailed help", options=command_options)
+        dropdown.callback = self.help_command.command_dropdown_callback
+
+        view.add_item(dropdown)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+    async def home_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.edit_message(embed=self.help_command.home_embed, view=HelpNavigationView(self.help_command, interaction_user=self.interaction_user))
+
 
 
 class Ready(object):
@@ -66,7 +207,8 @@ class Bot(BotBase):
         super().__init__(
             command_prefix=get_prefix,
             owner_ids=bot_config['owner_ids'],
-            intents=Intents.all()
+            intents=Intents.all(),
+            help_command=CustomHelpCommand()
         )
 
     def setup(self):

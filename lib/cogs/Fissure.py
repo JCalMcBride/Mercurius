@@ -623,6 +623,625 @@ class Fissure(Cog):
             'Omnia': discord.Color.dark_gold()
         }
 
+    @commands.hybrid_command(name='setthreadnotificationserver', aliases=['stns'])
+    @app_commands.describe(server='The server where you want to receive fissure thread notifications.')
+    async def set_thread_notification_server(self, ctx,
+                                             server: discord.Guild = commands.parameter(
+                                                 default=None,
+                                                 description="The server where you want to "
+                                                             "receive fissure thread notifications.")):
+        """
+        Set the server where you want to receive fissure thread notifications.
+
+        If no server is provided, a list of servers where you are a member will be displayed for you to choose from.
+        """
+        user_id = ctx.author.id
+
+        if server is None:
+            user_servers = [guild for guild in self.bot.guilds if guild.get_member(user_id)]
+            message = await ctx.send("Please select the server where you want to receive thread notifications:",
+                                     ephemeral=True)
+            view = ThreadNotificationServerSelectView(self.bot, ctx, user_servers, message)
+            await message.edit(view=view)
+        else:
+            self.bot.database.set_thread_notification_server(user_id, server.id)
+            await ctx.send(f"Your thread notification server has been set to {server.name}.", ephemeral=True)
+
+    @commands.hybrid_command(name='mutefissurenotifications', aliases=['mute', 'unmute'])
+    @app_commands.describe(
+        enabled='Whether to enable or disable fissure notifications. If not provided, the current setting will be toggled.')
+    async def fissure_notifications(self, ctx, enabled: bool = commands.parameter(default=None,
+                                                                                  description="Whether to enable or disable fissure notifications. If not provided, the current setting will be toggled.")):
+        """Enable, disable, or toggle fissure notifications."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        if enabled is None:
+            # If no argument is provided, toggle the current setting
+            current_setting = self.bot.database.get_fissure_notifications_enabled(user_id)
+            enabled = not current_setting
+
+        self.bot.database.set_fissure_notifications_enabled(user_id, enabled)
+
+        status = "enabled" if enabled else "disabled"
+        await self.bot.send_message(ctx, f"Fissure notifications have been {status}.", ephemeral=True)
+
+    @commands.hybrid_command(name='setfissuredefaults', aliases=['sfd'])
+    @app_commands.describe(show_normal='Whether to show normal fissures by default.',
+                           show_steel_path='Whether to show Steel Path fissures by default.',
+                           show_void_storms='Whether to show Void Storm fissures by default.',
+                           max_tier='The maximum tier of fissures to show by default.',
+                           show_lith='Whether to show Lith fissures by default.',
+                           show_meso='Whether to show Meso fissures by default.',
+                           show_neo='Whether to show Neo fissures by default.',
+                           show_axi='Whether to show Axi fissures by default.',
+                           show_requiem='Whether to show Requiem fissures by default.',
+                           show_omnia='Whether to show Omnia fissures by default.')
+    @app_commands.choices(max_tier=[
+        Choice(name='Tier 1 - Capture/Exterminate', value=1),
+        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
+        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
+        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
+        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
+    ])
+    async def set_fissure_defaults(self, ctx,
+                                   show_normal: bool = commands.parameter(default=None,
+                                                                          description="Whether to show normal fissures by default."),
+                                   show_steel_path: bool = commands.parameter(default=None,
+                                                                              description="Whether to show Steel Path fissures by default."),
+                                   show_void_storms: bool = commands.parameter(default=None,
+                                                                               description="Whether to show Void Storm fissures by default."),
+                                   max_tier: int = commands.parameter(default=None,
+                                                                      description="The maximum tier of fissures to show by default."),
+                                   show_lith: bool = commands.parameter(default=None,
+                                                                        description="Whether to show Lith fissures by default."),
+                                   show_meso: bool = commands.parameter(default=None,
+                                                                        description="Whether to show Meso fissures by default."),
+                                   show_neo: bool = commands.parameter(default=None,
+                                                                       description="Whether to show Neo fissures by default."),
+                                   show_axi: bool = commands.parameter(default=None,
+                                                                       description="Whether to show Axi fissures by default."),
+                                   show_requiem: bool = commands.parameter(default=None,
+                                                                           description="Whether to show Requiem fissures by default."),
+                                   show_omnia: bool = commands.parameter(default=None,
+                                                                         description="Whether to show Omnia fissures by default.")):
+        """Set your default preferences for the fissure list command."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        # Create a dictionary of the provided parameters
+        update_params = {
+            'show_normal': show_normal,
+            'show_steel_path': show_steel_path,
+            'show_void_storms': show_void_storms,
+            'max_tier': max_tier,
+            'show_lith': show_lith,
+            'show_meso': show_meso,
+            'show_neo': show_neo,
+            'show_axi': show_axi,
+            'show_requiem': show_requiem,
+            'show_omnia': show_omnia
+        }
+
+        # Filter out the parameters that were not provided by the user
+        update_params = {k: v for k, v in update_params.items() if v is not None}
+
+        self.bot.database.set_fissure_list_defaults(user_id, **update_params)
+
+        await self.bot.send_message(ctx, "Your fissure list defaults have been updated.",
+                                    ephemeral=True)
+
+    @commands.hybrid_command(name='addfissuresubscription', aliases=['afs'])
+    @app_commands.describe(
+        fissure_type='The type of fissure to subscribe to.',
+        era='The era of the fissure to subscribe to.',
+        node='The node of the fissure to subscribe to.',
+        mission='The mission type of the fissure to subscribe to.',
+        planet='The planet of the fissure to subscribe to.',
+        tileset='The tileset of the fissure to subscribe to.',
+        enemy='The enemy faction of the fissure to subscribe to.',
+        max_tier='The maximum tier of the fissure you want to receive notifications for.'
+    )
+    @app_commands.choices(max_tier=[
+        Choice(name='Tier 1 - Capture/Exterminate', value=1),
+        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
+        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
+        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
+        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
+    ],
+        fissure_type=[Choice(name='Normal', value=FissureEngine.FISSURE_TYPE_NORMAL),
+                      Choice(name='Steel Path', value=FissureEngine.FISSURE_TYPE_STEEL_PATH),
+                      Choice(name='Void Storm', value=FissureEngine.FISSURE_TYPE_VOID_STORMS)],
+        era=[Choice(name='Lith', value=FissureEngine.ERA_LITH),
+             Choice(name='Meso', value=FissureEngine.ERA_MESO),
+             Choice(name='Neo', value=FissureEngine.ERA_NEO),
+             Choice(name='Axi', value=FissureEngine.ERA_AXI),
+             Choice(name='Requiem', value=FissureEngine.ERA_REQUIEM),
+             Choice(name='Omnia', value=FissureEngine.ERA_OMNIA)]
+    )
+    async def add_fissure_subscription(self, ctx,
+                                       fissure_type: str = commands.parameter(default=None,
+                                                                              description="The type of fissure to subscribe to."),
+                                       era: str = commands.parameter(default=None,
+                                                                     description="The era of the fissure to subscribe to."),
+                                       node: str = commands.parameter(default=None,
+                                                                      description="The node of the fissure to subscribe to."),
+                                       mission: str = commands.parameter(default=None,
+                                                                         description="The mission type of the fissure to subscribe to."),
+                                       planet: str = commands.parameter(default=None,
+                                                                        description="The planet of the fissure to subscribe to."),
+                                       tileset: str = commands.parameter(default=None,
+                                                                         description="The tileset of the fissure to subscribe to."),
+                                       enemy: str = commands.parameter(default=None,
+                                                                       description="The enemy faction of the fissure to subscribe to."),
+                                       max_tier: int = commands.parameter(default=None,
+                                                                          description="The tier of the fissure to subscribe to.")):
+        """Add a new fissure subscription."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            user_id = self.bot.database.create_user(user_id)
+
+        # Check if any subscription fields are provided
+        if not any([fissure_type, era, node, mission, planet, tileset, enemy, max_tier]):
+            await self.bot.send_message(ctx, "Please provide at least one subscription field.", ephemeral=True)
+            return
+
+        try:
+            self.bot.database.add_fissure_subscription(user_id, fissure_type, era, node, mission, planet, tileset,
+                                                       enemy,
+                                                       max_tier)
+            await self.bot.send_message(ctx, "Your fissure subscription has been added.", ephemeral=True)
+        except ValueError as e:
+            await self.bot.send_message(ctx, str(e), ephemeral=True)
+        except IntegrityError:
+            await self.bot.send_message(ctx, "This subscription already exists.", ephemeral=True)
+
+    @commands.hybrid_command(name='listfissuresubscriptions', aliases=['lfs'])
+    async def list_fissure_subscriptions(self, ctx):
+        """List your current fissure subscriptions."""
+        user_id = ctx.author.id
+
+        subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
+
+        if not subscriptions:
+            await self.bot.send_message(ctx, "You have no active fissure subscriptions.", ephemeral=True)
+            return
+
+        embeds = []
+        for i in range(0, len(subscriptions), 5):
+            embed = discord.Embed(title="Your Fissure Subscriptions", color=discord.Color.blue())
+            for j, subscription in enumerate(subscriptions[i:i + 5], start=i + 1):
+                fields = []
+                for field, value in subscription.items():
+                    if value:
+                        field = field.replace("_", " ").capitalize()
+                        fields.append(f"{field}: {value}")
+                subscription_str = "\n".join(fields)
+                embed.add_field(name=f"{j}", value=subscription_str, inline=True)
+            embeds.append(embed)
+
+        view = FissureSubscriptionView(self.bot, ctx.author, subscriptions, embeds)
+        message = await ctx.send(embed=embeds[0], view=view, ephemeral=True)
+        view.message = message
+
+    @commands.hybrid_command(name='fissurenotificationsstatus',
+                             description='Set fissure notification options based on your current Discord status.')
+    async def fissure_notifications_status(self, interaction: discord.Interaction):
+        """Set fissure notification options based on your current Discord status."""
+        user_id = interaction.user.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        status_settings = self.bot.database.get_fissure_notification_status(user_id)
+        view = StatusNotificationView(self.bot, user_id, status_settings)
+        await interaction.response.send_message("Select the Discord statuses for which you want to receive fissure notifications:",
+                                                view=view, ephemeral=True)
+
+    @commands.hybrid_command(name='fissurelogchannel', aliases=['flc', 'flogc', 'flogchannel'],
+                             brief='Set the channel for the fissure log.')
+    @commands.has_permissions(manage_channels=True)
+    @app_commands.describe(fissure_type='The type of fissure to log.',
+                           channel='The channel to log the fissures in.')
+    @app_commands.choices(fissure_type=[Choice(name='Normal', value='normal'),
+                                        Choice(name='Steel Path', value='sp'),
+                                        Choice(name='Void Storm', value='vs')])
+    async def fissure_log_channel(self, ctx,
+                                  fissure_type: str = commands.parameter(default='normal',
+                                                                         description="The type of fissure to log."),
+                                  channel: discord.TextChannel = commands.parameter(default=lambda ctx: ctx.channel,
+                                                                                    displayed_default='current channel',
+                                                                                    description="The channel to log the fissures in.")):
+        """
+        Set the channel for fissure logs.
+
+        If no channel is provided, the current channel is used.
+
+        If you wish to set a log channel and are not using the slash command,
+        ensure that you also provide a fissure type before the channel.
+
+        You must have the `manage_channels` permission to use this command.
+
+        By default, only normal fissures are logged. To log other fissure types, provide the fissure type as the
+        first argument. Valid types are `normal`, `sp`, and `vs`.
+
+        You can log multiple fissure types in the same channel by repeating the command with different types.
+        """
+        if channel is None:
+            channel = ctx.channel
+
+        if fissure_type.lower() not in self.bot.fissure_engine.ALIASES:
+            await self.bot.send_message(ctx, f'Invalid fissure type: {fissure_type}', ephemeral=True)
+            return
+
+        fissure_type = self.bot.fissure_engine.ALIASES[fissure_type.lower()]
+
+        try:
+            self.bot.database.set_fissure_log_channel(channel.guild.id, channel.id, fissure_type)
+        except IntegrityError:
+            self.bot.database.unset_fissure_log_channel(channel.guild.id, channel.id, fissure_type)
+            await self.bot.send_message(ctx,
+                                        f'You will no longer receive {fissure_type} fissure logs in {channel.mention}',
+                                        ephemeral=True)
+            return
+
+        await self.bot.send_message(ctx, f'New {fissure_type} fissures will now be logged in {channel.mention}',
+                                    ephemeral=True)
+
+    def get_era_list_from_config(self, channel_config: dict) -> List[str]:
+        era_mapping = {
+            "show_lith": FissureEngine.ERA_LITH,
+            "show_meso": FissureEngine.ERA_MESO,
+            "show_neo": FissureEngine.ERA_NEO,
+            "show_axi": FissureEngine.ERA_AXI,
+            "show_requiem": FissureEngine.ERA_REQUIEM,
+            "show_omnia": FissureEngine.ERA_OMNIA
+        }
+        return [era for era_name, era in era_mapping.items() if channel_config.get(era_name, False)]
+
+    @commands.hybrid_command(name='fissures', aliases=['fissure', 'fiss', 'f'])
+    @app_commands.describe(show_normal='Whether to show normal fissures.',
+                           show_steel_path='Whether to show Steel Path fissures.',
+                           show_void_storms='Whether to show Void Storm fissures.',
+                           max_tier='The maximum tier of fissures to show.',
+                           show_lith='Whether to show Lith fissures.',
+                           show_meso='Whether to show Meso fissures.',
+                           show_neo='Whether to show Neo fissures.',
+                           show_axi='Whether to show Axi fissures.',
+                           show_requiem='Whether to show Requiem fissures.',
+                           show_omnia='Whether to show Omnia fissures.')
+    @app_commands.choices(max_tier=[
+        Choice(name='Tier 1 - Capture/Exterminate', value=1),
+        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
+        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
+        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
+        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
+    ],
+        display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
+                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
+    )
+    async def fissures(self, ctx,
+                       show_normal: bool = commands.parameter(default=None,
+                                                              description="Whether to show normal fissures."),
+                       show_steel_path: bool = commands.parameter(default=None,
+                                                                  description="Whether to show Steel Path fissures."),
+                       show_void_storms: bool = commands.parameter(default=None,
+                                                                   description="Whether to show Void Storm fissures."),
+                       max_tier: int = commands.parameter(default=None,
+                                                          description="The maximum tier of fissures to show."),
+                       show_lith: bool = commands.parameter(default=None, description="Whether to show Lith fissures."),
+                       show_meso: bool = commands.parameter(default=None, description="Whether to show Meso fissures."),
+                       show_neo: bool = commands.parameter(default=None, description="Whether to show Neo fissures."),
+                       show_axi: bool = commands.parameter(default=None, description="Whether to show Axi fissures."),
+                       show_requiem: bool = commands.parameter(default=None,
+                                                               description="Whether to show Requiem fissures."),
+                       show_omnia: bool = commands.parameter(default=None,
+                                                             description="Whether to show Omnia fissures."),
+                       display_type: str = commands.parameter(default=FissureEngine.DISPLAY_TYPE_DISCORD,
+                                                              description="The type of display to use for the fissure list.")):
+        """Get the current list of fissures."""
+        user_id = ctx.author.id
+        defaults = self.bot.database.get_fissure_list_defaults(user_id) or {}
+
+        default_values = {
+            "show_normal": True,
+            "show_steel_path": False,
+            "show_void_storms": False,
+            "max_tier": 5,
+            "show_lith": True,
+            "show_meso": True,
+            "show_neo": True,
+            "show_axi": True,
+            "show_requiem": True,
+            "show_omnia": True,
+            "display_type": FissureEngine.DISPLAY_TYPE_DISCORD
+        }
+
+        options = {key: value if value is not None else defaults.get(key, default_values[key])
+                   for key, value in locals().items() if key != 'self' and key != 'ctx'}
+
+        channel_config = {key: options[key] for key in options if key.startswith("show_")}
+        era_list = self.get_era_list_from_config(channel_config)
+
+        fissure_types = [fissure_type for fissure_type in [FissureEngine.FISSURE_TYPE_NORMAL,
+                                                           FissureEngine.FISSURE_TYPE_STEEL_PATH,
+                                                           FissureEngine.FISSURE_TYPE_VOID_STORMS]
+                         if options.get(f"show_{fissure_type.lower().replace(' ', '_')}", False)]
+
+        embeds = await self.get_fissure_list_embed(fissure_types, era_list=era_list, max_tier=options["max_tier"],
+                                                   display_type=options["display_type"])
+        await self.bot.send_message(ctx, embed=embeds)
+
+    @commands.hybrid_command(name='setfissurenotificationtype', aliases=['sfnt'])
+    @app_commands.describe(notification_type='The type of notification to receive for fissure subscriptions.')
+    @app_commands.choices(notification_type=[
+        Choice(name='DM', value='DM'),
+        Choice(name='Thread', value='Thread')
+    ])
+    async def set_fissure_notification_type(self, ctx, notification_type: str = commands.parameter(
+        description="The type of notification to receive for fissure subscriptions.")):
+        """Set your preferred notification type for fissure subscriptions."""
+        user_id = ctx.author.id
+
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
+        self.bot.database.set_fissure_notification_type(user_id, notification_type)
+
+        await self.bot.send_message(ctx, f"Your fissure notification type has been set to {notification_type}.",
+                                    ephemeral=True)
+
+    @commands.hybrid_command(name='fissurelistchannel', aliases=['fissurelist', 'flist'],
+                             brief='Show a constantly updating fissure list in the given channel.')
+    @commands.has_permissions(manage_channels=True)
+    @app_commands.describe(show_normal='Whether to show normal fissures.',
+                           show_steel_path='Whether to show Steel Path fissures.',
+                           show_void_storms='Whether to show Void Storm fissures.',
+                           max_tier='The maximum tier of fissures to show.',
+                           show_lith='Whether to show Lith fissures.',
+                           show_meso='Whether to show Meso fissures.',
+                           show_neo='Whether to show Neo fissures.',
+                           show_axi='Whether to show Axi fissures.',
+                           show_requiem='Whether to show Requiem fissures.',
+                           show_omnia='Whether to show Omnia fissures.',
+                           display_type='The type of display to use for the fissure list.',
+                           channel='The channel to post the fissure list in.')
+    @app_commands.choices(max_tier=[
+        Choice(name='Tier 1 - Capture/Exterminate', value=1),
+        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
+        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
+        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
+        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
+    ],
+        display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
+                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
+    )
+    async def fissure_list_channel(self, ctx,
+                                   show_normal: bool = commands.parameter(default=True,
+                                                                          description="Whether to show normal fissures."),
+                                   show_steel_path: bool = commands.parameter(default=False,
+                                                                              description="Whether to show Steel Path fissures."),
+                                   show_void_storms: bool = commands.parameter(default=False,
+                                                                               description="Whether to show Void Storm fissures."),
+                                   max_tier: int = commands.parameter(default=5,
+                                                                      description="The maximum tier of fissures to list."),
+                                   show_lith: bool = commands.parameter(default=True,
+                                                                        description="Whether to show Lith fissures."),
+                                   show_meso: bool = commands.parameter(default=True,
+                                                                        description="Whether to show Meso fissures."),
+                                   show_neo: bool = commands.parameter(default=True,
+                                                                       description="Whether to show Neo fissures."),
+                                   show_axi: bool = commands.parameter(default=True,
+                                                                       description="Whether to show Axi fissures."),
+                                   show_requiem: bool = commands.parameter(default=True,
+                                                                           description="Whether to show Requiem fissures."),
+                                   show_omnia: bool = commands.parameter(default=True,
+                                                                         description="Whether to show Omnia fissures."),
+                                   display_type: str = commands.parameter(default=FissureEngine.DISPLAY_TYPE_DISCORD,
+                                                                          description="The type of display to use for the fissure list."),
+                                   channel: discord.TextChannel = commands.parameter(default=lambda ctx: ctx.channel,
+                                                                                     displayed_default='current channel',
+                                                                                     description="The channel to list the fissures in.")):
+        """
+        Show a constantly updating fissure list in the given channel.
+
+        You must have the `manage_channels` permission to use this command.
+
+        By default, it will show all fissure types. You can specify which fissure types to show using the
+        `show_normal`, `show_steel_path`, and `show_void_storms` parameters.
+        """
+        if channel is None:
+            channel = ctx.channel
+
+        try:
+            self.bot.database.set_fissure_list_channel(channel.guild.id, channel.id, None, max_tier,
+                                                       show_lith, show_meso, show_neo, show_axi, show_requiem,
+                                                       show_omnia, display_type, show_normal, show_steel_path,
+                                                       show_void_storms)
+        except IntegrityError:
+            self.bot.database.unset_fissure_list_channel(channel.guild.id, channel.id, None)
+            await self.bot.send_message(ctx, f'The fissure list will no longer be posted/updated in {channel.mention}',
+                                        ephemeral=True)
+            return
+
+        await self.bot.send_message(ctx, f'A fissure list will now be posted and then updated in {channel.mention}',
+                                    ephemeral=True)
+
+    @commands.hybrid_command(name='updatefissurelists', aliases=['ufl'],
+                             brief='Update all fissure lists.')
+    @commands.has_permissions(administrator=True)
+    async def update_fissure_lists(self, ctx):
+        """Update all fissure lists across all configured channels."""
+        await ctx.defer()  # Defer the response to indicate that the bot is working on the command
+
+        try:
+            await self.update_all_fissure_lists()
+            await self.bot.send_message(ctx, 'All fissure lists have been updated.',
+                                        ephemeral=True)
+        except Exception as e:
+            await self.bot.send_message(ctx, f'An error occurred while updating the fissure lists: {str(e)}',
+                                        ephemeral=True)
+
+    @commands.hybrid_command(name='createfissureview', description='Create a fissure view')
+    @commands.has_permissions(manage_channels=True)
+    async def create_fissure_view(self, interaction: discord.Interaction):
+        """
+        Allows a staff member to create a discord message with buttons for subscribing to fissures.
+        """
+        view = ButtonView(self.bot, interaction)
+        await view.send_initial_message()
+
+    @commands.hybrid_command(name='resendfissureview', description='Resend all saved fissure views')
+    @commands.has_permissions(manage_channels=True)
+    async def resend_fissure_views(self, interaction: discord.Interaction) -> None:
+        """
+        Resend all saved fissure views.
+        """
+        await interaction.response.defer()
+
+        fissure_views = self.bot.database.get_all_fissure_views()
+
+        new_fissure_views = []
+        for view_data in fissure_views:
+            message_text = view_data['message_text']
+            button_configs = view_data['button_configs']
+            channel_id = view_data['channel_id']
+            message_id = view_data['message_id']
+
+            view = FissureView(self.bot, button_configs)
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                try:
+                    message = await channel.fetch_message(message_id)
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+
+            message = await interaction.channel.send(content=message_text, view=view)
+            new_fissure_views.append([message_text, button_configs, message.channel.id, message.id])
+
+        self.bot.database.delete_all_fissure_views()
+
+        for fissure_view in new_fissure_views:
+            self.bot.database.save_fissure_view(*fissure_view)
+
+        await interaction.followup.send("All saved fissure views have been resent.", ephemeral=True)
+
+    @commands.hybrid_command(name='editfissureview', description='Edit a fissure view')
+    @app_commands.describe(message_id='The ID of the message containing the fissure view to edit')
+    @commands.has_permissions(manage_channels=True)
+    async def edit_fissure_view(self, interaction: discord.Interaction, message_id: str = commands.parameter(
+        description="The ID of the message containing the fissure view to edit.")) -> None:
+        """
+        Edit a fissure view.
+        """
+        try:
+            message_id = int(message_id)
+        except ValueError:
+            await interaction.response.send_message("Invalid message ID. Please provide a valid message ID.",
+                                                    ephemeral=True)
+            return
+
+        # Fetch the fissure view data from the database based on the message ID
+        fissure_view_data = self.bot.database.get_fissure_view_by_message_id(message_id)
+
+        if fissure_view_data:
+            message_text = fissure_view_data['message_text']
+            button_configs = fissure_view_data['button_configs']
+            channel_id = fissure_view_data['channel_id']
+
+            try:
+                channel = self.bot.get_channel(channel_id)
+                message = await channel.fetch_message(message_id)
+            except discord.NotFound:
+                await interaction.response.send_message("No fissure view found with the provided message ID.",
+                                                        ephemeral=True)
+                return
+
+            # Create a new ButtonView instance with the fetched data
+            view = ButtonView(self.bot, interaction, message_text, button_configs, message)
+
+            await view.send_initial_message()
+
+        else:
+            await interaction.response.send_message("No fissure view found with the provided message ID.",
+                                                    ephemeral=True)
+
+    @tasks.loop(seconds=30)
+    async def update_all_fissure_lists(self) -> None:
+        """
+        Update all fissure lists across all configured channels.
+        Returns: None
+
+        """
+        fissure_list_dict = self.bot.database.get_fissure_list_channels()
+
+        async def update_server_fissure_lists(server_id: int, channel_configs: List[dict]) -> None:
+            """
+            Update the fissure lists for a server.
+            Args:
+                server_id (int): The ID of the server.
+                channel_configs (List[dict]): The list of channel configurations.
+
+            Returns:
+
+            """
+            async def update_channel_fissure_list(channel_config: dict) -> None:
+                """
+                Update the fissure list for a channel.
+                Args:
+                    channel_config (dict): The channel configuration.
+
+                Returns: None
+
+                """
+                try:
+                    channel_id = channel_config["channel_id"]
+                    await self.post_or_update_fissure_list(server_id, channel_id, channel_config)
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    self.bot.logger.error(f"Error updating fissure list for server {server_id}, "
+                                          f"channel {channel_config['channel_id']}", exc_info=e)
+
+            for channel_config in channel_configs:
+                await update_channel_fissure_list(channel_config)
+                await asyncio.sleep(1)
+
+        # Update the fissure lists for each server
+        server_update_tasks = [update_server_fissure_lists(server_id, channel_configs) for server_id, channel_configs in
+                               fissure_list_dict.items()]
+
+        try:
+            await asyncio.gather(*server_update_tasks, return_exceptions=True)
+        except Exception as e:
+            print(f"Error updating fissure lists: {str(e)}")
+            traceback.print_exc()  # Print the traceback for debugging purposes
+
     @tasks.loop(seconds=10)
     async def update_fissure_list(self):
         new_fissures, changed_fissure_types = await self.bot.fissure_engine.build_fissure_list()
@@ -897,228 +1516,67 @@ class Fissure(Cog):
 
         return embeds
 
-    @commands.hybrid_command(name='set_thread_notification_server', aliases=['stns'])
-    async def set_thread_notification_server(self, ctx, server: discord.Guild = None):
-        """Set the server where you want to receive thread notifications."""
-        user_id = ctx.author.id
+    async def post_or_update_fissure_list(self, server_id: int, channel_id: int, channel_config: dict) -> None:
+        """
+        Post or update the fissure list for a channel.
 
-        if server is None:
-            user_servers = [guild for guild in self.bot.guilds if guild.get_member(user_id)]
-            message = await ctx.send("Please select the server where you want to receive thread notifications:",
-                                     ephemeral=True)
-            view = ThreadNotificationServerSelectView(self.bot, ctx, user_servers, message)
-            await message.edit(view=view)
-        else:
-            self.bot.database.set_thread_notification_server(user_id, server.id)
-            await ctx.send(f"Your thread notification server has been set to {server.name}.", ephemeral=True)
+        Args:
+            server_id: The ID of the server containing the channel to post the fissure list in.
+            channel_id: The ID of the channel to post the fissure list in.
+            channel_config: The fissure list channel configuration.
 
-    @commands.command(name='sync_rolesubscriptions', aliases=['syncrs'])
-    @commands.has_permissions(administrator=True)
-    async def sync_rolesubscriptions(self, ctx):
-        for role in ctx.guild.roles:
-            if role.name.startswith(("Lith", "Meso", "Neo", "Axi")) and len(role.members) > 2:
-                era = role.name.split()[0]
-                mission_or_node = ' '.join(role.name.split()[1:])
+        Returns: None
 
-                if mission_or_node in ["Capture", "Rescue", "Exterminate", "Sabotage", "Disruption"]:
-                    mission = mission_or_node
-                    node = None
-                else:
-                    mission = None
-                    node = mission_or_node
-
-                for member in role.members:
-                    user_id = member.id
-
-                    # Check if the user exists in the users table
-                    user_exists = self.bot.database.user_exists(user_id)
-
-                    if not user_exists:
-                        # Create a new entry for the user in the users table
-                        self.bot.database.create_user(user_id)
-
-                    # Set the user's notification type to "Thread"
-                    self.bot.database.set_fissure_notification_type(user_id, "Thread")
-
-                    # Check if the user already has the subscription
-                    existing_subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
-                    new_subscription = {
-                        "fissure_type": "Normal",
-                        "era": era,
-                        "node": node,
-                        "mission": mission,
-                        "planet": None,
-                        "tileset": None,
-                        "enemy": None,
-                        "max_tier": None
-                    }
-
-                    if new_subscription not in existing_subscriptions:
-                        # Add the equivalent subscription
-                        self.bot.database.add_fissure_subscription(user_id, fissure_type="Normal", era=era, node=node,
-                                                                   mission=mission)
-                        self.bot.logger.info(
-                            f"Added subscription for user {member.id}: Era={era}, Mission={mission}, Node={node}")
-                    else:
-                        self.bot.logger.info(
-                            f"User {member.id} already subscribed: Era={era}, Mission={mission}, Node={node}")
-
-        await ctx.send("Role subscriptions synced successfully.")
-
-    @commands.hybrid_command(name='mute_fissure_notifications', aliases=['mute', 'unmute'])
-    @app_commands.describe(
-        enabled='Whether to enable or disable fissure notifications. If not provided, the current setting will be toggled.')
-    async def fissure_notifications(self, ctx, enabled: bool = None):
-        """Enable, disable, or toggle fissure notifications."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            self.bot.database.create_user(user_id)
-
-        if enabled is None:
-            # If no argument is provided, toggle the current setting
-            current_setting = self.bot.database.get_fissure_notifications_enabled(user_id)
-            enabled = not current_setting
-
-        self.bot.database.set_fissure_notifications_enabled(user_id, enabled)
-
-        status = "enabled" if enabled else "disabled"
-        await self.bot.send_message(ctx, f"Fissure notifications have been {status}.", ephemeral=True)
-
-    @commands.hybrid_command(name='set_fissure_defaults', aliases=['sfd', 'setfissuredefaults'])
-    @app_commands.describe(show_normal='Whether to show normal fissures by default.',
-                           show_steel_path='Whether to show Steel Path fissures by default.',
-                           show_void_storms='Whether to show Void Storm fissures by default.',
-                           max_tier='The maximum tier of fissures to show by default.',
-                           show_lith='Whether to show Lith fissures by default.',
-                           show_meso='Whether to show Meso fissures by default.',
-                           show_neo='Whether to show Neo fissures by default.',
-                           show_axi='Whether to show Axi fissures by default.',
-                           show_requiem='Whether to show Requiem fissures by default.',
-                           show_omnia='Whether to show Omnia fissures by default.')
-    @app_commands.choices(max_tier=[
-        Choice(name='Tier 1 - Capture/Exterminate', value=1),
-        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
-        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
-        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
-        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
-    ])
-    async def set_fissure_defaults(self, ctx,
-                                   show_normal: bool = None,
-                                   show_steel_path: bool = None,
-                                   show_void_storms: bool = None,
-                                   max_tier: int = None,
-                                   show_lith: bool = None,
-                                   show_meso: bool = None,
-                                   show_neo: bool = None,
-                                   show_axi: bool = None,
-                                   show_requiem: bool = None,
-                                   show_omnia: bool = None):
-        """Set your default preferences for the fissure list command."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            self.bot.database.create_user(user_id)
-
-        # Create a dictionary of the provided parameters
-        update_params = {
-            'show_normal': show_normal,
-            'show_steel_path': show_steel_path,
-            'show_void_storms': show_void_storms,
-            'max_tier': max_tier,
-            'show_lith': show_lith,
-            'show_meso': show_meso,
-            'show_neo': show_neo,
-            'show_axi': show_axi,
-            'show_requiem': show_requiem,
-            'show_omnia': show_omnia
-        }
-
-        # Filter out the parameters that were not provided by the user
-        update_params = {k: v for k, v in update_params.items() if v is not None}
-
-        self.bot.database.set_fissure_list_defaults(user_id, **update_params)
-
-        await self.bot.send_message(ctx, "Your fissure list defaults have been updated.",
-                                    ephemeral=True)
-
-    @commands.hybrid_command(name='add_fissure_subscription', aliases=['afs', 'addfissuresubscription'])
-    @app_commands.describe(
-        fissure_type='The type of fissure to subscribe to.',
-        era='The era of the fissure to subscribe to.',
-        node='The node of the fissure to subscribe to.',
-        mission='The mission type of the fissure to subscribe to.',
-        planet='The planet of the fissure to subscribe to.',
-        tileset='The tileset of the fissure to subscribe to.',
-        enemy='The enemy faction of the fissure to subscribe to.',
-        max_tier='The maximum tier of the fissure you want to receive notifications for.'
-    )
-    @app_commands.choices(max_tier=[
-        Choice(name='Tier 1 - Capture/Exterminate', value=1),
-        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
-        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
-        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
-        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
-    ],
-        fissure_type=[Choice(name='Normal', value=FissureEngine.FISSURE_TYPE_NORMAL),
-                      Choice(name='Steel Path', value=FissureEngine.FISSURE_TYPE_STEEL_PATH),
-                      Choice(name='Void Storm', value=FissureEngine.FISSURE_TYPE_VOID_STORMS)],
-        era=[Choice(name='Lith', value=FissureEngine.ERA_LITH),
-             Choice(name='Meso', value=FissureEngine.ERA_MESO),
-             Choice(name='Neo', value=FissureEngine.ERA_NEO),
-             Choice(name='Axi', value=FissureEngine.ERA_AXI),
-             Choice(name='Requiem', value=FissureEngine.ERA_REQUIEM),
-             Choice(name='Omnia', value=FissureEngine.ERA_OMNIA)]
-    )
-    async def add_fissure_subscription(self, ctx,
-                                       fissure_type: str = commands.parameter(default=None,
-                                                                              description="The type of fissure to subscribe to."),
-                                       era: str = commands.parameter(default=None,
-                                                                     description="The era of the fissure to subscribe to."),
-                                       node: str = commands.parameter(default=None,
-                                                                      description="The node of the fissure to subscribe to."),
-                                       mission: str = commands.parameter(default=None,
-                                                                         description="The mission type of the fissure to subscribe to."),
-                                       planet: str = commands.parameter(default=None,
-                                                                        description="The planet of the fissure to subscribe to."),
-                                       tileset: str = commands.parameter(default=None,
-                                                                         description="The tileset of the fissure to subscribe to."),
-                                       enemy: str = commands.parameter(default=None,
-                                                                       description="The enemy faction of the fissure to subscribe to."),
-                                       max_tier: int = commands.parameter(default=None,
-                                                                          description="The tier of the fissure to subscribe to.")):
-        """Add a new fissure subscription."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            user_id = self.bot.database.create_user(user_id)
-
-        # Check if any subscription fields are provided
-        if not any([fissure_type, era, node, mission, planet, tileset, enemy, max_tier]):
-            await self.bot.send_message(ctx, "Please provide at least one subscription field.", ephemeral=True)
+        """
+        channel = self.bot.get_channel(channel_id)
+        if channel is None:
             return
 
+        era_list = self.get_era_list_from_config(channel_config)
+        max_tier = channel_config["max_tier"]
+        display_type = channel_config["display_type"]
+        message_id = channel_config["message_id"]
+
+        fissure_types = [fissure_type for fissure_type in [FissureEngine.FISSURE_TYPE_NORMAL,
+                                                           FissureEngine.FISSURE_TYPE_STEEL_PATH,
+                                                           FissureEngine.FISSURE_TYPE_VOID_STORMS]
+                         if channel_config[f"show_{fissure_type.lower().replace(' ', '_')}"]]
+
+        embeds = await self.get_fissure_list_embed(fissure_types,
+                                                   display_type=display_type,
+                                                   era_list=era_list,
+                                                   max_tier=max_tier)
+
+        # Update the existing message if it exists, otherwise post a new message
+        # Ignore errors that result from temporary Discord outages or connection issues
         try:
-            self.bot.database.add_fissure_subscription(user_id, fissure_type, era, node, mission, planet, tileset,
-                                                       enemy,
-                                                       max_tier)
-            await self.bot.send_message(ctx, "Your fissure subscription has been added.", ephemeral=True)
-        except ValueError as e:
-            await self.bot.send_message(ctx, str(e), ephemeral=True)
-        except IntegrityError:
-            await self.bot.send_message(ctx, "This subscription already exists.", ephemeral=True)
+            await self.update_fissure_list_message(channel, message_id, embeds)
+        except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
+            pass
+        except (discord.NotFound, Exception) as e:
+            self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
+                                    channel {channel_config['channel_id']}", exc_info=e)
+            message = await channel.send(embeds=embeds)
+            self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
+
+    async def update_fissure_list_message(self, channel: discord.TextChannel, message_id: int,
+                                            embeds: List[discord.Embed]) -> None:
+        """
+        Update a fissure list message with new embeds.
+        Args:
+            channel: The channel containing the message to update.
+            message_id: The ID of the message to update.
+            embeds: The new embeds to use for the message.
+
+        Returns: None
+
+        """
+
+        if message_id:
+            message = await channel.fetch_message(message_id)
+            await message.edit(embeds=embeds)
+        else:
+            raise Exception("Message ID not found.")
 
     def filter_nodes(self, interaction: discord.Interaction, selected_values: dict = None) -> List[dict]:
         filter_rules = {
@@ -1270,507 +1728,35 @@ class Fissure(Cog):
         filtered_nodes = self.filter_nodes(interaction)
         return self.get_choices(filtered_nodes, current, 'enemy')
 
-    @commands.hybrid_command(name='remove_fissure_subscription', aliases=['rfs', 'removefissuresubscription'])
-    @app_commands.describe(
-        fissure_type='The type of fissure to unsubscribe from.',
-        era='The era of the fissure to unsubscribe from.',
-        node='The node of the fissure to unsubscribe from.',
-        mission='The mission type of the fissure to unsubscribe from.',
-        planet='The planet of the fissure to unsubscribe from.',
-        tileset='The tileset of the fissure to unsubscribe from.',
-        enemy='The enemy faction of the fissure to unsubscribe from.',
-        max_tier='The tier of the fissure to unsubscribe from.'
-    )
-    async def remove_fissure_subscription(self, ctx,
-                                          fissure_type: str = None,
-                                          era: str = None,
-                                          node: str = None,
-                                          mission: str = None,
-                                          planet: str = None,
-                                          tileset: str = None,
-                                          enemy: str = None,
-                                          max_tier: int = None):
-        """Remove a fissure subscription."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            await self.bot.send_message(ctx, "You have no subscriptions to remove.", ephemeral=True)
-            return
-
-        self.bot.database.remove_fissure_subscription(user_id, fissure_type, era, node, mission, planet, tileset, enemy,
-                                                      max_tier)
-
-        await self.bot.send_message(ctx, "Your fissure subscription has been removed.", ephemeral=True)
-
-    @commands.hybrid_command(name='list_fissure_subscriptions', aliases=['lfs', 'listfissuresubscriptions'])
-    async def list_fissure_subscriptions(self, ctx):
-        """List your current fissure subscriptions."""
-        user_id = ctx.author.id
-
-        subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
-
-        if not subscriptions:
-            await self.bot.send_message(ctx, "You have no active fissure subscriptions.", ephemeral=True)
-            return
-
-        embeds = []
-        for i in range(0, len(subscriptions), 5):
-            embed = discord.Embed(title="Your Fissure Subscriptions", color=discord.Color.blue())
-            for j, subscription in enumerate(subscriptions[i:i + 5], start=i + 1):
-                fields = []
-                for field, value in subscription.items():
-                    if value:
-                        field = field.replace("_", " ").capitalize()
-                        fields.append(f"{field}: {value}")
-                subscription_str = "\n".join(fields)
-                embed.add_field(name=f"{j}", value=subscription_str, inline=True)
-            embeds.append(embed)
-
-        view = FissureSubscriptionView(self.bot, ctx.author, subscriptions, embeds)
-        message = await ctx.send(embed=embeds[0], view=view, ephemeral=True)
-        view.message = message
-
-    @app_commands.command(name='fissure_notifications_status',
-                          description='Set fissure notification options based on your current Discord status.')
-    async def fissure_notifications_status(self, interaction: discord.Interaction):
-        """Set fissure notification options based on your current Discord status."""
-        user_id = interaction.user.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            self.bot.database.create_user(user_id)
-
-        status_settings = self.bot.database.get_fissure_notification_status(user_id)
-        view = StatusNotificationView(self.bot, user_id, status_settings)
-        await interaction.response.send_message("Select the Discord statuses for which you want to receive fissure notifications:",
-                                                view=view, ephemeral=True)
-
-    @commands.hybrid_command(name='fissure_log_channel', aliases=['flc', 'flogc', 'flogchannel', 'fissurelogchannel'],
-                             brief='Set the channel for the fissure log.')
-    @commands.has_permissions(manage_channels=True)
-    @app_commands.describe(fissure_type='The type of fissure to log.',
-                           channel='The channel to log the fissures in.')
-    @app_commands.choices(fissure_type=[Choice(name='Normal', value='normal'),
-                                        Choice(name='Steel Path', value='sp'),
-                                        Choice(name='Void Storm', value='vs')])
-    async def fissure_log_channel(self, ctx,
-                                  fissure_type: str = commands.parameter(
-                                      default='normal',
-                                      description="The type of fissure to log."),
-                                  channel: discord.TextChannel = commands.parameter(
-                                      default=lambda ctx: ctx.channel,
-                                      displayed_default='current channel',
-                                      description="The channel to log the fissures in.")):
-        """
-        If no channel is provided, the current channel is used.
-
-        If you wish to set a log channel and are not using the slash command,
-        ensure that you also provide a fissure type before the channel.
-
-        You must have the `manage_channels` permission to use this command.
-
-        By default, only normal fissures are logged. To log other fissure types, provide the fissure type as the
-        first argument. Valid types are `normal`, `sp`, and `vs`.
-
-        You can log multiple fissure types in the same channel by repeating the command with different types.
-        """
-        if channel is None:
-            channel = ctx.channel
-
-        if fissure_type.lower() not in self.bot.fissure_engine.ALIASES:
-            await self.bot.send_message(ctx, f'Invalid fissure type: {fissure_type}', ephemeral=True)
-            return
-
-        fissure_type = self.bot.fissure_engine.ALIASES[fissure_type.lower()]
-
-        try:
-            self.bot.database.set_fissure_log_channel(channel.guild.id, channel.id, fissure_type)
-        except IntegrityError:
-            self.bot.database.unset_fissure_log_channel(channel.guild.id, channel.id, fissure_type)
-            await self.bot.send_message(ctx,
-                                        f'You will no longer receive {fissure_type} fissure logs in {channel.mention}',
-                                        ephemeral=True)
-            return
-
-        await self.bot.send_message(ctx, f'New {fissure_type} fissures will now be logged in {channel.mention}',
-                                    ephemeral=True)
-
-    def get_era_list_from_config(self, channel_config: dict) -> List[str]:
-        era_mapping = {
-            "show_lith": FissureEngine.ERA_LITH,
-            "show_meso": FissureEngine.ERA_MESO,
-            "show_neo": FissureEngine.ERA_NEO,
-            "show_axi": FissureEngine.ERA_AXI,
-            "show_requiem": FissureEngine.ERA_REQUIEM,
-            "show_omnia": FissureEngine.ERA_OMNIA
-        }
-        return [era for era_name, era in era_mapping.items() if channel_config.get(era_name, False)]
-
-    @commands.hybrid_command(name='fissures', aliases=['fissure', 'fiss', 'f'])
-    @app_commands.describe(show_normal='Whether to show normal fissures.',
-                           show_steel_path='Whether to show Steel Path fissures.',
-                           show_void_storms='Whether to show Void Storm fissures.',
-                           max_tier='The maximum tier of fissures to show.',
-                           show_lith='Whether to show Lith fissures.',
-                           show_meso='Whether to show Meso fissures.',
-                           show_neo='Whether to show Neo fissures.',
-                           show_axi='Whether to show Axi fissures.',
-                           show_requiem='Whether to show Requiem fissures.',
-                           show_omnia='Whether to show Omnia fissures.')
-    @app_commands.choices(max_tier=[
-        Choice(name='Tier 1 - Capture/Exterminate', value=1),
-        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
-        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
-        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
-        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
-    ],
-        display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
-                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
-    )
-    async def fissures(self, ctx,
-                       show_normal: bool = None,
-                       show_steel_path: bool = None,
-                       show_void_storms: bool = None,
-                       max_tier: int = None,
-                       show_lith: bool = None,
-                       show_meso: bool = None,
-                       show_neo: bool = None,
-                       show_axi: bool = None,
-                       show_requiem: bool = None,
-                       show_omnia: bool = None,
-                       display_type: str = FissureEngine.DISPLAY_TYPE_DISCORD):
-        """Get the current list of fissures."""
-        user_id = ctx.author.id
-        defaults = self.bot.database.get_fissure_list_defaults(user_id) or {}
-
-        default_values = {
-            "show_normal": True,
-            "show_steel_path": False,
-            "show_void_storms": False,
-            "max_tier": 5,
-            "show_lith": True,
-            "show_meso": True,
-            "show_neo": True,
-            "show_axi": True,
-            "show_requiem": True,
-            "show_omnia": True,
-            "display_type": FissureEngine.DISPLAY_TYPE_DISCORD
-        }
-
-        options = {key: value if value is not None else defaults.get(key, default_values[key])
-                   for key, value in locals().items() if key != 'self' and key != 'ctx'}
-
-        channel_config = {key: options[key] for key in options if key.startswith("show_")}
-        era_list = self.get_era_list_from_config(channel_config)
-
-        fissure_types = [fissure_type for fissure_type in [FissureEngine.FISSURE_TYPE_NORMAL,
-                                                           FissureEngine.FISSURE_TYPE_STEEL_PATH,
-                                                           FissureEngine.FISSURE_TYPE_VOID_STORMS]
-                         if options.get(f"show_{fissure_type.lower().replace(' ', '_')}", False)]
-
-        embeds = await self.get_fissure_list_embed(fissure_types, era_list=era_list, max_tier=options["max_tier"],
-                                                   display_type=options["display_type"])
-        await self.bot.send_message(ctx, embed=embeds)
-
-    @commands.hybrid_command(name='set_fissure_notification_type', aliases=['sfnt', 'setfissurenotificationtype'])
-    @app_commands.describe(notification_type='The type of notification to receive for fissure subscriptions.')
-    @app_commands.choices(notification_type=[
-        Choice(name='DM', value='DM'),
-        Choice(name='Thread', value='Thread')
-    ])
-    async def set_fissure_notification_type(self, ctx, notification_type: str):
-        """Set your preferred notification type for fissure subscriptions."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            self.bot.database.create_user(user_id)
-
-        self.bot.database.set_fissure_notification_type(user_id, notification_type)
-
-        await self.bot.send_message(ctx, f"Your fissure notification type has been set to {notification_type}.",
-                                    ephemeral=True)
-
-    @commands.hybrid_command(name='fissure_list_channel', aliases=['fissure_list', 'flist', 'flistchannel'],
-                             brief='Show a constantly updating fissure list in the given channel.')
-    @commands.has_permissions(manage_channels=True)
-    @app_commands.describe(show_normal='Whether to show normal fissures.',
-                           show_steel_path='Whether to show Steel Path fissures.',
-                           show_void_storms='Whether to show Void Storm fissures.',
-                           max_tier='The maximum tier of fissures to show.',
-                           show_lith='Whether to show Lith fissures.',
-                           show_meso='Whether to show Meso fissures.',
-                           show_neo='Whether to show Neo fissures.',
-                           show_axi='Whether to show Axi fissures.',
-                           show_requiem='Whether to show Requiem fissures.',
-                           show_omnia='Whether to show Omnia fissures.',
-                           display_type='The type of display to use for the fissure list.',
-                           channel='The channel to post the fissure list in.')
-    @app_commands.choices(max_tier=[
-        Choice(name='Tier 1 - Capture/Exterminate', value=1),
-        Choice(name='Tier 2 - + Fast Sabotage/Rescue', value=2),
-        Choice(name='Tier 3 - + Excavation/Disruption', value=3),
-        Choice(name='Tier 4 - + Slow Sabotage/Spy/Hive', value=4),
-        Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
-    ],
-        display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
-                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
-    )
-    async def fissure_list_channel(self, ctx,
-                                   show_normal: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show normal fissures."),
-                                   show_steel_path: bool = commands.parameter(
-                                       default=False,
-                                       description="Whether to show Steel Path fissures."),
-                                   show_void_storms: bool = commands.parameter(
-                                       default=False,
-                                       description="Whether to show Void Storm fissures."),
-                                   max_tier: int = commands.parameter(
-                                       default=5,
-                                       description="The maximum tier of fissures to list."),
-                                   show_lith: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Lith fissures."),
-                                   show_meso: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Meso fissures."),
-                                   show_neo: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Neo fissures."),
-                                   show_axi: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Axi fissures."),
-                                   show_requiem: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Requiem fissures."),
-                                   show_omnia: bool = commands.parameter(
-                                       default=True,
-                                       description="Whether to show Omnia fissures."),
-                                   display_type: str = commands.parameter(
-                                       default=FissureEngine.DISPLAY_TYPE_DISCORD,
-                                       description="The type of display to use for the fissure list."),
-                                   channel: discord.TextChannel = commands.parameter(
-                                       default=lambda ctx: ctx.channel,
-                                       displayed_default='current channel',
-                                       description="The channel to list the fissures in.")
-                                   ):
-        """
-        Show a constantly updating fissure list in the given channel.
-
-        You must have the `manage_channels` permission to use this command.
-
-        By default, it will show all fissure types. You can specify which fissure types to show using the
-        `show_normal`, `show_steel_path`, and `show_void_storms` parameters.
-        """
-        if channel is None:
-            channel = ctx.channel
-
-        try:
-            self.bot.database.set_fissure_list_channel(channel.guild.id, channel.id, None, max_tier,
-                                                       show_lith, show_meso, show_neo, show_axi, show_requiem,
-                                                       show_omnia, display_type, show_normal, show_steel_path,
-                                                       show_void_storms)
-        except IntegrityError:
-            self.bot.database.unset_fissure_list_channel(channel.guild.id, channel.id, None)
-            await self.bot.send_message(ctx, f'The fissure list will no longer be posted/updated in {channel.mention}',
-                                        ephemeral=True)
-            return
-
-        await self.bot.send_message(ctx, f'A fissure list will now be posted and then updated in {channel.mention}',
-                                    ephemeral=True)
-
-    @commands.hybrid_command(name='update_fissure_lists', aliases=['ufl', 'updatefissurelists'],
-                             brief='Update all fissure lists.')
-    @commands.has_permissions(administrator=True)
-    async def update_fissure_lists(self, ctx):
-        """Update all fissure lists across all configured channels."""
-        await ctx.defer()  # Defer the response to indicate that the bot is working on the command
-
-        try:
-            await self.update_all_fissure_lists()
-            await self.bot.send_message(ctx, 'All fissure lists have been updated.',
-                                        ephemeral=True)
-        except Exception as e:
-            await self.bot.send_message(ctx, f'An error occurred while updating the fissure lists: {str(e)}',
-                                        ephemeral=True)
-
-    @commands.hybrid_command(name='sendview',
-                             brief='Sends the view.')
-    @commands.has_permissions(administrator=True)
-    async def send_view(self, ctx):
-        """Update all fissure lists across all configured channels."""
-        button_configs = [
-            {'emoji': self.bot.emoji_dict['Lith'], 'text': 'Lith Capture',
-             'fissure_data': {'era': FissureEngine.ERA_LITH}},
-            {'emoji': self.bot.emoji_dict['Meso'], 'text': 'Meso Capture',
-             'fissure_data': {'era': FissureEngine.ERA_MESO}},
-            {'emoji': self.bot.emoji_dict['Neo'], 'text': 'Neo Capture',
-             'fissure_data': {'era': FissureEngine.ERA_NEO}},
-            {'emoji': self.bot.emoji_dict['Axi'], 'text': 'Axi Capture', 'fissure_data': {'era': FissureEngine.ERA_AXI}}
-        ]
-
-        await ctx.send("Subscribe to the following fissures:", view=FissureView(self.bot, button_configs))
-
-    @app_commands.command(name='create_fissure_view', description='Create a fissure view')
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def create_fissure_view(self, interaction: discord.Interaction):
-        view = ButtonView(self.bot, interaction)
-        await view.send_initial_message()
-
-    @app_commands.command(name='resend_fissure_views', description='Resend all saved fissure views')
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def resend_fissure_views(self, interaction: discord.Interaction):
-        # Recreate all saved fissure views
-        await interaction.response.defer()
-
-        fissure_views = self.bot.database.get_all_fissure_views()
-
-        new_fissure_views = []
-        for view_data in fissure_views:
-            message_text = view_data['message_text']
-            button_configs = view_data['button_configs']
-            channel_id = view_data['channel_id']
-            message_id = view_data['message_id']
-
-            view = FissureView(self.bot, button_configs)
-            channel = self.bot.get_channel(channel_id)
-            if channel:
-                try:
-                    message = await channel.fetch_message(message_id)
-                    await message.delete()
-                except discord.NotFound:
-                    pass
-
-            message = await interaction.channel.send(content=message_text, view=view)
-            new_fissure_views.append([message_text, button_configs, message.channel.id, message.id])
-
-        self.bot.database.delete_all_fissure_views()
-
-        for fissure_view in new_fissure_views:
-            self.bot.database.save_fissure_view(*fissure_view)
-
-        await interaction.followup.send("All saved fissure views have been resent.", ephemeral=True)
-
-    @app_commands.command(name='edit_fissure_view', description='Edit a fissure view')
-    @app_commands.describe(message_id='The ID of the message containing the fissure view to edit')
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def edit_fissure_view(self, interaction: discord.Interaction, message_id: str):
-        try:
-            message_id = int(message_id)
-        except ValueError:
-            await interaction.response.send_message("Invalid message ID. Please provide a valid message ID.",
-                                                    ephemeral=True)
-            return
-
-        # Fetch the fissure view data from the database based on the message ID
-        fissure_view_data = self.bot.database.get_fissure_view_by_message_id(message_id)
-
-        if fissure_view_data:
-            message_text = fissure_view_data['message_text']
-            button_configs = fissure_view_data['button_configs']
-            channel_id = fissure_view_data['channel_id']
-
-            try:
-                channel = self.bot.get_channel(channel_id)
-                message = await channel.fetch_message(message_id)
-            except discord.NotFound:
-                await interaction.response.send_message("No fissure view found with the provided message ID.",
-                                                        ephemeral=True)
-                return
-
-            # Create a new ButtonView instance with the fetched data
-            view = ButtonView(self.bot, interaction, message_text, button_configs, message)
-
-            await view.send_initial_message()
-
-        else:
-            await interaction.response.send_message("No fissure view found with the provided message ID.",
-                                                    ephemeral=True)
-
-    @tasks.loop(seconds=30)
-    async def update_all_fissure_lists(self):
-        fissure_list_dict = self.bot.database.get_fissure_list_channels()
-
-        async def update_server_fissure_lists(server_id, channel_configs):
-            async def update_channel_fissure_list(channel_config):
-                try:
-                    channel_id = channel_config["channel_id"]
-                    await self.post_or_update_fissure_list(server_id, channel_id, channel_config)
-                    await asyncio.sleep(1)
-                except Exception as e:
-                    self.bot.logger.error(f"Error updating fissure list for server {server_id}, "
-                                          f"channel {channel_config['channel_id']}", exc_info=e)
-
-            for channel_config in channel_configs:
-                await update_channel_fissure_list(channel_config)
-                await asyncio.sleep(1)
-
-        server_update_tasks = [update_server_fissure_lists(server_id, channel_configs) for server_id, channel_configs in
-                               fissure_list_dict.items()]
-
-        try:
-            await asyncio.gather(*server_update_tasks, return_exceptions=True)
-        except Exception as e:
-            print(f"Error updating fissure lists: {str(e)}")
-            traceback.print_exc()  # Print the traceback for debugging purposes
-
-    async def post_or_update_fissure_list(self, server_id: int, channel_id: int, channel_config: dict):
-        channel = self.bot.get_channel(channel_id)
-        if channel is None:
-            return
-
-        era_list = self.get_era_list_from_config(channel_config)
-        max_tier = channel_config["max_tier"]
-        display_type = channel_config["display_type"]
-        message_id = channel_config["message_id"]
-
-        fissure_types = [fissure_type for fissure_type in [FissureEngine.FISSURE_TYPE_NORMAL,
-                                                           FissureEngine.FISSURE_TYPE_STEEL_PATH,
-                                                           FissureEngine.FISSURE_TYPE_VOID_STORMS]
-                         if channel_config[f"show_{fissure_type.lower().replace(' ', '_')}"]]
-
-        embeds = await self.get_fissure_list_embed(fissure_types,
-                                                   display_type=display_type,
-                                                   era_list=era_list,
-                                                   max_tier=max_tier)
-
-        try:
-            await self.update_fissure_list_message(channel, message_id, embeds)
-        except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
-            pass
-        except (discord.NotFound, Exception) as e:
-            self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
-                                    channel {channel_config['channel_id']}", exc_info=e)
-            message = await channel.send(embeds=embeds)
-            self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
-
-    async def update_fissure_list_message(self, channel, message_id: int, embeds):
-        if message_id:
-            message = await channel.fetch_message(message_id)
-            await message.edit(embeds=embeds)
-        else:
-            raise Exception("Message ID not found.")
 
     async def cog_unload(self) -> None:
+        """
+        Cancel the update tasks when the cog is unloaded.
+
+        Returns: None
+
+        """
         self.update_fissure_list.cancel()
         self.update_all_fissure_lists.cancel()
 
     async def cog_load(self) -> None:
+        """
+        Start the update tasks when the cog is loaded.
+
+        Returns: None
+
+        """
         self.update_fissure_list.start()
         self.update_all_fissure_lists.start()
 
     @Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self) -> None:
+        """
+        Start the update tasks, and recreate all saved fissure views on startup.
+
+        Returns: None
+
+        """
         if not self.bot.ready:
             self.update_fissure_list.start()
 
