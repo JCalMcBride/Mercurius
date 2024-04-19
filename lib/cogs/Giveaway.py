@@ -396,7 +396,7 @@ class Giveaway(Cog):
                            giveaway_winners="How many winners you want there to be. Default 1",
                            giveaway_channel="What channel do you want to host your giveaway in? Defaults to current channel.",
                            giveaway_role="What role you wish to be required for the giveaway. (Optional)")
-    @discord.app_commands.checks.has_role("Giveaways")
+    @discord.app_commands.checks.has_role("Donor")
     async def startgiveaway(self, interaction: discord.Interaction, giveaway_prize: str, giveaway_time: str,
                             giveaway_winners: Optional[int],
                             giveaway_channel: Optional[str],
