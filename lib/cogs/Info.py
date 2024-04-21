@@ -164,7 +164,7 @@ class Info(Cog, name="info"):
             return
 
         embeds = []
-        for emojis in chunked(target.emojis, 150):
+        for emojis in chunked(target.emojis, 100):
             embed = discord.Embed(color=target.owner.color,
                                   timestamp=datetime.utcnow())
 
