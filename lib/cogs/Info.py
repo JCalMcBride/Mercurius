@@ -5,6 +5,7 @@ import discord
 from discord import Member, Guild
 from discord.ext import commands
 from discord.ext.commands import Cog
+from more_itertools import chunked
 
 
 def status_emoji(status: discord.Status):
@@ -117,7 +118,7 @@ async def get_server_embed(guild):
     return embed
 
 
-class Info(Cog):
+class Info(Cog, name="info"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -158,14 +159,22 @@ class Info(Cog):
     async def guild_emojis(self, ctx: commands.Context):
         """Display all the emojis of the current server."""
         target = get_guild_target(ctx, None)
-        embed = discord.Embed(color=target.owner.color,
-                              timestamp=datetime.utcnow())
+        if len(target.emojis) == 0:
+            await self.bot.send_message(ctx, "No emojis found.")
+            return
 
-        embed.set_author(**get_guild_info(target))
+        embeds = []
+        for emojis in chunked(target.emojis, 150):
+            embed = discord.Embed(color=target.owner.color,
+                                  timestamp=datetime.utcnow())
 
-        embed.description = " ".join([str(emoji) for emoji in target.emojis])
+            embed.set_author(**get_guild_info(target))
 
-        await self.bot.send_message(ctx, embed=embed)
+            embed.description = " ".join([str(emoji) for emoji in emojis])
+
+            embeds.append(embed)
+
+        await self.bot.send_message(ctx, embed=embeds)
 
     @Cog.listener()
     async def on_ready(self):

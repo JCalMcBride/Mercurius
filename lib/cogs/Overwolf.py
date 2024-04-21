@@ -637,6 +637,13 @@ class Overwolf(GroupCog, name="overwolf"):
 
     @command(name='overwolf')
     async def parse_overwolf(self, ctx):
+        """
+        Use this command to upload your lastData.dat file from AlecaFrame.
+
+        This command is required to use the overwolf commands.
+
+        Attach the lastData.dat file located in %localappdata%\AlecaFrame to this command.
+        """
         if len(ctx.message.attachments) == 0:
             alecaframe_location = r'%localappdata%\AlecaFrame'
 
@@ -719,6 +726,9 @@ class Overwolf(GroupCog, name="overwolf"):
 
     @command(name='totalxp')
     async def total_xp(self, ctx):
+        """
+        Displays your top 10 items with the most experience, along with your total experience across all items.
+        """
         try:
             with open(f'lib/data/overwolf/xp/{ctx.author.id}', encoding='utf-8') as f:
                 xp_data = json.load(f)
@@ -747,7 +757,9 @@ class Overwolf(GroupCog, name="overwolf"):
         await self.embed_handler(ctx, [embed])
 
     @command(name='reparsedata')
+    @commands.is_owner()
     async def reparse_data(self, ctx):
+        """Reparse the overwolf data - only needed if there are issues with the data."""
         for file in os.listdir("lib/data/overwolf/raw"):
             try:
                 parse_overwolf(file, None, True)
@@ -1164,6 +1176,17 @@ class Overwolf(GroupCog, name="overwolf"):
     ])
     @app_commands.describe(data_type="The data you wish to get.")
     async def get_overwolf_data(self, ctx: commands.Context, data_type: str):
+        """
+        Get overwolf data.
+
+        Data Types:
+        - Profile - Mastery Rank, Plat, Credits, Creation Date (Profile)
+        - Forma Count - Total Formas Used (FormaCount)
+        - Slots - Total Slots Used/Available (Slots)
+        - Intrinsics - Railjack Intrinsic Levels (Intrinsics)
+        - Boosters - Booster Expiry Times (Boosters)
+        - Changes - Show Overview of Changes Since Last Sync (changes)
+        """
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1216,6 +1239,15 @@ class Overwolf(GroupCog, name="overwolf"):
     async def get_inventory_data(self, ctx: commands.Context, data_type: str, search: Optional[str],
                                  quantity: Optional[str], min_value: Optional[str], changes: bool = False,
                                  sort_column: int = 1):
+        """
+        Get overwolf inventory data.
+
+        Search for a specific item, set a quantity, value, or show changes since last sync.
+
+        Quantity and Value can be specified with + for that number or higher, or - for that number or lower.
+
+        Sorts by quantity by default - use the sort_column option to change this.
+        """
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1236,7 +1268,7 @@ class Overwolf(GroupCog, name="overwolf"):
             quantity = None
 
         embeds = self.get_inventory_embed(overwolf_data, data_type, ctx.author.name, search, quantity, changes,
-                                          min_value)
+                                          min_value, sort_key=sort_column)
 
         if len(embeds) > 0:
             await self.embed_handler(ctx, embeds)
@@ -1272,6 +1304,15 @@ class Overwolf(GroupCog, name="overwolf"):
     async def get_prime_data(self, ctx: commands.Context, data_type: Optional[str], value_type: Optional[str],
                              search: Optional[str], quantity: Optional[str], min_value: Optional[str],
                              changes: bool = False, sort_column: int = 1):
+        """
+        Get overwolf prime part data.
+
+        Search for a specific item, set a quantity, value, or show changes since last sync.
+
+        Quantity and Value can be specified with + for that number or higher, or - for that number or lower.
+
+        Sorts by quantity by default - use the sort_column option to change this.
+        """
         if ctx.message is not None:
             split_message = ctx.message.content.split()
             if len(split_message) == 2:
@@ -1326,6 +1367,15 @@ class Overwolf(GroupCog, name="overwolf"):
     async def get_relic_data(self, ctx: commands.Context, search: Optional[str],
                              quantity: Optional[str], min_value: Optional[str], changes: bool = False,
                              sort_column: int = 1):
+        """
+        Get overwolf relic data.
+
+        Search for a specific item, set a quantity, value, or show changes since last sync.
+
+        Quantity and Value can be specified with + for that number or higher, or - for that number or lower.
+
+        Sorts by quantity by default - use the sort_column option to change this.
+        """
         split_message = ctx.message.content.split()
         if len(split_message) == 2:
             if split_message[1] == "kill" and split_message[0] == "--rv":
@@ -1376,6 +1426,15 @@ class Overwolf(GroupCog, name="overwolf"):
     async def get_mod_data(self, ctx: commands.Context, search: Optional[str],
                            quantity: Optional[str], min_value: Optional[str], changes: bool = False,
                            sort_column: int = 1):
+        """
+        Get overwolf mod data.
+
+        Search for a specific item, set a quantity, value, or show changes since last sync.
+
+        Quantity and Value can be specified with + for that number or higher, or - for that number or lower.
+
+        Sorts by quantity by default - use the sort_column option to change this.
+        """
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1412,6 +1471,13 @@ class Overwolf(GroupCog, name="overwolf"):
                            changes="Whether you only want to show changes since last sync, defaults to false.")
     async def get_mission_data(self, ctx: commands.Context, search: Optional[str], quantity: Optional[str],
                                changes: bool = False):
+        """
+        Get overwolf mission completion data.
+
+        Search for a specific item, set a quantity, or show changes since last sync.
+
+        Quantity can be specified with + for that number or higher, or - for that number or lower.
+        """
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
@@ -1429,28 +1495,6 @@ class Overwolf(GroupCog, name="overwolf"):
             quantity = None
 
         embeds = self.get_inventory_embed(overwolf_data, 'Missions', ctx.author.name, search, quantity, changes)
-
-        if len(embeds) > 0:
-            await self.embed_handler(ctx, embeds)
-        else:
-            await ctx.send("Could not find any items that matches the criteria you specified.")
-
-    @commands.command(name='missingrelics')
-    async def missing_relics(self, ctx: commands.Context, refinement: str):
-        try:
-            with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
-                overwolf_data = json.load(f)
-        except FileNotFoundError:
-            await ctx.send(
-                "Could not find your overwolf data!\nTo use this command, you first "
-                r"need to use the overwolf command in DMs while attaching your "
-                r"lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                r"after running AlecaFrame.")
-            return
-
-        search = fix_refinement(refinement)
-
-        embeds = self.get_inventory_embed(overwolf_data, "Relics", ctx.author.name, search, 0, False)
 
         if len(embeds) > 0:
             await self.embed_handler(ctx, embeds)
@@ -1478,6 +1522,7 @@ class Overwolf(GroupCog, name="overwolf"):
 
     @command(name='export')
     async def export_data(self, ctx):
+        """Exports all overwolf data to a json file."""
         if ctx.guild is not None:
             message = await ctx.send("This command only works in direct messages.", delete_after=5)
             return
@@ -1494,23 +1539,18 @@ class Overwolf(GroupCog, name="overwolf"):
 
     @command(name='rawexport')
     async def raw_export_data(self, ctx):
+        """
+        Exports the raw overwolf data to a json file.
+
+        This is the data before it is parsed and formatted.
+        """
         if ctx.guild is not None:
             message = await ctx.send("This command only works in direct messages.", delete_after=5)
             return
 
         try:
-            with open(f"lib/data/overwolf/raw/{ctx.author.id}", "rb") as f:
-                encrypted_data = f.read()
-
-                overwolf_data = decrypt_overwolf_data(encrypted_data)
-
-                overwolf_file = BytesIO()
-
-                json.dump(overwolf_data, overwolf_file)
-
-                overwolf_file.seek(0)
-
-                await ctx.send(file=discord.File(fp=overwolf_file, filename="raw_export.json"))
+            with open(f'lib/data/overwolf/raw/{ctx.author.id}', mode='rb') as f:
+                await ctx.send(file=discord.File(fp=f, filename='overwolf_data.json'))
         except FileNotFoundError:
             await ctx.send(r"Could not find your overwolf data!"
                            "\nTo use this command, you first need to use the overwolf command in DMs "
@@ -1518,6 +1558,7 @@ class Overwolf(GroupCog, name="overwolf"):
                            r"after running AlecaFrame.")
             return
         except ValueError:
+            self.bot.logger.error("Failed to decrypt overwolf data.", exc_info=True)
             await ctx.send("File is not encrpyted, so there is no need to decrypt, just open it as is.")
             return
 

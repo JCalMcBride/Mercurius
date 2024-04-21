@@ -404,7 +404,7 @@ def get_alias_used_and_message(message, prefix):
     return alias_used, clean_message
 
 
-class Market(Cog):
+class Market(Cog, name="market"):
     def __init__(self, bot):
         self.bot = bot
         self.base_api_url = "https://api.warframe.market/v1"
@@ -500,7 +500,7 @@ class Market(Cog):
                              description="Shows recent reviews for a given user on warframe.market.", aliases=["uo"])
     @app_commands.describe(target_user='User you want to get the reviews for.')
     async def get_user_orders(self, ctx: commands.Context, target_user: str):
-        """Shows recent reviews for a given user on warframe.market."""
+        """Shows the first five orders for a given user on warframe.market."""
         await self.user_embed_handler(target_user, ctx, 'orders')
 
     def easter_egg_check(self, message, prefix):
@@ -531,15 +531,18 @@ class Market(Cog):
 
         await self.item_embed_handler(target_part.lower(), ctx, 'part_price')
 
-    @app_commands.command(name='addalias',
-                          description="Adds an alias for an item.")
+    @commands.hybrid_command(name='addalias',
+                             description="Adds an alias for an item.")
     @app_commands.describe(target_item='Item you want to add an alias for.')
     @app_commands.describe(alias='Alias you want to add.')
-    @app_commands.checks.has_any_role(780376440998199296,
-                                      780376480734904351,
-                                      780630958368882689,
-                                      1035644033843855490)
+    @commands.has_any_role(780376440998199296,
+                           780376480734904351,
+                           780630958368882689,
+                           1035644033843855490)
     async def add_alias(self, interaction: discord.Interaction, target_item: str, alias: str) -> None:
+        """
+        Adds an alias for an item.
+        """
         wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
                                                                  fetch_parts=False,
                                                                  fetch_orders=False,
@@ -561,15 +564,16 @@ class Market(Cog):
         await interaction.response.send_message(f"Alias {alias} added for item {target_item}",
                                                 ephemeral=True)
 
-    @app_commands.command(name='removealias',
+    @commands.hybrid_command(name='removealias',
                           description="Removes an alias for an item.")
     @app_commands.describe(target_item='Item you want to remove an alias for.')
     @app_commands.describe(alias='Alias you want to remove.')
-    @app_commands.checks.has_any_role(780376440998199296,
-                                      780376480734904351,
-                                      780630958368882689,
-                                      1035644033843855490)
+    @commands.has_any_role(780376440998199296,
+                           780376480734904351,
+                           780630958368882689,
+                           1035644033843855490)
     async def remove_alias(self, interaction: discord.Interaction, target_item: str, alias: str) -> None:
+        """Removes an alias for an item."""
         wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
                                                                  fetch_parts=False,
                                                                  fetch_orders=False,
@@ -595,6 +599,7 @@ class Market(Cog):
                              description="Sets your platform for market commands.",
                              aliases=["sp", "setp", "setplat"])
     async def set_user_platform(self, ctx: commands.Context, platform: str) -> None:
+        """Sets your platform for market commands."""
         if platform.lower() not in ['pc', 'ps4', 'xbox', 'switch']:
             await ctx.send("Invalid platform. Valid platforms are: PC, PS4, Xbox, Switch")
             return

@@ -18,7 +18,7 @@ from lib.simulation_utils import parse_message, get_order, get_content, get_duca
     get_srsettings_embed, get_img, get_sr_config, parse_setting, process_quad_rare
 
 
-class Simulator(Cog):
+class Simulator(Cog, name="simulator"):
     def __init__(self, bot):
         self.bot = bot
         self.srsettings = listdir('lib/data/simulation/settings')
@@ -39,6 +39,31 @@ class Simulator(Cog):
 
     @command(name="simulate", aliases=["sr", "simulaterelic", "sim"])
     async def simulator(self, ctx, *, args):
+        """
+        Simulates relic runs and returns the rewards.
+
+        Type a relic, refinement, and style like so:
+
+        --sr Axi L4 4b4 rad
+
+        if you add a number after, it'll simulate that many relics.
+
+        To add an offcycle, just add "with offcycle refinement" like so:
+        --sr Axi L4 2b2 rad with Axi N3 rad offcycle
+
+        If you add more than one relic, it will become a "mix" and the bot will choose a random relic every run. Like so:
+        --sr Axi L1 Axi L4 2b2 rad
+
+        You can mix the on cycle and off cycle relics, including at the same time, for example:
+        --sr Axi L1 Axi L4 2b2 rad with Axi V1 Axi V8 flaw offcycle
+
+        By default, the simulation assumes you pick the highest valued item in every reward screen, if you would like to change that type --srsettings relic, for example:
+        --srsettings Axi L4
+
+        Once you use that, it will show you the current order, type the order you want one number at a time separated by commas. After doing so, every time after you use relic simulation it will use the order you chose. If you wish to make a new order, just rerun --srsettings.
+
+        If you want to change the display or modify some constants the bot assumes (like minutes per mission) run ``--srconfig``
+        """
         if ctx.guild is None or ctx.channel.name == "relic-simulation":
             msg, relics, offcycle_relics, offcycle_count, style, \
                 refinement, offcycle_refinement, amount, mode, verbose = parse_message(args)
@@ -108,6 +133,15 @@ class Simulator(Cog):
 
     @command(name="srsettings")
     async def simulator_settings(self, ctx, *, args):
+        """
+        Allows you to set the order in which the bot will choose rewards in the future.
+
+        When using this command, the bot will show you the current order and ask you to reply with the new order.
+
+        Any part you do not choose will be treated as ducats in future calculations.
+
+        If you choose "None" as the order, the bot will treat all parts as ducats.
+        """
         if ctx.guild is None or ctx.channel.name == "relic-simulation":
             msg, relics, offcycle_relics, offcycle = parse_message(args)[:4]
 
@@ -183,6 +217,12 @@ class Simulator(Cog):
     @command(name="getscreen", aliases=["gs"])
     @cooldown(3, 1, BucketType.channel)
     async def get_reward_screen(self, ctx, *, args):
+        """
+        Simulates a single relic run and returns the reward screen.
+
+        Type a relic, refinement, and style like so:
+        --gs Axi L4 4b4 rad
+        """
         msg, relics, offcycle_relics, offcycle_count, style, \
             refinement, offcycle_refinement = parse_message(args)[:7]
 
@@ -214,6 +254,13 @@ class Simulator(Cog):
     @command(name="quadrare", aliases=["qr", 'qrs'])
     @cooldown(1, 30, BucketType.user)
     async def quad_rare_simulator(self, ctx, refinement: str = 'Radiant'):
+        """
+       Simulates the number of runs needed to get a quad rare reward screen.
+
+       By default, simulates a radiant quad rare reward screen.
+       You can provide a refinement as an argument, like so:
+       --qr f
+        """
         if ctx.channel.id not in [1089587184987811961, 1094699732577828884]:
             await ctx.send("This command is only allowed to be used in the s!pam channel.", delete_after=3)
             try:
@@ -339,6 +386,12 @@ class Simulator(Cog):
 
     @command(name='quadrareleaderboard', aliases=['qrlb', 'qlb', 'qleader'])
     async def quad_rare_leaderboard(self, ctx, refinement: str = 'radiant'):
+        """Shows the quad rare leaderboard for the specified refinement.
+
+        The leaderboard shows the top 10 users with the best "runs" as in the lowest number of runs needed to get a quad rare reward screen.
+        Your personal best will be highlighted in the leaderboard.
+
+        By default, shows the radiant quad rare leaderboard."""
         refinement = self.refinement_dict[refinement.lower()[0]]
         embed = await self.get_leaderboard_embed(self.leaderboard, refinement, True, ctx.author.id)
 
@@ -346,6 +399,12 @@ class Simulator(Cog):
 
     @command(name='quadrareloserboard', aliases=['qrloser', 'qloser'])
     async def quad_rare_loserboard(self, ctx, refinement: str = 'radiant'):
+        """Shows the quad rare loserboard for the specified refinement.
+
+        The loserboard shows the top 10 users with the worst "runs" as in the highest number of runs needed to get a quad rare reward screen.
+
+        By default, shows the radiant quad rare loserboard.
+        """
         refinement = self.refinement_dict[refinement.lower()[0]]
         embed = await self.get_leaderboard_embed(self.leaderboard, refinement, False, ctx.author.id)
 
@@ -354,6 +413,15 @@ class Simulator(Cog):
     # noinspection PyRedundantParentheses
     @command(name="srconfig")
     async def sr_config(self, ctx, setting: Optional[str], value: Optional[str]):
+        """
+        Allows you to change the settings for the relic simulator.
+
+        If you do not provide a setting and a value, the bot will show you your current settings.
+
+        If you provide a setting and a value, the bot will change the setting to the value you provided.
+
+        To see the current settings, type --srconfig
+        """
         srconfig = get_sr_config(ctx.author.id)
         if setting is not None and value is not None:
             if value := parse_setting(setting.lower(), value.lower()):

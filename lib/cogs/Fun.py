@@ -52,12 +52,12 @@ def no_botspam_cooldown(interaction: discord.Interaction) -> Optional[app_comman
     return app_commands.Cooldown(3, 60)
 
 
-class Fun(Cog):
+class Fun(Cog, name="fun"):
     def __init__(self, bot):
         self.bot = bot
         self.frog_images = None
         with open('lib/data/filelist.json') as f:
-            frog_images = json.load(f)
+            self.frog_images = json.load(f)
 
     @commands.hybrid_command(name='hello', description="Says hello",
                              aliases=['hi', 'hey'])
@@ -276,7 +276,6 @@ class Fun(Cog):
     async def dog_picture(self, ctx: commands.Context):
         """Sends an image of a random dog."""
         data = await self.get_image(ctx, "https://dog.ceo/api/breeds/image/random")
-
         if data:
             await ctx.send(data["message"])
 
@@ -323,16 +322,10 @@ class Fun(Cog):
     @commands.hybrid_command(name='duck', description="Display a random duck.")
     @app_commands.checks.cooldown(1, 5)
     async def duck_picture(self, ctx: commands.Context):
-        """Sends an image of a random dog."""
-        url = "https://random-d.uk/api/v2/random"
-
-        async with request("GET", url, headers={}) as response:
-            if response.status == 200:
-                data = await response.json()
-
-                await ctx.send(data["url"])
-            else:
-                await ctx.send("Could not receive image, please try again later.")
+        """Sends an image of a random duck."""
+        data = await self.get_image(ctx, "https://random-d.uk/api/v2/random")
+        if data:
+            await ctx.send(data["url"])
 
     @commands.hybrid_command(name='frog', description="Display a random frog.")
     @app_commands.checks.cooldown(1, 5)

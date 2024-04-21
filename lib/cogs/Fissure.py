@@ -601,7 +601,7 @@ class FissureView(discord.ui.View):
         return button_callback
 
 
-class Fissure(Cog):
+class Fissure(Cog, name='fissure'):
     def __init__(self, bot):
         self.bot = bot
         self.image_dict = {
@@ -788,7 +788,17 @@ class Fissure(Cog):
                                                                        description="The enemy faction of the fissure to subscribe to."),
                                        max_tier: int = commands.parameter(default=None,
                                                                           description="The tier of the fissure to subscribe to.")):
-        """Add a new fissure subscription."""
+        """
+        Add a new fissure subscription.
+
+        Provide at least one field to subscribe to fissures.
+
+        Subscriptions are based on the provided fields. If you provide multiple fields, the subscription will match
+        fissures that match **ALL** of the provided fields.
+
+        For example, if you select only "Mariana" - you will receive notifications for **both** Steel Path and Normal Mariana fissures.
+        Be as precise as possible to avoid receiving notifications for fissures you are not interested in.
+        """
         user_id = ctx.author.id
 
         # Check if the user exists in the users table
@@ -815,7 +825,7 @@ class Fissure(Cog):
 
     @commands.hybrid_command(name='listfissuresubscriptions', aliases=['lfs'])
     async def list_fissure_subscriptions(self, ctx):
-        """List your current fissure subscriptions."""
+        """Lists your current fissure subscriptions, and allows you to delete them."""
         user_id = ctx.author.id
 
         subscriptions = self.bot.database.get_fissure_subscriptions(user_id)
@@ -880,8 +890,6 @@ class Fissure(Cog):
 
         If you wish to set a log channel and are not using the slash command,
         ensure that you also provide a fissure type before the channel.
-
-        You must have the `manage_channels` permission to use this command.
 
         By default, only normal fissures are logged. To log other fissure types, provide the fissure type as the
         first argument. Valid types are `normal`, `sp`, and `vs`.
@@ -960,7 +968,12 @@ class Fissure(Cog):
                                                              description="Whether to show Omnia fissures."),
                        display_type: str = commands.parameter(default=FissureEngine.DISPLAY_TYPE_DISCORD,
                                                               description="The type of display to use for the fissure list.")):
-        """Get the current list of fissures."""
+        """
+        Shows the current fissures in embed format.
+
+        You can customize the output either by using the command options or by setting your preferences with the
+        `setfissuredefaults` command.
+        """
         user_id = ctx.author.id
         defaults = self.bot.database.get_fissure_list_defaults(user_id) or {}
 
@@ -1001,7 +1014,12 @@ class Fissure(Cog):
     ])
     async def set_fissure_notification_type(self, ctx, notification_type: str = commands.parameter(
         description="The type of notification to receive for fissure subscriptions.")):
-        """Set your preferred notification type for fissure subscriptions."""
+        """
+        Set your preferred notification type for fissure subscriptions.
+
+        DM notifications will be sent to you directly, while thread notifications will be sent to the server's
+        fissure log channel.
+        """
         user_id = ctx.author.id
 
         # Check if the user exists in the users table
@@ -1070,8 +1088,6 @@ class Fissure(Cog):
         """
         Show a constantly updating fissure list in the given channel.
 
-        You must have the `manage_channels` permission to use this command.
-
         By default, it will show all fissure types. You can specify which fissure types to show using the
         `show_normal`, `show_steel_path`, and `show_void_storms` parameters.
         """
@@ -1111,7 +1127,7 @@ class Fissure(Cog):
     @commands.has_permissions(manage_channels=True)
     async def create_fissure_view(self, interaction: discord.Interaction):
         """
-        Allows a staff member to create a discord message with buttons for subscribing to fissures.
+        Shows a UI that allows creating a message with buttons to subscribe to specific fissures.
         """
         view = ButtonView(self.bot, interaction)
         await view.send_initial_message()
@@ -1120,7 +1136,7 @@ class Fissure(Cog):
     @commands.has_permissions(manage_channels=True)
     async def resend_fissure_views(self, interaction: discord.Interaction) -> None:
         """
-        Resend all saved fissure views.
+        Resends all fissure views that have been previously saved.
         """
         await interaction.response.defer()
 
@@ -1158,7 +1174,7 @@ class Fissure(Cog):
     async def edit_fissure_view(self, interaction: discord.Interaction, message_id: str = commands.parameter(
         description="The ID of the message containing the fissure view to edit.")) -> None:
         """
-        Edit a fissure view.
+        Allows the editing of a fissure view that has been previously saved.
         """
         try:
             message_id = int(message_id)
@@ -1196,8 +1212,6 @@ class Fissure(Cog):
     async def update_all_fissure_lists(self) -> None:
         """
         Update all fissure lists across all configured channels.
-        Returns: None
-
         """
         fissure_list_dict = self.bot.database.get_fissure_list_channels()
 

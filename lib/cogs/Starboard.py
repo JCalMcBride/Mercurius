@@ -10,7 +10,7 @@ from lib.starboard_utils import add_new_starboard, update_star_count, get_guild_
     get_guild_starboard_channels, add_new_sb_message, get_sb_message, get_sb_data, update_sb_message_data
 
 
-class Starboard(Cog):
+class Starboard(Cog, name="starboard"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -23,6 +23,9 @@ class Starboard(Cog):
     @has_permissions(manage_messages=True)
     @command(name="starboard", aliases=["sb"])
     async def create_starboard(self, ctx, channel: str, emoji: str, needed: int):
+        """
+        Creates a starboard for the server.
+        """
         if channel[2:-1].isnumeric() and (emoji.split(":")[2][:-1].isnumeric or ":" not in emoji) and 0 < needed < 100:
             channel_id = channel[2:-1]
             if ":" in emoji:
@@ -44,6 +47,9 @@ class Starboard(Cog):
     @has_permissions(manage_messages=True)
     @command(name="changestars")
     async def change_starcount(self, ctx, emoji: str, needed: int):
+        """
+        Changes the number of stars needed for a message to be posted to the starboard.
+        """
         if (emoji.split(":")[2][:-1].isnumeric or ":" not in emoji) and 0 < needed < 100:
             if ":" in emoji:
                 emoji_id = emoji.split(":")[2][:-1]

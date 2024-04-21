@@ -8,7 +8,7 @@ def get_wiki_link(item_name: str):
     return f"[{item_name}](https://warframe.fandom.com/wiki/{item_name.replace(' ', '_')}_Incarnon_Genesis)"
 
 
-class Misc(Cog):
+class Misc(Cog, name="misc"):
     def __init__(self, bot):
         self.bot = bot
 

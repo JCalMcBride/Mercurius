@@ -176,7 +176,7 @@ def get_active_giveaways():
     return giveaway_list
 
 
-class Giveaway(Cog):
+class Giveaway(Cog, name="giveaway"):
     def __init__(self, bot):
         self.bot = bot
         self.gcreate_user = None
@@ -390,17 +390,27 @@ class Giveaway(Cog):
                                    id=str(giveaway_msg.id))
 
 
-    @app_commands.command(name='startgiveaway', description="Starts a giveaway.")
+    @commands.hybrid_command(name='startgiveaway', description="Starts a giveaway.")
     @app_commands.describe(giveaway_prize="The prize you want to give away.",
                            giveaway_time="How long you want your giveaway to last for. Format: (Number)(Period) Ex. 15d for 15 days.",
                            giveaway_winners="How many winners you want there to be. Default 1",
                            giveaway_channel="What channel do you want to host your giveaway in? Defaults to current channel.",
                            giveaway_role="What role you wish to be required for the giveaway. (Optional)")
-    @discord.app_commands.checks.has_role("Donor")
+    @commands.has_role("Donor")
     async def startgiveaway(self, interaction: discord.Interaction, giveaway_prize: str, giveaway_time: str,
                             giveaway_winners: Optional[int],
                             giveaway_channel: Optional[str],
                             giveaway_role: Optional[str]):
+        """
+        Starts a giveaway with the given parameters.
+        giveaway_prize: The prize you want to give away.
+        giveaway_time: How long you want your giveaway to last for. Format: (Number)(Period) Ex. 15d for 15 days.
+        giveaway_winners: How many winners you want there to be. Default 1
+        giveaway_channel: What channel do you want to host your giveaway in? Defaults to current channel.
+        giveaway_role: What role you wish to be required for the giveaway. (Optional)
+
+        Requires the Donor role.
+        """
         if len(giveaway_prize) > 255:
             await interaction.response.send_message("Length of prize is too long, please shorten it.")
             return
@@ -498,17 +508,24 @@ class Giveaway(Cog):
 
     @commands.hybrid_command(name='cancelgiveaway', description="Cancels the given giveaway.")
     @app_commands.describe(message_id="Message ID of the giveaway post")
-    @commands.has_role("Giveaways")
+    @commands.has_role("Donor")
     async def cancel_giveaway_cmd(self, ctx: commands.Context, message_id: str):
-        """Cancels giveaway by id."""
-        """Ends giveaway by id."""
+        """
+        Immediately cancels and deletes the provided giveaway.
+
+        Provide the message ID of the giveaway post.
+        """
         await ctx.send(await self.cancel_giveaway(int(message_id)))
 
     @commands.hybrid_command(name='endgiveaway', description="Ends the given giveaway.")
     @app_commands.describe(message_id="Message ID of the giveaway post")
-    @commands.has_role("Giveaways")
+    @commands.has_role("Donor")
     async def end_giveaway(self, ctx: commands.Context, message_id: str):
-        """Ends giveaway by id."""
+        """
+        Immediately ends and picks a winner for the provided giveaway.
+
+        Provide the message ID of the giveaway post.
+        """
         if return_statement := await self.complete_giveaway(int(message_id)):
             await ctx.send(return_statement)
         else:
@@ -521,13 +538,15 @@ class Giveaway(Cog):
     @app_commands.describe(message_id="Message ID of the giveaway post",
                            winners="Number of winners to roll for, default 1",
                            regen="Whether or not to regenerate the potential winner list, default false.")
-    @app_commands.choices(regen=[
-        Choice(name='True', value=1),
-        Choice(name='False', value=0)
-    ])
-    @commands.has_role("Giveaways")
-    async def reroll_giveaway(self, ctx: commands.Context, message_id: str, winners: int = 1, regen: int = 0):
-        """Rerolls giveaway by id."""
+    @commands.has_role("Donor")
+    async def reroll_giveaway(self, ctx: commands.Context, message_id: str, winners: int = 1, regen: bool = False):
+        """
+        Rerolls the given giveaway, picking a new winner or winners.
+
+        Provide the message ID of the giveaway post.
+
+        Giveaways by default not pick a previous winner - reroll with regen true if you would like to regenerate the winner list.
+        """
         try:
             giveaway = get_giveaway_data(int(message_id))
         except:
@@ -536,7 +555,7 @@ class Giveaway(Cog):
 
         users = None
         role = None
-        if bool(regen):
+        if regen:
             if giveaway['role'] != 0:
                 role = discord.utils.get(ctx.guild.roles, id=int(giveaway['role']))
 

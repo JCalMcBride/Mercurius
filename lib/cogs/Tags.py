@@ -9,7 +9,7 @@ from lib.tag_utils import get_tag, change_attribute, get_tag_embed, new_tag, del
     tag_data
 
 
-class Tags(Cog):
+class Tags(Cog, name="tags"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -56,7 +56,7 @@ class Tags(Cog):
     @has_permissions(manage_messages=True)
     @command(name='changedm', aliases=["setdm"])
     async def setautodm(self, ctx, tag: str):
-        """Changes whether the tag command message gets deleted or kept."""
+        """Changes a given tag to be a "DM" tag, meaning it will send the tag content to the user's DMs."""
         await ctx.send(change_attribute(tag.lower(), 'dm'))
 
     @command(name='tags')

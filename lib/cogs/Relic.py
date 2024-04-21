@@ -12,7 +12,7 @@ from lib.relic_utils import style_list, refinement_list, fix_refinement, era_lis
     get_average, refinement_list_new, style_list_new
 
 
-class Relic(Cog):
+class Relic(Cog, name="relic"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -103,16 +103,30 @@ class Relic(Cog):
     @commands.hybrid_command(name='ducat', description="Get the 45 ducat common relics.",
                              aliases=['d', '45d'])
     async def ducat_relic(self, ctx: commands.Context):
-        """Gets the 45 ducat braton receiver common relics."""
+        """Shows all relics that have the Braton Prime Receiver as a 45 ducat common drop."""
         ducat_relics = []
         relic_dict = relic_engine.get_relic_dict()
         for relic in relic_dict:
             for drop in relic_dict[relic]:
                 if drop == 'Braton Prime Receiver' and relic_dict[relic][drop] == 1:
                     ducat_relics.append(relic)
+
+        # Split relics by their era and stores them in a dictionary
+        era_dict = {}
+        for relic in ducat_relics:
+            era = relic.split()[0]
+            if era not in era_dict:
+                era_dict[era] = []
+            era_dict[era].append(relic)
+
         embed = discord.Embed(title='Braton Prime Receiver 45 Ducat Common Relics',
-                              description='\n'.join(ducat_relics))
-        embed.color = discord.Color.gold()
+                              color=discord.Color.gold())
+
+        # Add the relics to the embed with each era as a field in the order 'Lith', 'Meso', 'Neo', 'Axi'
+        for era in era_list:
+            if era in era_dict:
+                embed.add_field(name=era, value='\n'.join(era_dict[era]), inline=False)
+
 
         await ctx.send(embed=embed)
 

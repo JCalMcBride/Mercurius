@@ -169,7 +169,7 @@ class MarketItemGraphView(discord.ui.View):
                                                 ephemeral=True)
 
 
-class Statistics(Cog):
+class Statistics(Cog, name="statistics"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -190,12 +190,26 @@ class Statistics(Cog):
                              description="Gets price history for the requested item, if it exists.",
                              aliases=["ph", "priceh", "pricehist", "pricehis"])
     async def get_price_history(self, ctx: commands.Context, *, input_string: str) -> None:
+        """
+        Shows the price history for the requested item.
+
+        The price history is shown in a graph, with the x-axis representing the date and the y-axis representing the price.
+
+        The user can select the time period to display using the dropdown menu.
+        """
         await self.graph_embed_handler(input_string, ctx, 'price')
 
     @commands.hybrid_command(name='demandhistory',
                              description="Gets demand history for the requested item, if it exists.",
                              aliases=["dh", "demandh", "demandhist", "demandhis"])
     async def get_demand_history(self, ctx: commands.Context, *, input_string: str) -> None:
+        """
+        Shows the demand history for the requested item.
+
+        The price history is shown in a graph, with the x-axis representing the date and the y-axis representing the price.
+
+        The user can select the time period to display using the dropdown menu.
+        """
         await self.graph_embed_handler(input_string, ctx, 'demand')
 
     @commands.hybrid_command(name='setstyle', description="Sets the graph style for the user. (PREMIUM ONLY)",
@@ -203,6 +217,13 @@ class Statistics(Cog):
     @commands.has_any_role(1086352745390419968, 1086359981860864151, 1086352740386603111, 780630958368882689,
                            962472802831704099)
     async def set_style(self, ctx: commands.Context, style: Optional[str]) -> None:
+        """
+        Sets the graph style for the user.
+
+        If no style is provided, or an invalid style is provided, the user will be shown a list of valid styles.
+
+        This command is only available to supporters and patrons.
+        """
         if style not in plt.style.available + ['cyberpunk'] or style is None:
             await ctx.send(f"Invalid style. Valid styles are: ``{'``, ``'.join(plt.style.available + ['cyberpunk'])}``")
             return

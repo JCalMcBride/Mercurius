@@ -14,7 +14,7 @@ def get_cog_path(cog: str) -> str:
     return f"lib.cogs.{fix_cog_name(cog)}"
 
 
-class Utility(Cog):
+class Utility(Cog, name="utility"):
     def __init__(self, bot):
         self.bot = bot
         self.commit_channel = 1098283737290125344
