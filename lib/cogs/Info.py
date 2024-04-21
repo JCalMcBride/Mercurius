@@ -174,12 +174,19 @@ class Info(Cog, name="info"):
 
         emoji_list = [str(emoji) for emoji in target.emojis if emoji.is_usable()]
 
-        messages = []
+        embeds = []
         for emojis in chunked(emoji_list, 100):
-            messages.append(" ".join(emojis))
+            embed = discord.Embed(color=target.owner.color,
+                                  timestamp=datetime.utcnow())
 
-        for message_content in messages:
-            await self.bot.send_message(ctx, content=message_content)
+            embed.set_author(**get_guild_info(target))
+
+            embed.description = " ".join(emojis)
+
+            embeds.append(embed)
+
+        for embed in embeds:
+            await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
     async def on_ready(self):
