@@ -163,7 +163,7 @@ class Info(Cog, name="info"):
             await self.bot.send_message(ctx, "No emojis found.")
             return
 
-        emoji_list = [str(emoji) for emoji in target.emojis if emoji.available]
+        emoji_list = [str(emoji) for emoji in target.emojis if emoji.is_usable()]
 
         embeds = []
         for emojis in chunked(emoji_list, 100):
