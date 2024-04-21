@@ -174,7 +174,8 @@ class Info(Cog, name="info"):
 
             embeds.append(embed)
 
-        await self.bot.send_message(ctx, embed=embeds)
+        for embed in embeds:
+            await self.bot.send_message(ctx, embed=embed)
 
     @Cog.listener()
     async def on_ready(self):
