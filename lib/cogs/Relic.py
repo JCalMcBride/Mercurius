@@ -6,6 +6,7 @@ import relic_engine
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Cog
+from simulation_engine import num_runs_dict
 
 from lib.common import get_emoji
 from lib.relic_utils import style_list, refinement_list, fix_refinement, era_list, use_default, \
@@ -87,6 +88,15 @@ class Relic(Cog, name="relic"):
                 embed.add_field(name=field_name, value='\n'.join([x[0] for x in embed_list]))
                 embed.add_field(name='Average',
                                 value='\n'.join([str(int(x[1])) + ' ' + get_emoji('platinum') for x in embed_list]))
+
+                per_run = []
+                for x in embed_list:
+                    if x[0] in num_runs_dict:
+                        per_run.append(str(int(x[1] / num_runs_dict[x[0]])) + ' ' + get_emoji('platinum'))
+
+                if len(per_run) > 0:
+                    embed.add_field(name='Per Run',
+                                    value='\n'.join(per_run))
 
             embeds.append(embed)
 
