@@ -40,29 +40,20 @@ class Simulator(Cog, name="simulator"):
     @command(name="simulate", aliases=["sr", "simulaterelic", "sim"])
     async def simulator(self, ctx, *, args):
         """
-        Simulates relic runs and returns the rewards.
+        Simulates relic runs and returns rewards.
 
-        Type a relic, refinement, and style like so:
+        Usage: --sr [relic(s)] [refinement] [style] [number of runs (optional)]
+               --sr [relic(s)] [refinement] [style] with [offcycle relic(s)] [offcycle refinement] offcycle
 
+        Examples:
         --sr Axi L4 4b4 rad
-
-        if you add a number after, it'll simulate that many relics.
-
-        To add an offcycle, just add "with offcycle refinement" like so:
         --sr Axi L4 2b2 rad with Axi N3 rad offcycle
-
-        If you add more than one relic, it will become a "mix" and the bot will choose a random relic every run. Like so:
         --sr Axi L1 Axi L4 2b2 rad
-
-        You can mix the on cycle and off cycle relics, including at the same time, for example:
         --sr Axi L1 Axi L4 2b2 rad with Axi V1 Axi V8 flaw offcycle
 
-        By default, the simulation assumes you pick the highest valued item in every reward screen, if you would like to change that type --srsettings relic, for example:
-        --srsettings Axi L4
-
-        Once you use that, it will show you the current order, type the order you want one number at a time separated by commas. After doing so, every time after you use relic simulation it will use the order you chose. If you wish to make a new order, just rerun --srsettings.
-
-        If you want to change the display or modify some constants the bot assumes (like minutes per mission) run ``--srconfig``
+        Settings:
+        --srsettings [relic]: Set reward selection order
+        --srconfig: Modify display and constants
         """
         if ctx.guild is None or ctx.channel.name == "relic-simulation":
             msg, relics, offcycle_relics, offcycle_count, style, \
