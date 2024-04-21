@@ -158,6 +158,15 @@ class Info(Cog, name="info"):
                              aliases=['ge', 'serveremojis', 'se'])
     async def guild_emojis(self, ctx: commands.Context):
         """Display all the emojis of the current server."""
+
+        if ctx.guild is None:
+            await self.bot.send_message(ctx, "This command can only be used in a server.")
+            return
+
+        if ctx.channel.name != 'bot-spam':
+            await self.bot.send_message(ctx, "This command can only be used in bot-spam.")
+            return
+
         target = get_guild_target(ctx, None)
         if len(target.emojis) == 0:
             await self.bot.send_message(ctx, "No emojis found.")
