@@ -176,14 +176,7 @@ class Info(Cog, name="info"):
 
         messages = []
         for emojis in chunked(emoji_list, 100):
-            embed = discord.Embed(color=target.owner.color,
-                                  timestamp=datetime.utcnow())
-
-            embed.set_author(**get_guild_info(target))
-
-            embed.description = " ".join(emojis)
-
-            messages.append(embed)
+            messages.append(" ".join(emojis))
 
         for message_content in messages:
             await self.bot.send_message(ctx, content=message_content)
