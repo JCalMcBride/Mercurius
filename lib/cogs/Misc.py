@@ -2,6 +2,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timezone, datetime, timedelta
 
 import discord
+from discord.ext import commands
 from discord.ext.commands import command, Cog, has_permissions
 
 def get_wiki_link(item_name: str):
@@ -12,8 +13,8 @@ class Misc(Cog, name="misc"):
     def __init__(self, bot):
         self.bot = bot
 
-    @has_permissions(manage_guild=True)
     @command(name='shutdown')
+    @commands.is_owner()
     async def shutdown_bot(self, ctx):
         """
         Shuts down the bot entirely, can only be restarted by manually starting it again.

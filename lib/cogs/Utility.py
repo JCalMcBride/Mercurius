@@ -55,21 +55,25 @@ class Utility(Cog, name="utility"):
         await self.execute_operation(ctx, cog_path, operation, operation_methods[operation], cog)
 
     @commands.command(name="load", description="Load a cog.", aliases=[])
+    @commands.is_owner()
     async def load_cog(self, ctx: commands.Context, cog: str):
         """Load a cog."""
         await self.cog_operation(ctx, cog, "load")
 
     @commands.command(name="unload", description="Unload a cog.", aliases=[])
+    @commands.is_owner()
     async def unload_cog(self, ctx: commands.Context, cog: str):
         """Unload a cog."""
         await self.cog_operation(ctx, cog, "unload")
 
     @commands.command(name="reload", description="Reload a cog.", aliases=[])
+    @commands.is_owner()
     async def reload_cog(self, ctx: commands.Context, cog: str):
         """Reload a cog."""
         await self.cog_operation(ctx, cog, "reload")
 
     @commands.command(name='sync', description='Syncs slash commands.', aliases=[])
+    @commands.is_owner()
     async def sync_slash(self, ctx):
         """Syncs slash commands."""
         try:
