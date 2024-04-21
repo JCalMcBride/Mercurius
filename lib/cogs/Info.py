@@ -163,14 +163,16 @@ class Info(Cog, name="info"):
             await self.bot.send_message(ctx, "No emojis found.")
             return
 
+        emoji_list = [str(emoji) for emoji in target.emojis if emoji.available]
+
         embeds = []
-        for emojis in chunked(target.emojis, 100):
+        for emojis in chunked(emoji_list, 100):
             embed = discord.Embed(color=target.owner.color,
                                   timestamp=datetime.utcnow())
 
             embed.set_author(**get_guild_info(target))
 
-            embed.description = " ".join([str(emoji) for emoji in emojis])
+            embed.description = " ".join(emojis)
 
             embeds.append(embed)
 
