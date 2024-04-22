@@ -209,10 +209,10 @@ class ConfirmDeleteAllView(discord.ui.View):
 
 
 class ButtonView(discord.ui.View):
-    def __init__(self, bot, interaction, message_text=None, button_configs=None, fissure_view_message=None):
+    def __init__(self, bot, ctx, message_text=None, button_configs=None, fissure_view_message=None):
         super().__init__()
         self.bot = bot
-        self.interaction = interaction
+        self.ctx = ctx
         self.button_configs = [] if button_configs is None else button_configs
         self.message_text = "Fissure view created:" if message_text is None else message_text
 
@@ -237,7 +237,7 @@ class ButtonView(discord.ui.View):
 
     async def send_initial_message(self):
         self.get_message_content()
-        await self.interaction.response.send_message(content=self.content, view=self, ephemeral=True)
+        await self.ctx.send(content=self.content, view=self, ephemeral=True)
 
     async def add_button_callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(ButtonModal(self.bot, interaction, self))
@@ -427,7 +427,7 @@ class DataView(discord.ui.View):
         if selected_option in ['fissure_type', 'era', 'tier']:
             await self.show_data_dropdown(interaction, selected_option)
         else:
-            filtered_nodes = self.bot.cogs['Fissure'].filter_nodes(interaction, self.fissure_data)
+            filtered_nodes = self.bot.cogs['fissure'].filter_nodes(interaction, self.fissure_data)
             key_mapping = {
                 'mission': 'type'
             }
@@ -512,7 +512,7 @@ class DataModal(discord.ui.Modal):
         value = self.data_input.value
 
         if self.data_type in ['node', 'type', 'planet', 'tileset', 'enemy']:
-            filtered_nodes = self.bot.cogs['Fissure'].filter_nodes(interaction,
+            filtered_nodes = self.bot.cogs['fissure'].filter_nodes(interaction,
                                                                    self.data_view.button_modal.fissure_data)
             key_mapping = {
                 'mission': 'type'
@@ -853,9 +853,9 @@ class Fissure(Cog, name='fissure'):
 
     @commands.hybrid_command(name='fissurenotificationsstatus',
                              description='Set fissure notification options based on your current Discord status.')
-    async def fissure_notifications_status(self, interaction: discord.Interaction):
+    async def fissure_notifications_status(self, ctx: commands.Context):
         """Set fissure notification options based on your current Discord status."""
-        user_id = interaction.user.id
+        user_id = ctx.author.id
 
         # Check if the user exists in the users table
         user_exists = self.bot.database.user_exists(user_id)
@@ -866,8 +866,9 @@ class Fissure(Cog, name='fissure'):
 
         status_settings = self.bot.database.get_fissure_notification_status(user_id)
         view = StatusNotificationView(self.bot, user_id, status_settings)
-        await interaction.response.send_message("Select the Discord statuses for which you want to receive fissure notifications:",
-                                                view=view, ephemeral=True)
+        await self.bot.send_message(ctx,
+            content="Select the Discord statuses for which you want to receive fissure notifications:",
+            view=view, ephemeral=True)
 
     @commands.hybrid_command(name='fissurelogchannel', aliases=['flc', 'flogc', 'flogchannel'],
                              brief='Set the channel for the fissure log.')
@@ -1125,20 +1126,21 @@ class Fissure(Cog, name='fissure'):
 
     @commands.hybrid_command(name='createfissureview', description='Create a fissure view')
     @commands.has_permissions(manage_channels=True)
-    async def create_fissure_view(self, interaction: discord.Interaction):
+    async def create_fissure_view(self, ctx: commands.Context):
         """
         Shows a UI that allows creating a message with buttons to subscribe to specific fissures.
         """
-        view = ButtonView(self.bot, interaction)
+        view = ButtonView(self.bot, ctx)
         await view.send_initial_message()
 
     @commands.hybrid_command(name='resendfissureview', description='Resend all saved fissure views')
     @commands.has_permissions(manage_channels=True)
-    async def resend_fissure_views(self, interaction: discord.Interaction) -> None:
+    async def resend_fissure_views(self, ctx: commands.Context) -> None:
         """
         Resends all fissure views that have been previously saved.
         """
-        await interaction.response.defer()
+        if ctx.interaction:
+            ctx.interaction.response.defer()
 
         fissure_views = self.bot.database.get_all_fissure_views()
 
@@ -1158,7 +1160,7 @@ class Fissure(Cog, name='fissure'):
                 except discord.NotFound:
                     pass
 
-            message = await interaction.channel.send(content=message_text, view=view)
+            message = await ctx.channel.send(content=message_text, view=view)
             new_fissure_views.append([message_text, button_configs, message.channel.id, message.id])
 
         self.bot.database.delete_all_fissure_views()
@@ -1166,12 +1168,12 @@ class Fissure(Cog, name='fissure'):
         for fissure_view in new_fissure_views:
             self.bot.database.save_fissure_view(*fissure_view)
 
-        await interaction.followup.send("All saved fissure views have been resent.", ephemeral=True)
+        await self.bot.send_message(ctx, content="All saved fissure views have been resent.", ephemeral=True)
 
     @commands.hybrid_command(name='editfissureview', description='Edit a fissure view')
     @app_commands.describe(message_id='The ID of the message containing the fissure view to edit')
     @commands.has_permissions(manage_channels=True)
-    async def edit_fissure_view(self, interaction: discord.Interaction, message_id: str = commands.parameter(
+    async def edit_fissure_view(self, ctx: commands.Context, message_id: str = commands.parameter(
         description="The ID of the message containing the fissure view to edit.")) -> None:
         """
         Allows the editing of a fissure view that has been previously saved.
@@ -1179,8 +1181,8 @@ class Fissure(Cog, name='fissure'):
         try:
             message_id = int(message_id)
         except ValueError:
-            await interaction.response.send_message("Invalid message ID. Please provide a valid message ID.",
-                                                    ephemeral=True)
+            await self.bot.send_message(ctx, content="Invalid message ID. Please provide a valid message ID.",
+                                        ephemeral=True)
             return
 
         # Fetch the fissure view data from the database based on the message ID
@@ -1195,17 +1197,17 @@ class Fissure(Cog, name='fissure'):
                 channel = self.bot.get_channel(channel_id)
                 message = await channel.fetch_message(message_id)
             except discord.NotFound:
-                await interaction.response.send_message("No fissure view found with the provided message ID.",
-                                                        ephemeral=True)
+                await self.bot.send_message(ctx, content="No fissure view found with the provided message ID.",
+                                            ephemeral=True)
                 return
 
             # Create a new ButtonView instance with the fetched data
-            view = ButtonView(self.bot, interaction, message_text, button_configs, message)
+            view = ButtonView(self.bot, ctx, message_text, button_configs, message)
 
             await view.send_initial_message()
 
         else:
-            await interaction.response.send_message("No fissure view found with the provided message ID.",
+            await self.bot.send_message(ctx, content="No fissure view found with the provided message ID.",
                                                     ephemeral=True)
 
     @tasks.loop(seconds=30)
@@ -1225,6 +1227,7 @@ class Fissure(Cog, name='fissure'):
             Returns:
 
             """
+
             async def update_channel_fissure_list(channel_config: dict) -> None:
                 """
                 Update the fissure list for a channel.
@@ -1574,7 +1577,7 @@ class Fissure(Cog, name='fissure'):
             self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
 
     async def update_fissure_list_message(self, channel: discord.TextChannel, message_id: int,
-                                            embeds: List[discord.Embed]) -> None:
+                                          embeds: List[discord.Embed]) -> None:
         """
         Update a fissure list message with new embeds.
         Args:
@@ -1741,7 +1744,6 @@ class Fissure(Cog, name='fissure'):
     async def enemy_autocomplete(self, interaction: discord.Interaction, current: str) -> List[Choice[str]]:
         filtered_nodes = self.filter_nodes(interaction)
         return self.get_choices(filtered_nodes, current, 'enemy')
-
 
     async def cog_unload(self) -> None:
         """
