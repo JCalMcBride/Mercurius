@@ -233,7 +233,7 @@ class Bot(BotBase):
         self.market_db = None
         self.database = None
         self.guild = 939271447065526315
-        self.vrc = 939271447065526315
+        self.vrc = 780376195182493707
         self.emoji_dict = {}
         self.fissure_engine = FissureEngine()
 
@@ -395,10 +395,11 @@ class Bot(BotBase):
         else:
             raise exc
 
-    async def supporter_check(self, ctx: commands.Context) -> bool:
+    def supporter_check(self, ctx: commands.Context) -> bool:
         member_obj = self.vrc.get_member(ctx.author.id)
         user_roles = [role.id for role in member_obj.roles]
-        return any(role in user_roles for role in [780630958368882689, 1086352745390419968, 1086359981860864151])
+        return any(role in user_roles for role in [780630958368882689, 1086352745390419968, 1086359981860864151,
+                                                   1232089653360721970])
 
 
     async def on_ready(self):
@@ -407,6 +408,8 @@ class Bot(BotBase):
 
             self.guild = self.get_guild(self.guild)
             self.vrc = self.get_guild(self.vrc)
+            if self.vrc is None:
+                self.vrc = self.guild
 
             for emoji in self.guild.emojis:
                 self.emoji_dict[emoji.name] = emoji
