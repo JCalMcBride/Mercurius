@@ -745,7 +745,10 @@ class Market(Cog, name="market"):
                            1086352745390419968,
                            1086359981860864151)
     async def set_item_settings(self, ctx: commands.Context, *, item_name: str) -> None:
-        """Sets settings for a specific item."""
+        """Favorite an item for use in the favorites command."""
+        if not self.bot.supporter_check(ctx):
+            raise commands.CheckFailure()
+
         user_id = ctx.author.id
 
         # Check if the item exists in the market database
@@ -777,6 +780,10 @@ class Market(Cog, name="market"):
                            1086352745390419968,
                            1086359981860864151)
     async def unfavorite(self, ctx: commands.Context, *, item_name: str) -> None:
+        """Unfavorites an item."""
+        if not self.bot.supporter_check(ctx):
+            raise commands.CheckFailure()
+
         user_id = ctx.author.id
 
         # Check if the item exists in the market database
@@ -810,6 +817,10 @@ class Market(Cog, name="market"):
                            1086352745390419968,
                            1086359981860864151)
     async def get_favorites(self, ctx: commands.Context) -> None:
+        """Displays the first two orders and average price for each of your favorite items."""
+        if not self.bot.supporter_check(ctx):
+            raise commands.CheckFailure()
+
         user_id = ctx.author.id
 
         # Retrieve the user's favorite items from the database

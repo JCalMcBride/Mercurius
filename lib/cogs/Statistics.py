@@ -214,8 +214,6 @@ class Statistics(Cog, name="statistics"):
 
     @commands.hybrid_command(name='setstyle', description="Sets the graph style for the user. (PREMIUM ONLY)",
                              aliases=["ss"])
-    @commands.has_any_role(1086352745390419968, 1086359981860864151, 1086352740386603111, 780630958368882689,
-                           962472802831704099)
     async def set_style(self, ctx: commands.Context, style: Optional[str]) -> None:
         """
         Sets the graph style for the user.
@@ -224,6 +222,9 @@ class Statistics(Cog, name="statistics"):
 
         This command is only available to supporters and patrons.
         """
+        if not self.bot.supporter_check(ctx):
+            raise commands.CheckFailure()
+
         if style not in plt.style.available + ['cyberpunk'] or style is None:
             await ctx.send(f"Invalid style. Valid styles are: ``{'``, ``'.join(plt.style.available + ['cyberpunk'])}``")
             return
