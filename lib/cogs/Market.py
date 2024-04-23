@@ -775,7 +775,8 @@ class Market(Cog, name="market"):
         await ctx.send('\n'.join(output_strings))
 
     @commands.hybrid_command(name='unfavorite',
-                             description="Unfavorites an item.")
+                             description="Unfavorites an item.",
+                             aliases=["unfav", "unfave", "unfavourite"])
     @app_commands.describe(item_name='Item name you wish to unfavorite.')
     async def unfavorite(self, ctx: commands.Context, *, item_name: str) -> None:
         """Unfavorites an item."""
@@ -806,7 +807,8 @@ class Market(Cog, name="market"):
         await ctx.send('\n'.join(output_strings))
 
     @commands.hybrid_command(name='favorites',
-                             description="Displays the first two orders and average price for each of your favorite items.")
+                             description="Displays the first two orders and average price for each of your favorite items.",
+                             aliases=["favs", "favourites"])
     async def get_favorites(self, ctx: commands.Context) -> None:
         """Displays the first two orders and average price for each of your favorite items."""
         if not self.bot.supporter_check(ctx):
