@@ -748,27 +748,23 @@ class Market(Cog, name="market"):
 
         user_id = ctx.author.id
 
-        # Check if the item exists in the market database
-        wfm_item: MarketItem = await self.bot.market_db.get_item(item_name.lower(),
-                                                                 fetch_parts=False,
-                                                                 fetch_orders=False,
-                                                                 fetch_part_orders=False,
-                                                                 fetch_price_history=False,
-                                                                 fetch_demand_history=False)
+        output_strings, output_items, _, _ = await self.bot.get_valid_items(
+            item_name,
+            fetch_orders=True,
+        )
 
-        if wfm_item is None:
-            await ctx.send(f"Item {item_name} does not exist on Warframe.Market")
-            return
+        for wfm_item in output_items:
+            item_id = wfm_item.item_id
 
-        item_id = wfm_item.item_id
+            # Update the item settings in the database
+            try:
+                self.bot.database.set_item_settings(user_id, item_id)
 
-        # Update the item settings in the database
-        try:
-            self.bot.database.set_item_settings(user_id, item_id)
+                output_strings.append(f"You've successfully favorited {wfm_item.item_name}")
+            except IntegrityError:
+                output_strings.append(f"You've already favorited {wfm_item.item_name}")
 
-            await ctx.send(f"You've successfully favorited {wfm_item.item_name}")
-        except IntegrityError:
-            await ctx.send(f"You've already favorited {wfm_item.item_name}")
+        await ctx.send('\n'.join(output_strings))
 
     @commands.hybrid_command(name='unfavorite',
                              description="Unfavorites an item.")
@@ -780,30 +776,26 @@ class Market(Cog, name="market"):
 
         user_id = ctx.author.id
 
-        # Check if the item exists in the market database
-        wfm_item: MarketItem = await self.bot.market_db.get_item(item_name.lower(),
-                                                                 fetch_parts=False,
-                                                                 fetch_orders=False,
-                                                                 fetch_part_orders=False,
-                                                                 fetch_price_history=False,
-                                                                 fetch_demand_history=False)
+        output_strings, output_items, _, _ = await self.bot.get_valid_items(
+            item_name,
+            fetch_orders=True,
+        )
 
-        if wfm_item is None:
-            await ctx.send(f"Item {item_name} does not exist on Warframe.Market")
-            return
+        for wfm_item in output_items:
+            item_id = wfm_item.item_id
+            item_name = wfm_item.item_name
 
-        item_id = wfm_item.item_id
-        item_name = wfm_item.item_name
+            # Check if the item is favorited by the user
+            item_settings = self.bot.database.get_item_settings_by_user_and_item(user_id, item_id)
+            if item_settings is None or not item_settings["favorite"]:
+                output_strings.append(f"Item {item_name} is not in your favorites.")
+                continue
 
-        # Check if the item is favorited by the user
-        item_settings = self.bot.database.get_item_settings_by_user_and_item(user_id, item_id)
-        if item_settings is None or not item_settings["favorite"]:
-            await ctx.send(f"Item {item_name} is not in your favorites.")
-            return
+            # Remove the item from favorites
+            self.bot.database.remove_item_settings_by_user_and_item(user_id, item_id)
+            output_strings.append(f"Item {item_name} has been removed from your favorites.")
 
-        # Remove the item from favorites
-        self.bot.database.remove_item_settings_by_user_and_item(user_id, item_id)
-        await ctx.send(f"Item {item_name} has been removed from your favorites.")
+        await ctx.send('\n'.join(output_strings))
 
     @commands.hybrid_command(name='favorites',
                              description="Displays the first two orders and average price for each of your favorite items.")
