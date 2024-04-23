@@ -748,6 +748,13 @@ class Market(Cog, name="market"):
 
         user_id = ctx.author.id
 
+        # Check if the user exists in the users table
+        user_exists = self.bot.database.user_exists(user_id)
+
+        if not user_exists:
+            # Create a new entry for the user in the users table
+            self.bot.database.create_user(user_id)
+
         output_strings, output_items, _, _ = await self.bot.get_valid_items(
             item_name,
             fetch_orders=True,

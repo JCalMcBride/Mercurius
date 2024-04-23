@@ -106,7 +106,7 @@ class MercuriusDatabase:
     """
 
     _CREATE_USER_QUERY = """
-    INSERT INTO users (discord_id) VALUES (%s)
+    INSERT IGNORE INTO users (discord_id) VALUES (%s)
     """
 
     _ADD_FISSURE_SUBSCRIPTION_QUERY = """
