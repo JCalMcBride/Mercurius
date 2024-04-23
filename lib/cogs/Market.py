@@ -739,7 +739,8 @@ class Market(Cog, name="market"):
         return embed
 
     @commands.hybrid_command(name='favorite',
-                             description="Favorite an item for use in the favorites command.")
+                             description="Favorite an item for use in the favorites command.",
+                             aliases=["fav", "fave", "favourite"])
     @app_commands.describe(item_name='Item name you wish to favorite.')
     async def set_item_settings(self, ctx: commands.Context, *, item_name: str) -> None:
         """Favorite an item for use in the favorites command."""
