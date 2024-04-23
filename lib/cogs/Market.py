@@ -824,6 +824,46 @@ class Market(Cog, name="market"):
         await view.create_embeds()
         await ctx.send(embeds=view.get_page_embeds(), view=view)
 
+    @add_alias.error
+    async def add_alias_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, commands.MissingAnyRole):
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        else:
+            # Handle other potential errors
+            await interaction.response.send_message(f"An error occurred: {str(error)}", ephemeral=True)
+
+    @remove_alias.error
+    async def remove_alias_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, commands.MissingAnyRole):
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        else:
+            # Handle other potential errors
+            await interaction.response.send_message(f"An error occurred: {str(error)}", ephemeral=True)
+
+    @set_item_settings.error
+    async def set_item_settings_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingAnyRole):
+            await ctx.send("You need to be a supporter to use this command.")
+        else:
+            # Handle other potential errors
+            await ctx.send(f"An error occurred: {str(error)}")
+
+    @unfavorite.error
+    async def unfavorite_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingAnyRole):
+            await ctx.send("You need to be a supporter to use this command.")
+        else:
+            # Handle other potential errors
+            await ctx.send(f"An error occurred: {str(error)}")
+
+    @get_favorites.error
+    async def get_favorites_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingAnyRole):
+            await ctx.send("You need to be a supporter to use this command.")
+        else:
+            # Handle other potential errors
+            await ctx.send(f"An error occurred: {str(error)}")
+
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
