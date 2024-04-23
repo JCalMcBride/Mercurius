@@ -113,7 +113,6 @@ class FavoritesView(discord.ui.View):
                 self.embeds[start:end] = [(embed, average_price)]
         await self.update_message(interaction)
 
-
     async def next_callback(self, interaction: discord.Interaction):
         if self.current_page < len(self.embeds) // 10:
             self.current_page += 1
@@ -129,7 +128,6 @@ class FavoritesView(discord.ui.View):
             await interaction.response.send_message("You can't use this button.", ephemeral=True)
             return False
         return True
-
 
 
 class SubtypeSelectMenu(discord.ui.Select):
@@ -655,7 +653,7 @@ class Market(Cog, name="market"):
                            780376480734904351,
                            780630958368882689,
                            1035644033843855490)
-    async def add_alias(self, interaction: discord.Interaction, target_item: str, alias: str) -> None:
+    async def add_alias(self, ctx: commands.Context, target_item: str, alias: str) -> None:
         """
         Adds an alias for an item.
         """
@@ -667,18 +665,18 @@ class Market(Cog, name="market"):
                                                                  fetch_demand_history=False)
 
         if wfm_item is None:
-            await interaction.response.send_message(f"Item {target_item} does not exist on Warframe.Market",
-                                                    ephemeral=True)
+            await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market",
+                                        ephemeral=True)
             return
 
         if alias.lower() in wfm_item.aliases:
-            await interaction.response.send_message(f"Alias {alias} already exists for item {target_item}",
-                                                    ephemeral=True)
+            await self.bot.send_message(ctx, f"Alias {alias} already exists for item {target_item}",
+                                        ephemeral=True)
             return
 
         wfm_item.add_alias(alias.lower())
-        await interaction.response.send_message(f"Alias {alias} added for item {target_item}",
-                                                ephemeral=True)
+        await self.bot.send_message(ctx, f"Alias {alias} added for item {target_item}",
+                                    ephemeral=True)
 
     @commands.hybrid_command(name='removealias',
                              description="Removes an alias for an item.")
@@ -688,7 +686,7 @@ class Market(Cog, name="market"):
                            780376480734904351,
                            780630958368882689,
                            1035644033843855490)
-    async def remove_alias(self, interaction: discord.Interaction, target_item: str, alias: str) -> None:
+    async def remove_alias(self, ctx: commands.Context, target_item: str, alias: str) -> None:
         """Removes an alias for an item."""
         wfm_item: MarketItem = await self.bot.market_db.get_item(target_item.lower(),
                                                                  fetch_parts=False,
@@ -698,17 +696,17 @@ class Market(Cog, name="market"):
                                                                  fetch_demand_history=False)
 
         if wfm_item is None:
-            await interaction.response.send_message(f"Item {target_item} does not exist on Warframe.Market",
+            await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market",
                                                     ephemeral=True)
             return
 
         if alias.lower() not in wfm_item.aliases:
-            await interaction.response.send_message(f"Alias {alias} does not exist for item {target_item}",
+            await self.bot.send_message(ctx, f"Alias {alias} does not exist for item {target_item}",
                                                     ephemeral=True)
             return
 
         wfm_item.remove_alias(alias.lower())
-        await interaction.response.send_message(f"Alias {alias} removed from item {target_item}",
+        await self.bot.send_message(ctx, f"Alias {alias} removed from item {target_item}",
                                                 ephemeral=True)
 
     @commands.hybrid_command(name='setplatform',
