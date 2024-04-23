@@ -55,7 +55,7 @@ class FavoritesView(discord.ui.View):
             return None
 
         # Get the average price from the market database
-        average_price = self.market_cog.bot.market_db.get_item_price(wfm_item.item_name)
+        average_price = int(self.market_cog.bot.market_db.get_item_price(wfm_item.item_name))
 
         # Get the first two orders from in-game users
         filters, mode = wfm_item.create_filters(state='ingame', state_mode='whitelist')
