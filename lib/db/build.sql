@@ -1,12 +1,13 @@
-CREATE TABLE if not exists users
-(
-    discord_id  bigint PRIMARY KEY NOT NULL,
-    platform    ENUM ('pc', 'xbox', 'switch', 'ps4') DEFAULT 'pc',
-    graph_style varchar(255)                         DEFAULT 'ggplot',
+CREATE TABLE IF NOT EXISTS users (
+    discord_id BIGINT PRIMARY KEY NOT NULL,
+    platform ENUM('pc', 'xbox', 'switch', 'ps4') DEFAULT 'pc',
+    graph_style VARCHAR(255) DEFAULT 'ggplot',
     fissure_notification_type ENUM('DM', 'Thread') DEFAULT 'DM',
     thread_notification_server_id BIGINT,
-    fissure_notifications_enabled BOOLEAN DEFAULT true
+    fissure_notifications_enabled BOOLEAN DEFAULT true,
+    mute_market_notifications BOOLEAN DEFAULT true
 );
+
 
 CREATE TABLE if not exists servers
 (
@@ -89,4 +90,15 @@ CREATE TABLE IF NOT EXISTS fissure_notification_status (
     dnd BOOLEAN DEFAULT true,
     offline BOOLEAN DEFAULT true,
     FOREIGN KEY (user_id) REFERENCES users (discord_id)
+);
+
+CREATE TABLE IF NOT EXISTS item_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    item_id VARCHAR(255) NOT NULL,
+    plat_notification_threshold INT,
+    daily_messages BOOLEAN,
+    favorite BOOLEAN DEFAULT true,
+    FOREIGN KEY (user_id) REFERENCES users (discord_id),
+    UNIQUE (user_id, item_id)
 );

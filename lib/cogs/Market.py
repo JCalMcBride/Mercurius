@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Tuple
+from typing import Tuple, List, Dict, Any, Union
 
 import discord
 import pycountry as pycountry
@@ -14,6 +14,122 @@ from discord.ext.commands import Cog
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 from market_engine.Models.MarketUser import MarketUser
+from pymysql import IntegrityError
+
+
+class FavoritesView(discord.ui.View):
+    def __init__(self, ctx: commands.Context, favorite_items: List[Dict[str, Union[str, int, bool]]],
+                 market_cog: Market):
+        super().__init__(timeout=None)
+        self.ctx = ctx
+        self.favorite_items = favorite_items
+        self.market_cog = market_cog
+        self.current_page = 0
+        self.embeds = []
+
+        self.refresh_button = discord.ui.Button(label="Refresh", style=discord.ButtonStyle.green)
+        self.refresh_button.callback = self.refresh_callback
+        self.add_item(self.refresh_button)
+
+        if len(self.favorite_items) > 10:
+            self.next_button = discord.ui.Button(label="Next", style=discord.ButtonStyle.blurple)
+            self.next_button.callback = self.next_callback
+            self.add_item(self.next_button)
+
+            self.previous_button = discord.ui.Button(label="Previous", style=discord.ButtonStyle.blurple, disabled=True)
+            self.previous_button.callback = self.previous_callback
+            self.add_item(self.previous_button)
+
+    async def create_favorite_embed(self, item: Dict[str, Union[str, int, bool]]) -> discord.Embed | None:
+        item_id = item["item_id"]
+
+        # Fetch the item from the market database
+        wfm_item: MarketItem = await self.market_cog.bot.market_db.get_item(item_id,
+                                                                            fetch_parts=False,
+                                                                            fetch_orders=True,
+                                                                            fetch_part_orders=False,
+                                                                            fetch_price_history=False,
+                                                                            fetch_demand_history=False)
+
+        if wfm_item is None:
+            return None
+
+        # Get the average price from the market database
+        average_price = self.market_cog.bot.market_db.get_item_price(wfm_item.item_name)
+
+        # Get the first two orders from in-game users
+        filters, mode = wfm_item.create_filters(state='ingame', state_mode='whitelist')
+
+        orders = wfm_item.filter_orders(order_type='sell',
+                                        num_orders=2,
+                                        filters=filters,
+                                        mode=mode)
+
+        # Format the orders
+        order_text = "\n".join(
+            f"[{order['user']}](https://warframe.market/profile/{order['user']}): {order['price']}" for order in orders)
+
+        # Create the embed
+        embed = discord.Embed(color=discord.Color.dark_gold(),
+                              description=f"{order_text}")
+        embed.set_author(name=f"{wfm_item.item_name} - {average_price}", url=wfm_item.item_url,
+                         icon_url=wfm_item.thumb_url)
+
+        return embed, average_price
+
+    async def create_embeds(self):
+        self.embeds = []
+        for item in self.favorite_items:
+            embed_data = await self.create_favorite_embed(item)
+            if embed_data is not None:
+                embed, average_price = embed_data
+                self.embeds.append((embed, average_price))
+
+        # Sort the embeds by the item's average price in descending order
+        self.embeds.sort(key=lambda x: x[1], reverse=True)
+
+    def get_page_embeds(self):
+        start = self.current_page * 10
+        end = min(start + 10, len(self.embeds))
+        return [embed for embed, _ in self.embeds[start:end]]
+
+    async def update_message(self, interaction: discord.Interaction):
+        page_embeds = self.get_page_embeds()
+        if page_embeds:
+            if len(self.favorite_items) > 10:
+                self.next_button.disabled = self.current_page == len(self.embeds) // 10
+                self.previous_button.disabled = self.current_page == 0
+            await interaction.response.edit_message(embeds=page_embeds, view=self)
+        else:
+            await interaction.response.edit_message(content="No favorites found.", embed=None, view=None)
+
+    async def refresh_callback(self, interaction: discord.Interaction):
+        start = self.current_page * 10
+        end = min(start + 10, len(self.favorite_items))
+        for item in self.favorite_items[start:end]:
+            embed_data = await self.create_favorite_embed(item)
+            if embed_data is not None:
+                embed, average_price = embed_data
+                self.embeds[start:end] = [(embed, average_price)]
+        await self.update_message(interaction)
+
+
+    async def next_callback(self, interaction: discord.Interaction):
+        if self.current_page < len(self.embeds) // 10:
+            self.current_page += 1
+            await self.update_message(interaction)
+
+    async def previous_callback(self, interaction: discord.Interaction):
+        if self.current_page > 0:
+            self.current_page -= 1
+            await self.update_message(interaction)
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("You can't use this button.", ephemeral=True)
+            return False
+        return True
+
 
 
 class SubtypeSelectMenu(discord.ui.Select):
@@ -565,7 +681,7 @@ class Market(Cog, name="market"):
                                                 ephemeral=True)
 
     @commands.hybrid_command(name='removealias',
-                          description="Removes an alias for an item.")
+                             description="Removes an alias for an item.")
     @app_commands.describe(target_item='Item you want to remove an alias for.')
     @app_commands.describe(alias='Alias you want to remove.')
     @commands.has_any_role(780376440998199296,
@@ -606,6 +722,107 @@ class Market(Cog, name="market"):
 
         self.bot.database.set_platform(ctx.author.id, platform.lower())
         await ctx.send(f"Platform set to {platform}")
+
+    def create_item_settings_embed(self, item: MarketItem, item_settings: dict) -> discord.Embed:
+        embed = discord.Embed(title=f"{item.item_name} Settings", url=item.item_url, color=discord.Color.dark_gold())
+        embed.set_thumbnail(url=item.thumb_url)
+
+        if item_settings["plat_notification_threshold"] is not None:
+            embed.add_field(name="Platinum Notification Threshold", value=item_settings["plat_notification_threshold"])
+
+        if item_settings["daily_messages"] is not None:
+            embed.add_field(name="Daily Messages", value="Enabled" if item_settings["daily_messages"] else "Disabled")
+
+        if item_settings["favorite"] is not None:
+            embed.add_field(name="Favorite", value="Yes" if item_settings["favorite"] else "No")
+
+        return embed
+
+    @commands.hybrid_command(name='favorite',
+                             description="Favorite an item for use in the favorites command.")
+    @app_commands.describe(item_name='Item name you wish to favorite.')
+    @commands.has_any_role(780630958368882689,
+                           1086352745390419968,
+                           1086359981860864151)
+    async def set_item_settings(self, ctx: commands.Context, *, item_name: str) -> None:
+        """Sets settings for a specific item."""
+        user_id = ctx.author.id
+
+        # Check if the item exists in the market database
+        wfm_item: MarketItem = await self.bot.market_db.get_item(item_name.lower(),
+                                                                 fetch_parts=False,
+                                                                 fetch_orders=False,
+                                                                 fetch_part_orders=False,
+                                                                 fetch_price_history=False,
+                                                                 fetch_demand_history=False)
+
+        if wfm_item is None:
+            await ctx.send(f"Item {item_name} does not exist on Warframe.Market")
+            return
+
+        item_id = wfm_item.item_id
+
+        # Update the item settings in the database
+        try:
+            self.bot.database.set_item_settings(user_id, item_id)
+
+            await ctx.send(f"You've successfully favorited {wfm_item.item_name}")
+        except IntegrityError:
+            await ctx.send(f"You've already favorited {wfm_item.item_name}")
+
+    @commands.hybrid_command(name='unfavorite',
+                             description="Unfavorites an item.")
+    @app_commands.describe(item_name='Item name you wish to unfavorite.')
+    @commands.has_any_role(780630958368882689,
+                           1086352745390419968,
+                           1086359981860864151)
+    async def unfavorite(self, ctx: commands.Context, *, item_name: str) -> None:
+        user_id = ctx.author.id
+
+        # Check if the item exists in the market database
+        wfm_item: MarketItem = await self.bot.market_db.get_item(item_name.lower(),
+                                                                 fetch_parts=False,
+                                                                 fetch_orders=False,
+                                                                 fetch_part_orders=False,
+                                                                 fetch_price_history=False,
+                                                                 fetch_demand_history=False)
+
+        if wfm_item is None:
+            await ctx.send(f"Item {item_name} does not exist on Warframe.Market")
+            return
+
+        item_id = wfm_item.item_id
+        item_name = wfm_item.item_name
+
+        # Check if the item is favorited by the user
+        item_settings = self.bot.database.get_item_settings_by_user_and_item(user_id, item_id)
+        if item_settings is None or not item_settings["favorite"]:
+            await ctx.send(f"Item {item_name} is not in your favorites.")
+            return
+
+        # Remove the item from favorites
+        self.bot.database.remove_item_settings_by_user_and_item(user_id, item_id)
+        await ctx.send(f"Item {item_name} has been removed from your favorites.")
+
+    @commands.hybrid_command(name='favorites',
+                             description="Displays the first two orders and average price for each of your favorite items.")
+    @commands.has_any_role(780630958368882689,
+                           1086352745390419968,
+                           1086359981860864151)
+    async def get_favorites(self, ctx: commands.Context) -> None:
+        user_id = ctx.author.id
+
+        # Retrieve the user's favorite items from the database
+        favorite_items = self.bot.database.get_item_settings_by_user(user_id)
+        favorite_items = [item for item in favorite_items if item["favorite"]]
+
+        if not favorite_items:
+            await ctx.send("You don't have any favorite items set.")
+            return
+
+        view = FavoritesView(ctx, favorite_items, self)
+        await view.create_embeds()
+        await ctx.send(embeds=view.get_page_embeds(), view=view)
 
     @Cog.listener()
     async def on_ready(self):

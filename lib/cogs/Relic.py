@@ -13,102 +13,107 @@ from lib.relic_utils import style_list, refinement_list, fix_refinement, era_lis
     get_average, refinement_list_new, style_list_new
 
 
+def parse_command_args(content):
+    relic = None
+    refinements = []
+    styles = []
+    era = None
+    for word in content.split():
+        word = word.lower()
+        if word.title() in era_list:
+            era = word.title()
+        elif era is not None and f"{era.title()} {word.title()}" in relic_engine.get_relic_list():
+            relic = f"{era.title()} {word.title()}"
+        elif word in refinement_list:
+            refinements.append(fix_refinement(word))
+        elif word[0:3] in style_list:
+            style = 'Solo' if word[0:3] == 'sol' else word[0:3]
+            styles.append(style)
+            if len(word) > 3 and word[3:] in refinement_list:
+                refinements.append(fix_refinement(word[3:]))
+    return relic, refinements, styles, era
+
+
+def generate_embeds(relic, refinements, styles):
+    embeds = []
+    if not refinements and not styles:
+        refinements = use_default(relic)[0]
+        styles = style_list_new
+    elif refinements and not styles:
+        styles = style_list_new
+    elif not refinements and styles:
+        refinements = refinement_list_new
+
+    if len(styles) == 1 or len(refinements) == 1:
+        embed_list = []
+        embed_title = embed_description = field_name = None
+
+        if len(styles) == 1 and len(refinements) != 1:
+            embed_title = f"{relic} {styles[0]}"
+            field_name = 'Refinement'
+            embed_list = [[ref, get_average(relic, styles[0], ref)] for ref in refinements]
+        elif len(styles) != 1 and len(refinements) == 1:
+            embed_title = f"{relic} {refinements[0]}"
+            field_name = 'Style'
+            embed_list = [[sty, get_average(relic, sty, refinements[0])] for sty in styles]
+        elif len(styles) == 1 and len(refinements) == 1:
+            embed_title = f"{relic}"
+            embed_description = f"{styles[0]} {refinements[0]} Average: {int(get_average(relic, styles[0], refinements[0]))} {get_emoji('platinum')}"
+
+        embed = create_embed(embed_title, embed_description, field_name, embed_list)
+        embeds.append(embed)
+    else:
+        for sty in styles:
+            for ref in refinements:
+                embed_title = f"{relic} {sty} {ref}"
+                embed_description = f"Average: {int(get_average(relic, sty, ref))} {get_emoji('platinum')}"
+                embed = create_embed(embed_title, embed_description, None, [])
+                embeds.append(embed)
+
+    return embeds
+
+
+def create_embed(embed_title, embed_description, field_name, embed_list):
+    embed = discord.Embed()
+    embed.title = embed_title
+    if embed_description is not None:
+        embed.description = embed_description
+    else:
+        embed.add_field(name=field_name, value='\n'.join([x[0] for x in embed_list]))
+        embed.add_field(name='Average', value='\n'.join([str(int(x[1])) + ' ' + get_emoji('platinum') for x in embed_list]))
+        per_run = [str(int(x[1] / num_runs_dict[x[0]])) + ' ' + get_emoji('platinum') for x in embed_list if x[0] in num_runs_dict]
+        if per_run:
+            embed.add_field(name='Per Run', value='\n'.join(per_run))
+    return embed
+
 class Relic(Cog, name="relic"):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name='average', description="Get the average return for the given relic.",
-                             aliases=['avg'])
+    @commands.hybrid_command(name='average', description="Get the average return for the given relic.", aliases=['avg'])
     @app_commands.describe(relic="The relic you want to get the averages for.",
                            refinement="The refinement you want to check, default is most popular refinement.",
                            style="What style you wish to check, if not provided shows all styles.")
-    async def average(self, ctx: commands.Context, relic: str, refinement: Optional[str],
-                      style: Optional[str]):
+    async def average(self, ctx: commands.Context, relic: str, refinement: Optional[str], style: Optional[str]):
         """Gets the averages on the relic requested"""
-        if ctx.interaction is None:
-            relic = None
-            refinement = None
-            style = None
-            era = None
-            for word in ctx.message.content.split():
-                word = word.lower()
-                if word.title() in era_list:
-                    era = word.title()
-                elif era is not None and f"{era.title()} {word.title()}" in relic_engine.get_relic_list():
-                    relic = f"{era.title()} {word.title()}"
-                elif word in refinement_list:
-                    refinement = fix_refinement(word)
-                elif word[0:3] in style_list:
-                    style = word[0:3]
-                    if style == 'sol':
-                        style = 'Solo'
-                    if word[3:] in refinement_list:
-                        refinement = fix_refinement(word[3:])
+        try:
+            if ctx.interaction is None:
+                relic, refinement, style, era = parse_command_args(ctx.message.content)
 
-        embed_list = []
-        embeds = []
-        embed_title = None
-        embed_description = None
-        field_name = None
-        if refinement is None and style is None:
-            refinement = use_default(relic)[0]
-            style = style_list_new
-        elif refinement is not None and style is None:
-            refinement = [refinement]
-            style = style_list_new
-        elif refinement is None and style is not None:
-            refinement = refinement_list_new
-            style = [style]
+            if relic is None:
+                await ctx.send("Please provide a valid relic name.")
+                return
 
-        relic = relic.title()
+            relic = relic.title()
+            embeds = generate_embeds(relic, refinement, style)
 
-        if len(style) == 1 or len(refinement) == 1:
-            if len(style) == 1 and len(refinement) != 1:
-                embed_title = f"{relic} {style[0]}"
-                field_name = 'Refinement'
-                for ref in refinement:
-                    embed_list.append([ref, get_average(relic, style[0], ref)])
-            elif len(style) != 1 and len(refinement) == 1:
-                embed_title = f"{relic} {refinement[0]}"
-                field_name = 'Style'
-                for sty in style:
-                    embed_list.append([sty, get_average(relic, sty, refinement[0])])
-            elif len(style) == 1 and len(refinement) == 1:
-                embed_title = f"{relic}"
-                embed_description = f"{style[0]} {refinement[0]} Average: " \
-                                    f"{int(get_average(relic, style[0], refinement[0]))} " \
-                                    f"{get_emoji('platinum')}"
-                field_name = None
-
-            embed = discord.Embed()
-            embed.title = embed_title
-            if embed_description is not None:
-                embed.description = embed_description
-            else:
-                embed.add_field(name=field_name, value='\n'.join([x[0] for x in embed_list]))
-                embed.add_field(name='Average',
-                                value='\n'.join([str(int(x[1])) + ' ' + get_emoji('platinum') for x in embed_list]))
-
-                per_run = []
-                for x in embed_list:
-                    if x[0] in num_runs_dict:
-                        per_run.append(str(int(x[1] / num_runs_dict[x[0]])) + ' ' + get_emoji('platinum'))
-
-                if len(per_run) > 0:
-                    embed.add_field(name='Per Run',
-                                    value='\n'.join(per_run))
-
-            embeds.append(embed)
-
-        if ctx.guild is not None and len(embeds) > 1 and ctx.channel.name != 'bot-spam':
-            msg = await ctx.send("The options you selected requires multiple embeds, "
-                                 "please try again in bot-spam or DMs.")
-        else:
-            if len(embeds) == 1:
-                await ctx.send(embed=embeds[0])
+            if ctx.guild is not None and len(embeds) > 1 and ctx.channel.name != 'bot-spam':
+                await ctx.send("The options you selected require multiple embeds, please try again in bot-spam or DMs.")
             else:
                 for embed in embeds:
                     self.bot.mdh(ctx.message, await ctx.send(embed=embed), ctx.channel)
+        except Exception as e:
+            await ctx.send(f"An error occurred while processing your request: {str(e)}")
 
     @commands.hybrid_command(name='ducat', description="Get the 45 ducat common relics.",
                              aliases=['d', '45d'])
@@ -136,7 +141,6 @@ class Relic(Cog, name="relic"):
         for era in era_list:
             if era in era_dict:
                 embed.add_field(name=era, value='\n'.join(era_dict[era]), inline=False)
-
 
         await ctx.send(embed=embed)
 

@@ -16,7 +16,7 @@ from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
 from pytz import utc
 
-from lib.db.database import MercuriusDatabase
+from lib.db.mercurius_db import MercuriusDatabase
 
 cogs_dir = Path("lib/cogs")
 COGS = [p.stem for p in cogs_dir.glob("*.py")]
