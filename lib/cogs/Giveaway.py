@@ -439,7 +439,7 @@ class Giveaway(Cog, name="giveaway"):
         await self.create_giveaway(ctx.guild.id, int(giveaway_channel), ctx.author.id,
                                    int(giveaway_role), giveaway_time, giveaway_winners, giveaway_prize)
 
-        await self.bot.send_message(content="Successfully started giveaway.", ephemeral=True)
+        await self.bot.send_message(ctx, content="Successfully started giveaway.", ephemeral=True)
 
     @startgiveaway.error
     async def startgiveaway_error(self, ctx: commands.Context, error: Exception):
