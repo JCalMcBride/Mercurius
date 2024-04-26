@@ -397,7 +397,7 @@ class Giveaway(Cog, name="giveaway"):
                            giveaway_channel="What channel do you want to host your giveaway in? Defaults to current channel.",
                            giveaway_role="What role you wish to be required for the giveaway. (Optional)")
     @commands.has_role("Donor")
-    async def startgiveaway(self, interaction: discord.Interaction, giveaway_prize: str, giveaway_time: str,
+    async def startgiveaway(self, ctx: commands.Context, giveaway_prize: str, giveaway_time: str,
                             giveaway_winners: Optional[int],
                             giveaway_channel: Optional[str],
                             giveaway_role: Optional[str]):
@@ -412,17 +412,19 @@ class Giveaway(Cog, name="giveaway"):
         Requires the Donor role.
         """
         if len(giveaway_prize) > 255:
-            await interaction.response.send_message("Length of prize is too long, please shorten it.")
+            await self.bot.send_message(ctx, "Length of prize is too long, please shorten it.",
+                                        ephemeral=True)
             return
 
         if giveaway_winners is None:
             giveaway_winners = 1
 
         if giveaway_channel is None:
-            giveaway_channel = interaction.channel_id
+            giveaway_channel = ctx.channel.id
 
         if giveaway_winners > 50 or giveaway_winners < 1:
-            await interaction.response.send_message("Invalid number of winners, max is 50 and minimum is 1.")
+            await self.bot.send_message(ctx, "Invalid number of winners, max is 50 and minimum is 1.",
+                                        ephemeral=True)
             return
 
         if giveaway_role is None:
@@ -430,18 +432,19 @@ class Giveaway(Cog, name="giveaway"):
 
         giveaway_time = convert(giveaway_time)
         if not str(giveaway_time).isnumeric():
-            await interaction.response.send_message(giveaway_time)
+            await self.bot.send_message(ctx, giveaway_time,
+                                        ephemeral=True)
             return
 
-        await self.create_giveaway(interaction.guild_id, int(giveaway_channel), interaction.user.id,
+        await self.create_giveaway(ctx.guild.id, int(giveaway_channel), ctx.author.id,
                                    int(giveaway_role), giveaway_time, giveaway_winners, giveaway_prize)
 
-        await interaction.response.send_message(content="Successfully started giveaway.", ephemeral=True)
+        await self.bot.send_message(content="Successfully started giveaway.", ephemeral=True)
 
     @startgiveaway.error
-    async def startgiveaway_error(self, interaction: discord.Interaction, error: Exception):
+    async def startgiveaway_error(self, ctx: commands.Context, error: Exception):
         if isinstance(error, CheckFailure):
-            await interaction.response.send_message("You do not have the required permissions to run this command.",
+            await ctx.send("You do not have the required permissions to run this command.",
                                                     ephemeral=True)
 
     @startgiveaway.autocomplete('giveaway_role')
