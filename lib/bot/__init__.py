@@ -383,6 +383,8 @@ class Bot(BotBase):
             await self.send_message(ctx, "You lack the permissions to use this command here.")
         elif isinstance(exc, MissingRole):
             await self.send_message(ctx, "You lack the role required to use this command here.")
+        elif isinstance(exc, commands.errors.MissingRequiredArgument):
+            await self.send_message(ctx, f"You are missing a required argument for this command. Type --help {ctx.command} for more information.")
         elif hasattr(exc, "original"):
             if isinstance(exc.original, SyntaxError):
                 await self.send_message(ctx, "Something is wrong with the syntax of that command.")
