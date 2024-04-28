@@ -53,6 +53,10 @@ class Tags(Cog, name="tags"):
                                                                                                                   'tags'])
     async def all_tags(self, ctx: commands.Context):
         """Shows all tags in the server alphabetically."""
+        if not ctx.guild:
+            await ctx.send("This command can only be used in a server.")
+            return
+
         server_tags = self.bot.database.get_server_tags(ctx.guild.id)
         if not server_tags:
             await ctx.send("No tags found in this server.")
