@@ -102,3 +102,28 @@ CREATE TABLE IF NOT EXISTS item_settings (
     FOREIGN KEY (user_id) REFERENCES users (discord_id),
     UNIQUE (user_id, item_id)
 );
+
+
+CREATE TABLE IF NOT EXISTS tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tag_name VARCHAR(255) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    autodelete BOOLEAN NOT NULL,
+    dm BOOLEAN NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tag_server_link (
+    tag_id INT NOT NULL,
+    server_id BIGINT NOT NULL,
+    PRIMARY KEY (tag_id, server_id),
+    FOREIGN KEY (tag_id) REFERENCES tags(id),
+    FOREIGN KEY (server_id) REFERENCES servers(server_id)
+);
+
+CREATE TABLE IF NOT EXISTS linked_servers (
+    server_id BIGINT NOT NULL,
+    linked_server_id BIGINT NOT NULL,
+    PRIMARY KEY (server_id, linked_server_id),
+    FOREIGN KEY (server_id) REFERENCES servers(server_id),
+    FOREIGN KEY (linked_server_id) REFERENCES servers(server_id)
+);

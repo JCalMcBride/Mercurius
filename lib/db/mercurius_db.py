@@ -208,6 +208,47 @@ class MercuriusDatabase:
     WHERE discord_id = %s
     """
 
+    _STORE_TAG_QUERY = """
+    INSERT INTO tags (tag_name, content, autodelete, dm)
+    VALUES (%s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        content = VALUES(content),
+        autodelete = VALUES(autodelete),
+        dm = VALUES(dm)
+    """
+
+    _TAG_SERVER_LINK_SUBQUERY = """
+    SELECT tag_id
+    FROM tag_server_link
+    WHERE server_id IN (
+        SELECT server_id
+        FROM linked_servers
+        WHERE linked_server_id = %s
+        UNION
+        SELECT linked_server_id
+        FROM linked_servers
+        WHERE server_id = %s
+        UNION
+        SELECT %s
+    )
+    """
+
+    _LINK_TAG_TO_SERVER_QUERY = """
+    INSERT INTO tag_server_link (tag_id, server_id)
+    VALUES (%s, %s)
+    """
+
+    _LINK_SERVERS_QUERY = """
+    INSERT INTO linked_servers (server_id, linked_server_id)
+    SELECT %s, %s
+    WHERE NOT EXISTS (
+        SELECT 1 FROM linked_servers
+        WHERE (server_id = %s AND linked_server_id = %s)
+           OR (server_id = %s AND linked_server_id = %s)
+    )
+    """
+
+
 
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
@@ -626,3 +667,84 @@ class MercuriusDatabase:
     def get_market_notifications_mute_status(self, user_id: int) -> bool:
         result = self._execute_query(self._GET_MARKET_NOTIFICATIONS_MUTE_STATUS_QUERY, user_id, fetch='one')
         return result[0] if result else True
+
+    def store_tag(self, tag_name: str, content: str, autodelete: bool, dm: bool, server_id: int) -> None:
+        self._execute_query(self._STORE_TAG_QUERY, tag_name, content, autodelete, dm, commit=True)
+        tag_id = self._execute_query(f"SELECT id FROM tags WHERE tag_name = %s", (tag_name,), fetch='one')[0]
+        self.link_tag_to_server(tag_id, server_id)
+
+    def retrieve_tag(self, tag_name: str, server_id: int) -> Optional[Dict[str, Any]]:
+        tag_id = self.get_tag_id(tag_name, server_id)
+        if tag_id:
+            query = f"SELECT content, autodelete, dm FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+            result = self._execute_query(query, tag_id, server_id, server_id, server_id, fetch='one')
+            if result:
+                return {
+                    "content": result[0],
+                    "autodelete": result[1],
+                    "dm": result[2]
+                }
+        return None
+
+    def delete_tag(self, tag_id: int, server_id: int) -> None:
+        query = f"DELETE FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+        self._execute_query(query, tag_id, server_id, server_id, server_id, commit=True)
+
+    def update_autodelete(self, tag_id: int, autodelete: bool, server_id: int) -> None:
+        query = f"UPDATE tags SET autodelete = %s WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+        self._execute_query(query, autodelete, tag_id, server_id, server_id, server_id, commit=True)
+
+    def update_dm(self, tag_id: int, dm: bool, server_id: int) -> None:
+        query = f"UPDATE tags SET dm = %s WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+        self._execute_query(query, dm, tag_id, server_id, server_id, server_id, commit=True)
+
+    def link_tag_to_server(self, tag_id: int, server_id: int) -> None:
+        self._execute_query(self._LINK_TAG_TO_SERVER_QUERY, tag_id, server_id, commit=True)
+
+    def link_servers(self, server_id: int, linked_server_id: int) -> None:
+        self._execute_query(self._LINK_SERVERS_QUERY, server_id, linked_server_id,
+                            server_id, linked_server_id, linked_server_id, server_id, commit=True)
+
+    def bulk_insert_tags(self, tags: Dict[str, Dict[str, Any]], server_ids: List[int]) -> None:
+        tag_data = [(tag_name, tag_info["content"], tag_info["autodelete"], tag_info["dm"]) for tag_name, tag_info in tags.items()]
+        self._execute_query(self._STORE_TAG_QUERY, tag_data, many=True, commit=True)
+
+        tag_ids = [self._execute_query(f"SELECT id FROM tags WHERE tag_name = %s", (tag_name,), fetch='one')[0] for tag_name in tags.keys()]
+
+        for server_id in server_ids:
+            link_data = [(tag_id, server_id) for tag_id in tag_ids]
+            self._execute_query(self._LINK_TAG_TO_SERVER_QUERY, link_data, many=True, commit=True)
+
+    def get_tag_id(self, tag_name: str, server_id: int) -> Optional[int]:
+        query = f"SELECT id FROM tags WHERE tag_name = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+        result = self._execute_query(query, tag_name, server_id, server_id, server_id, fetch='one')
+        return result[0] if result else None
+
+    def get_server_tags(self, server_id: int) -> List[Dict[str, Any]]:
+        query = f"""
+        SELECT t.id, t.tag_name, t.content, t.autodelete, t.dm
+        FROM tags t
+        JOIN tag_server_link tsl ON t.id = tsl.tag_id
+        WHERE tsl.server_id IN (
+            SELECT server_id
+            FROM linked_servers
+            WHERE linked_server_id = %s
+            UNION
+            SELECT linked_server_id
+            FROM linked_servers
+            WHERE server_id = %s
+            UNION
+            SELECT %s
+        )
+        """
+        results = self._execute_query(query, server_id, server_id, server_id, fetch='all')
+        return [
+            {
+                "id": row[0],
+                "tag_name": row[1],
+                "content": row[2],
+                "autodelete": row[3],
+                "dm": row[4]
+            }
+            for row in results
+        ]
