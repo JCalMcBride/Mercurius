@@ -49,7 +49,8 @@ class Tags(Cog, name="tags"):
         else:
             await ctx.send(f"Tag '{tag}' not found.")
 
-    @commands.hybrid_command(name='alltags', description="Shows all tags in the server alphabetically.", aliases=['at'])
+    @commands.hybrid_command(name='alltags', description="Shows all tags in the server alphabetically.", aliases=['at',
+                                                                                                                  'tags'])
     async def all_tags(self, ctx: commands.Context):
         """Shows all tags in the server alphabetically."""
         server_tags = self.bot.database.get_server_tags(ctx.guild.id)
