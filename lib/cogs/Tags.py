@@ -192,7 +192,10 @@ class Tags(Cog, name="tags"):
         for prefix in prefixes:
             if message.content.startswith(prefix):
                 tag_name = message.content[len(prefix):].strip()
-                tag_info = self.bot.database.retrieve_tag(tag_name, message.guild.id)
+                tag_info = self.bot.database.retrieve_tag(tag_name.lower(), message.guild.id)
+                if not tag_info:
+                    tag_info = self.bot.database.retrieve_tag(tag_name, message.guild.id)
+
                 if tag_info:
                     content = tag_info["content"]
                     if not tag_info["dm"]:
