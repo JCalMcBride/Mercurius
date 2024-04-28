@@ -948,25 +948,34 @@ class Fissure(Cog, name='fissure'):
         Choice(name='Tier 5 - + Survival/Defense/Mobile Defense/Other', value=5),
     ],
         display_type=[Choice(name='Discord Timestamps', value=FissureEngine.DISPLAY_TYPE_DISCORD),
-                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)]
+                      Choice(name='Static Time Left', value=FissureEngine.DISPLAY_TYPE_TIME_LEFT)],
+        show_normal=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_steel_path=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_void_storms=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_lith=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_meso=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_neo=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_axi=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_requiem=[Choice(name='True', value='1'), Choice(name='False', value='0')],
+        show_omnia=[Choice(name='True', value='1'), Choice(name='False', value='0')]
     )
     async def fissures(self, ctx,
-                       show_normal: bool = commands.parameter(default=None,
-                                                              description="Whether to show normal fissures."),
-                       show_steel_path: bool = commands.parameter(default=None,
-                                                                  description="Whether to show Steel Path fissures."),
-                       show_void_storms: bool = commands.parameter(default=None,
-                                                                   description="Whether to show Void Storm fissures."),
+                       show_normal: str = commands.parameter(default=None,
+                                                             description="Whether to show normal fissures."),
+                       show_steel_path: str = commands.parameter(default=None,
+                                                                 description="Whether to show Steel Path fissures."),
+                       show_void_storms: str = commands.parameter(default=None,
+                                                                  description="Whether to show Void Storm fissures."),
                        max_tier: int = commands.parameter(default=None,
                                                           description="The maximum tier of fissures to show."),
-                       show_lith: bool = commands.parameter(default=None, description="Whether to show Lith fissures."),
-                       show_meso: bool = commands.parameter(default=None, description="Whether to show Meso fissures."),
-                       show_neo: bool = commands.parameter(default=None, description="Whether to show Neo fissures."),
-                       show_axi: bool = commands.parameter(default=None, description="Whether to show Axi fissures."),
-                       show_requiem: bool = commands.parameter(default=None,
-                                                               description="Whether to show Requiem fissures."),
-                       show_omnia: bool = commands.parameter(default=None,
-                                                             description="Whether to show Omnia fissures."),
+                       show_lith: str = commands.parameter(default=None, description="Whether to show Lith fissures."),
+                       show_meso: str = commands.parameter(default=None, description="Whether to show Meso fissures."),
+                       show_neo: str = commands.parameter(default=None, description="Whether to show Neo fissures."),
+                       show_axi: str = commands.parameter(default=None, description="Whether to show Axi fissures."),
+                       show_requiem: str = commands.parameter(default=None,
+                                                              description="Whether to show Requiem fissures."),
+                       show_omnia: str = commands.parameter(default=None,
+                                                            description="Whether to show Omnia fissures."),
                        display_type: str = commands.parameter(default=FissureEngine.DISPLAY_TYPE_DISCORD,
                                                               description="The type of display to use for the fissure list.")):
         """
@@ -992,8 +1001,12 @@ class Fissure(Cog, name='fissure'):
             "display_type": FissureEngine.DISPLAY_TYPE_DISCORD
         }
 
-        options = {key: value if value is not None else defaults.get(key, default_values[key])
-                   for key, value in locals().items() if key != 'self' and key != 'ctx'}
+        if ctx.interaction:
+            options = {key: (value == '1') if key.startswith('show_') else value
+                       for key, value in locals().items() if key != 'self' and key != 'ctx' and value is not None}
+            options = {key: options.get(key, defaults.get(key, default_values[key])) for key in default_values}
+        else:
+            options = self.parse_text_options(ctx.message.content, defaults, default_values)
 
         channel_config = {key: options[key] for key in options if key.startswith("show_")}
         era_list = self.get_era_list_from_config(channel_config)
@@ -1006,6 +1019,46 @@ class Fissure(Cog, name='fissure'):
         embeds = await self.get_fissure_list_embed(fissure_types, era_list=era_list, max_tier=options["max_tier"],
                                                    display_type=options["display_type"])
         await self.bot.send_message(ctx, embed=embeds)
+
+    def parse_text_options(self, text, defaults, default_values):
+        options = default_values.copy()
+        options.update(defaults)
+
+        fissure_types_specified = False
+        specified_fissure_types = set()
+
+        if any(keyword in text for keyword in ["rj", "railjack", "vs", "voidstorms"]):
+            specified_fissure_types.add("show_void_storms")
+            fissure_types_specified = True
+        if any(keyword in text for keyword in ["sp", "steelpath"]):
+            specified_fissure_types.add("show_steel_path")
+            fissure_types_specified = True
+        if any(keyword in text for keyword in ["n", "norm", "normal"]):
+            specified_fissure_types.add("show_normal")
+            fissure_types_specified = True
+
+        if fissure_types_specified:
+            for fissure_type in ["show_normal", "show_steel_path", "show_void_storms"]:
+                options[fissure_type] = fissure_type in specified_fissure_types
+
+        if any(str(tier) in text for tier in range(1, 6)):
+            options["max_tier"] = max(int(tier) for tier in range(1, 6) if str(tier) in text)
+        if any(keyword in text for keyword in ["lith", "l"]):
+            options["show_lith"] = True
+        if any(keyword in text for keyword in ["meso", "m"]):
+            options["show_meso"] = True
+        if any(keyword in text for keyword in ["neo", "n"]):
+            options["show_neo"] = True
+        if any(keyword in text for keyword in ["axi", "a"]):
+            options["show_axi"] = True
+        if any(keyword in text for keyword in ["requiem", "r"]):
+            options["show_requiem"] = True
+        if any(keyword in text for keyword in ["omnia", "o"]):
+            options["show_omnia"] = True
+        if any(keyword in text for keyword in ["timeleft", "time"]):
+            options["display_type"] = FissureEngine.DISPLAY_TYPE_TIME_LEFT
+
+        return options
 
     @commands.hybrid_command(name='setfissurenotificationtype', aliases=['sfnt'])
     @app_commands.describe(notification_type='The type of notification to receive for fissure subscriptions.')
