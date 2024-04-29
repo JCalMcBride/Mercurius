@@ -6,11 +6,11 @@ import relic_engine
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Cog
-from simulation_engine import num_runs_dict
 
 from lib.common import get_emoji
 from lib.relic_utils import style_list, refinement_list, fix_refinement, era_list, use_default, \
     get_average, refinement_list_new, style_list_new
+from lib.simulation_utils import simulation_engine
 
 
 def parse_command_args(content):
@@ -80,8 +80,11 @@ def create_embed(embed_title, embed_description, field_name, embed_list):
         embed.description = embed_description
     else:
         embed.add_field(name=field_name, value='\n'.join([x[0] for x in embed_list]))
-        embed.add_field(name='Average', value='\n'.join([str(int(x[1])) + ' ' + get_emoji('platinum') for x in embed_list]))
-        per_run = [str(int(x[1] / num_runs_dict[x[0]])) + ' ' + get_emoji('platinum') for x in embed_list if x[0] in num_runs_dict]
+        embed.add_field(name='Average', value='\n'.join([str(int(x[1])) + ' ' +
+                                                         get_emoji('platinum') for x in embed_list]))
+        per_run = [str(int(x[1] / simulation_engine.num_runs_dict[x[0]])) + ' ' +
+                   get_emoji('platinum') for x in embed_list
+                   if x[0] in simulation_engine.num_runs_dict]
         if per_run:
             embed.add_field(name='Per Run', value='\n'.join(per_run))
     return embed

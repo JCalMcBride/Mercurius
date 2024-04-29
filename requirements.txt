@@ -6,7 +6,7 @@ aiohttp>=3.8.4
 PyMySQL>=1.0.3
 redis>=4.5.4
 aiolimiter>=1.0.0
-relic-engine>=0.2.8
+relic-engine>=0.2.10
 fuzzywuzzy>=0.18.0
 python-Levenshtein>=0.21.0
 GitPython>=3.1.31
@@ -27,5 +27,5 @@ mplcyberpunk>=0.7.1
 
 pillow~=10.2.0
 simpleeval~=0.9.13
-simulation_engine~=0.1.11
+simulation_engine~=1.0.1
 requests~=2.31.0

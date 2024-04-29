@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 import math
 import os
@@ -12,10 +13,9 @@ import numpy as np
 import relic_engine
 from discord import Embed
 from discord.ext.commands import Cog, command, cooldown, BucketType
-from simulation_engine import simulate_relic, get_drop_priority
 
 from lib.simulation_utils import parse_message, get_order, get_content, get_ducats, \
-    get_srsettings_embed, get_img, get_sr_config, parse_setting, process_quad_rare
+    get_srsettings_embed, get_img, get_sr_config, parse_setting, process_quad_rare, simulation_engine
 
 
 class Simulator(Cog, name="simulator"):
@@ -74,10 +74,18 @@ class Simulator(Cog, name="simulator"):
 
             drop_order = get_order(relics, offcycle_relics, ctx.author.id, self.srsettings, srconfig, mode)
 
+            relic_dict_list = [
+                {'relics': relics, 'refinement': refinement},
+            ]
+
+            for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
+                relics.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+
             reward_list, reward_screen = await self.bot.loop.run_in_executor(
-                ThreadPoolExecutor(), simulate_relic,
-                relics, offcycle_relics, refinement, offcycle_refinement, style, amount,
-                drop_order
+                ThreadPoolExecutor(),
+                functools.partial(simulation_engine.simulate_relic,
+                                  relic_dict_list, style=style, amount=amount,
+                                  drop_priority=drop_order)
             )
             if verbose:
                 verbose = []
@@ -140,7 +148,7 @@ class Simulator(Cog, name="simulator"):
                 await ctx.send(msg)
                 return
 
-            drop_order = get_drop_priority(relics + [j for i in offcycle_relics for j in i], 0)
+            drop_order = simulation_engine.get_drop_priority(relics + [j for i in offcycle_relics for j in i], 0)
 
             await ctx.send(embed=get_srsettings_embed(drop_order, args))
 
@@ -230,9 +238,16 @@ class Simulator(Cog, name="simulator"):
                                                 list(relic_engine.get_relic_drops(x, refinement.lower())))])
                     offcycle_refinement.append('Intact')
 
+            relic_dict_list = [
+                {'relics': relics, 'refinement': refinement},
+            ]
+
+            for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
+                relics.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+
             _, reward_screen = await self.bot.loop.run_in_executor(
-                ThreadPoolExecutor(), simulate_relic,
-                relics, offcycle_relics, refinement, offcycle_refinement, style, 1)
+                ThreadPoolExecutor(), functools.partial(simulation_engine.simulate_relic,
+                                                        relic_dict_list, style=style, amount=1))
 
             new_img = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), get_img, reward_screen[0])
 
@@ -285,7 +300,8 @@ class Simulator(Cog, name="simulator"):
                            f"rares in a row in 4b4 rad" \
                            f"{' <:WTFFFF:890180639247175680>' if equivalent_run_lucky > 8 else ''}."
 
-        pb_check, old_run_val, old_run_prob = self.save_to_leaderboard(ctx.author, refinement.lower(), int(counter), prob_formatted)
+        pb_check, old_run_val, old_run_prob = self.save_to_leaderboard(ctx.author, refinement.lower(), int(counter),
+                                                                       prob_formatted)
 
         if pb_check is not None:
             old_run = f"{'{:,}'.format(int(old_run_val))} {old_run_prob}"
@@ -335,7 +351,8 @@ class Simulator(Cog, name="simulator"):
             if i >= 10 and user_in_list:
                 break
 
-        embed = discord.Embed(title=f"{refinement.title()} Quad Rare {'Leader' if best else 'Loser'}board", colour=discord.Colour.blue())
+        embed = discord.Embed(title=f"{refinement.title()} Quad Rare {'Leader' if best else 'Loser'}board",
+                              colour=discord.Colour.blue())
         embed.add_field(name="Rank", value='\n'.join([str(user[0]) for user in user_list]), inline=True)
         embed.add_field(name="User", value='\n'.join([str(user[1]) for user in user_list]), inline=True)
         embed.add_field(name="Run", value='\n'.join([str(user[2]) for user in user_list]), inline=True)

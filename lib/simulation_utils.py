@@ -7,14 +7,15 @@ import numpy as np
 import relic_engine
 from PIL import Image
 from discord import Embed
+from simulation_engine import SimulationEngine
 
-from simulation_engine import get_drop_priority, num_runs_dict
 from strtobool import strtobool
 
 from lib.common import get_emoji
 from lib.relic_utils import era_list, style_list, refinement_list, fix_refinement, \
     relic_style_defaults
 
+simulation_engine = SimulationEngine()
 
 def process_quad_rare(refinement):
     refinement_dict = {
@@ -207,7 +208,7 @@ def get_content(rewards, style, amount, refinement, offcycle_count, offcycle_ref
     items_received = []
     total_value = 0
     total_ducats = 0
-    num_runs = num_runs_dict[style] * amount
+    num_runs = simulation_engine.num_runs_dict[style] * amount
     reward_list = Counter(rewards)
     for item in reward_list.keys():
         items_received.append([item, reward_list[item], get_price(item)])
@@ -366,7 +367,7 @@ def get_order(relics, offcycle_relics, user_id, srsettings, srconfig, mode=''):
                 f"lib/data/simulation/settings/{''.join(relics)}{''.join(['w' + ''.join(x) for x in offcycle_relics])}{user_id}.json") as f:
             return json.load(f)
     else:
-        return get_drop_priority(relics + [j for i in offcycle_relics for j in i], int(min_set_price))
+        return simulation_engine.get_drop_priority(relics + [j for i in offcycle_relics for j in i], int(min_set_price))
 
 
 def add_rarity(image, rarity):
@@ -559,8 +560,8 @@ def parse_message(content):
             if offcycle_refinement[i] is None:
                 offcycle_refinement[i], _ = use_default(offcycle_relics[i])
 
-    if amount > 69420 or amount < 1:
-        msg = f"{amount} is not recognized as a valid number between 1 and 69420."
+    if amount > 100000 or amount < 1:
+        msg = f"{amount} is not recognized as a valid number between 1 and 100000."
     elif style == "3b3" and offcycle_count > 1:
         msg = "You can only a maximum of 1 offcycle in a 3b3 run."
     elif style == "2b2" and offcycle_count > 2:
