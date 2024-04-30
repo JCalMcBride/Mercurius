@@ -72,14 +72,14 @@ class Simulator(Cog, name="simulator"):
 
             srconfig = get_sr_config(ctx.author.id)
 
-            drop_order = get_order(relics, offcycle_relics, ctx.author.id, self.srsettings, srconfig, mode)
-
             relic_dict_list = [
                 {'relics': relics, 'refinement': refinement},
             ]
 
             for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
-                relics.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+                relic_dict_list.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+
+            drop_order = get_order(relic_dict_list, ctx.author.id, self.srsettings, srconfig, mode)
 
             reward_list, reward_screen = await self.bot.loop.run_in_executor(
                 ThreadPoolExecutor(),

@@ -354,7 +354,7 @@ def get_content(rewards, style, amount, refinement, offcycle_count, offcycle_ref
     return rewards, totals, extra_info
 
 
-def get_order(relics, offcycle_relics, user_id, srsettings, srconfig, mode=''):
+def get_order(relic_dict_list, user_id, srsettings, srconfig, mode=''):
     if mode == 'plat':
         min_set_price = 0
     elif mode == 'ducat':
@@ -362,12 +362,14 @@ def get_order(relics, offcycle_relics, user_id, srsettings, srconfig, mode=''):
     else:
         min_set_price = srconfig['minimum_set_price']
 
-    if f"{''.join(relics)}{''.join(['w' + ''.join(x) for x in offcycle_relics])}{user_id}.json" in srsettings and not mode:
+    relic_dict_str = ''.join(relic_dict_list[0]['relics']) + ''.join(['w' + ''.join(x) for x in relic_dict_list[1:]])
+
+    if f"{relic_dict_str}{user_id}.json" in srsettings and not mode:
         with open(
-                f"lib/data/simulation/settings/{''.join(relics)}{''.join(['w' + ''.join(x) for x in offcycle_relics])}{user_id}.json") as f:
+                f"lib/data/simulation/settings/{relic_dict_str}{user_id}.json") as f:
             return json.load(f)
     else:
-        return simulation_engine.get_drop_priority(relics + [j for i in offcycle_relics for j in i], int(min_set_price))
+        return simulation_engine.get_drop_priority(relic_dict_list, int(min_set_price))
 
 
 def add_rarity(image, rarity):
