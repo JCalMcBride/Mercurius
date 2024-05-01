@@ -148,7 +148,15 @@ class Simulator(Cog, name="simulator"):
                 await ctx.send(msg)
                 return
 
-            drop_order = simulation_engine.get_drop_priority(relics + [j for i in offcycle_relics for j in i], 0)
+            relic_dict_list = [
+                {'relics': relics, 'refinement': []},
+            ]
+
+            for offcycle_relic in offcycle_relics:
+                relics.append({'relics': offcycle_relic, 'refinement': []})
+
+
+            drop_order = simulation_engine.get_drop_priority(relic_dict_list, 0)
 
             await ctx.send(embed=get_srsettings_embed(drop_order, args))
 
