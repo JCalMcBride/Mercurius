@@ -31,6 +31,10 @@ class Tags(Cog, name="tags"):
                       tag: str = commands.parameter(description="The name of the tag to retrieve."),
                       target: Optional[Member] = commands.parameter(description="The member to mention in the tag message.", default=None)):
         """Retrieves a tag by its name and displays its content.  If a target member is provided, the tag will mention them. The tag can be set to automatically delete the command message or send the content as a DM."""
+        if ctx.guild is None:
+            await ctx.send("This command can only be used in a server.")
+            return
+
         tag_info = self.bot.database.retrieve_tag(tag, ctx.guild.id)
         if tag_info:
             content = tag_info["content"]

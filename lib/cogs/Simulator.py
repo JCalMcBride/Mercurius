@@ -251,7 +251,8 @@ class Simulator(Cog, name="simulator"):
             ]
 
             for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
-                relics.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+                relic_dict_list.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
+
 
             _, reward_screen = await self.bot.loop.run_in_executor(
                 ThreadPoolExecutor(), functools.partial(simulation_engine.simulate_relic,

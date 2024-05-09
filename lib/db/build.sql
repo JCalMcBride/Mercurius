@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS tag_server_link (
     server_id BIGINT NOT NULL,
     PRIMARY KEY (tag_id, server_id),
     FOREIGN KEY (tag_id) REFERENCES tags(id),
-    FOREIGN KEY (server_id) REFERENCES servers(server_id)
+    FOREIGN KEY (server_id) REFERENCES servers(server_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS linked_servers (
@@ -125,5 +125,5 @@ CREATE TABLE IF NOT EXISTS linked_servers (
     linked_server_id BIGINT NOT NULL,
     PRIMARY KEY (server_id, linked_server_id),
     FOREIGN KEY (server_id) REFERENCES servers(server_id),
-    FOREIGN KEY (linked_server_id) REFERENCES servers(server_id)
+    FOREIGN KEY (linked_server_id) REFERENCES servers(server_id) ON DELETE CASCADE
 );
