@@ -61,8 +61,11 @@ def get_relic_drop_image(relic_drop):
         shadow_color = (0, 0, 0)  # Black color for the shadow
         shadow_offset = 2  # Offset distance for the shadow
 
+        if item_type == 'blueprint':
+            relic_drop = f"{relic_drop} Blueprint"
+
         # Wrap the text to fit within the image width
-        text_lines = textwrap.wrap(relic_drop, width=20)
+        text_lines = textwrap.wrap(relic_drop, width=18)
 
         text_height = len(text_lines) * font_size
         text_y = combined_image.height - text_height - 10
