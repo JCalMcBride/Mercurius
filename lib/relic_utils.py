@@ -19,7 +19,7 @@ refinement_list = ["i", "int", "intact",
                    "e", "excep", "exc", "exceptional",
                    "f", "flaw", "flawless",
                    "r", "rad", "radiant"]
-era_list = ['Lith', 'Meso', 'Neo', 'Axi']
+era_list = ['Lith', 'Meso', 'Neo', 'Axi', 'Requiem']
 
 
 # Changes refinement to required format.

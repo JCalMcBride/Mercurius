@@ -493,6 +493,11 @@ def parse_message(content):
                 relics.append(f"{era} {args[i].title()}")
             else:
                 offcycle_relics[offcycle_count].append(f"{era} {args[i].title()}")
+        elif f"{era} {args[i].upper()}" in relic_engine.get_relic_list():
+            if offcycle_count == -1:
+                relics.append(f"{era} {args[i].upper()}")
+            else:
+                offcycle_relics[offcycle_count].append(f"{era} {args[i].upper()}")
         elif args[i] == "special":
             style = '1b1'
             refinement = 'Intact'

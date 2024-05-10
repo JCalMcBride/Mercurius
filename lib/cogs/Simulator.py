@@ -34,6 +34,9 @@ def get_relic_drop_image(relic_drop):
         relic_drop = relic_drop.replace(" Blueprint", "")
         item_type = 'blueprint'
 
+    if "1200X" in relic_drop:
+        relic_drop = "Kuva"
+
     relic_drop_path = f"{base_image_path}/{relic_drop}.png"
     item_type_path = f"{special_image_path}/{item_type}.png"
 
@@ -357,7 +360,7 @@ class Simulator(Cog, name="simulator"):
                 if offcycle_count == 0:
                     offcycle_count += 1
                     non_vaulted_relics = relic_engine.get_non_vaulted_relics()
-                    offcycle_relics.append([x for x in non_vaulted_relics])
+                    offcycle_relics.append([x for x in non_vaulted_relics if 'Requiem' not in x])
                     offcycle_refinement.append('Intact')
 
             relic_dict_list = [
