@@ -354,9 +354,7 @@ class Simulator(Cog, name="simulator"):
                 if offcycle_count == 0:
                     offcycle_count += 1
                     non_vaulted_relics = relic_engine.get_non_vaulted_relics()
-                    offcycle_relics.append([x for x in non_vaulted_relics if
-                                            all(drop + '.png' in os.listdir("lib/data/simulation/image_db") for drop in
-                                                list(relic_engine.get_relic_drops(x, refinement.lower())))])
+                    offcycle_relics.append([x for x in non_vaulted_relics])
                     offcycle_refinement.append('Intact')
 
             relic_dict_list = [
