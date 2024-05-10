@@ -15,7 +15,121 @@ from discord import Embed
 from discord.ext.commands import Cog, command, cooldown, BucketType
 
 from lib.simulation_utils import parse_message, get_order, get_content, get_ducats, \
-    get_srsettings_embed, get_img, get_sr_config, parse_setting, process_quad_rare, simulation_engine
+    get_srsettings_embed, get_sr_config, parse_setting, process_quad_rare, simulation_engine
+
+
+import textwrap
+
+from PIL import Image, ImageDraw, ImageFont
+
+
+special_image_path = "lib/simulation/special"
+base_image_path = "lib/simulation/images"
+font_path = "lib/simulation/fonts"
+
+
+def get_relic_drop_image(relic_drop):
+    item_type = 'background'
+    if "Blueprint" in relic_drop:
+        relic_drop = relic_drop.replace(" Blueprint", "")
+        item_type = 'blueprint'
+
+    relic_drop_path = f"{base_image_path}/{relic_drop}.png"
+    item_type_path = f"{special_image_path}/{item_type}.png"
+
+    try:
+        relic_drop_image = Image.open(relic_drop_path).convert("RGBA")
+        item_type_image = Image.open(item_type_path).convert("RGBA")
+
+        # Resize the relic_drop image to match the size of item_type
+        relic_drop_resized = relic_drop_image.resize(item_type_image.size)
+
+        # Create a new image with the same size as item_type
+        combined_image = Image.new("RGBA", item_type_image.size)
+
+        # Paste the item_type image as the background
+        combined_image.paste(item_type_image, (0, 0), mask=item_type_image)
+
+        # Paste the resized relic_drop image on top of the background, respecting transparency
+        combined_image.alpha_composite(relic_drop_resized)
+
+        # Add text at the bottom of the image with a drop shadow
+        draw = ImageDraw.Draw(combined_image)
+        font_size = 36
+        font = ImageFont.truetype(f"{font_path}/Roboto-Regular.ttf", font_size)
+        text_color = (2, 127, 217)  # RGB color code for 027fd9
+        shadow_color = (0, 0, 0)  # Black color for the shadow
+        shadow_offset = 2  # Offset distance for the shadow
+
+        # Wrap the text to fit within the image width
+        text_lines = textwrap.wrap(relic_drop, width=20)
+
+        text_height = len(text_lines) * font_size
+        text_y = combined_image.height - text_height - 10
+
+        for line in text_lines:
+            text_bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_x = (combined_image.width - text_width) // 2
+
+            # Draw the shadow text
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), line, font=font, fill=shadow_color)
+
+            # Draw the main text
+            draw.text((text_x, text_y), line, font=font, fill=text_color)
+
+            text_y += font_size
+
+        return combined_image
+
+    except FileNotFoundError:
+        print(f"Image not found for {relic_drop}")
+        return None
+
+
+def generate_base_image(reward_screen):
+    first_reward = reward_screen[0][0][0]
+    relic_drop_image = get_relic_drop_image(first_reward)
+    divider = Image.open(f"{special_image_path}/divider.png").convert("RGBA")
+
+    num_rewards = len(reward_screen[0])
+    base_width = (relic_drop_image.width + divider.width) * num_rewards
+
+    rarities = [f"{special_image_path}/Common.png", f"{special_image_path}/Uncommon.png", f"{special_image_path}/Rare.png"]
+    max_height = max(Image.open(rarity).height for rarity in rarities)
+
+    base_height = relic_drop_image.height + max_height
+    base_image = Image.new("RGBA", (base_width, base_height))
+
+    return base_image
+
+
+def combine_image(reward, rarity):
+    relic_drop_image = get_relic_drop_image(reward)
+    rarity_image = Image.open(f"{special_image_path}/{rarity}.png").convert("RGBA")
+    divider = Image.open(f"{special_image_path}/divider.png").convert("RGBA")
+
+    combined_width = relic_drop_image.width + divider.width
+    combined_height = relic_drop_image.height + rarity_image.height
+
+    combined_image = Image.new("RGBA", (combined_width, combined_height))
+    combined_image.paste(relic_drop_image, (0, 0))
+    combined_image.paste(rarity_image, (0, relic_drop_image.height))
+    combined_image.paste(divider, (relic_drop_image.width, 0))
+
+    return combined_image
+
+
+def create_reward_screen(reward_screen):
+    base_image = generate_base_image(reward_screen)
+
+    x_offset = 0
+    for reward, rarity in reward_screen[0]:
+        combined_image = combine_image(reward, rarity)
+        base_image.paste(combined_image, (x_offset, 0))
+        x_offset += combined_image.width
+
+    return base_image
 
 
 class Simulator(Cog, name="simulator"):
@@ -155,7 +269,6 @@ class Simulator(Cog, name="simulator"):
             for offcycle_relic in offcycle_relics:
                 relics.append({'relics': offcycle_relic, 'refinement': []})
 
-
             drop_order = simulation_engine.get_drop_priority(relic_dict_list, 0)
 
             await ctx.send(embed=get_srsettings_embed(drop_order, args))
@@ -253,12 +366,11 @@ class Simulator(Cog, name="simulator"):
             for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
                 relic_dict_list.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
 
-
             _, reward_screen = await self.bot.loop.run_in_executor(
                 ThreadPoolExecutor(), functools.partial(simulation_engine.simulate_relic,
                                                         relic_dict_list, style=style, amount=1))
-
-            new_img = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), get_img, reward_screen[0])
+            result_image = create_reward_screen(reward_screen)
+            new_img = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), create_reward_screen, reward_screen)
 
             b = BytesIO()
             new_img.save(b, "PNG")
