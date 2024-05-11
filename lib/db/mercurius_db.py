@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Dict, Union, Tuple, List, Any, Optional
 
 import pymysql
-from pymysql import Connection
+from pymysql import Connection, OperationalError
 
 
 class MercuriusDatabase:
@@ -252,10 +252,22 @@ class MercuriusDatabase:
 
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
-        self.connection: Connection = pymysql.connect(user=user,
-                                                      password=password,
-                                                      host=host,
-                                                      database=database)
+        try:
+            self.connection: Connection = pymysql.connect(user=user,
+                                                          password=password,
+                                                          host=host,
+                                                          database=database)
+        except OperationalError:
+            with pymysql.connect(user=user,
+                                 password=password,
+                                 host=host) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(f"create database if not exists {database};")
+
+            self.connection = pymysql.connect(user=user,
+                                              password=password,
+                                              host=host,
+                                              database=database)
 
     def build_database(self) -> None:
         with open("lib/db/build.sql", "r") as f:

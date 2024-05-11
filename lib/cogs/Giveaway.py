@@ -201,8 +201,6 @@ class Giveaway(Cog, name="giveaway"):
 
         channel_obj = self.bot.get_channel(giveaway_data['channel'])
         if channel_obj is None:
-            log_entry(f"Channel: {giveaway_data['channel']} for guild {giveaway_data['guild']} "
-                      f"and giveaway_prize {giveaway_data['prize']} could not be found.")
             return
 
         if message_id not in self.giveaway_posts:
@@ -210,8 +208,6 @@ class Giveaway(Cog, name="giveaway"):
                 message_obj = await channel_obj.fetch_message(message_id)
                 self.giveaway_posts[message_id] = message_obj
             except NotFound:
-                log_entry(f"Message: {message_id} for guild {giveaway_data['guild']} and "
-                          f"giveaway_prize {giveaway_data['prize']} could not be found.")
                 return
             except Forbidden:
                 log_entry(f"Message: {message_id} for guild {giveaway_data['guild']} and "

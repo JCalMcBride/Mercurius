@@ -14,6 +14,9 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 from market_engine.Models.MarketDatabase import MarketDatabase
 from market_engine.Models.MarketItem import MarketItem
+import relic_engine
+
+from lib.relic_utils import style_list
 
 
 class DateSelectMenu(discord.ui.Select):
@@ -29,6 +32,119 @@ class DateSelectMenu(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         await self.market_graph_view.change_date_handler(interaction, self.values[0])
 
+
+class RelicValueGraphView(discord.ui.View):
+    def __init__(self, relic_names: List[str], price_histories: List[dict], bot: commands.Bot,
+                 user: discord.Member):
+        super().__init__()
+        self.message = None
+        self.user = user
+        self.relic_names = relic_names
+        self.price_histories = price_histories
+        self.bot = bot
+        self.date_menu = DateSelectMenu(self)
+        self.add_item(self.date_menu)
+        self.date_window = 365
+
+    async def send_message(self, ctx, output_string):
+        buf = self.get_graph()
+
+        message = await ctx.send(content='\n'.join([x for x in output_string if x]),
+                                 file=discord.File(buf, 'plot.png'),
+                                 view=self)
+
+        buf.close()
+
+        self.message = message
+
+    def get_dataframe(self, price_history):
+        price_series = pd.Series(price_history, name="Average Return")
+
+        # create a DataFrame from the price series
+        df = pd.DataFrame(price_series)
+        df.index = pd.to_datetime(df.index)
+
+        # fill missing values with the closest day's value
+        df['Average Return'].fillna(method='ffill', inplace=True)
+
+        # If there's still NaNs (e.g., at the beginning of the series), do a backward fill
+        df['Average Return'].fillna(method='bfill', inplace=True)
+
+        df['Average Return'] = df['Average Return'].rolling(window=3).median()
+        df['Average Return'] = df['Average Return'].rolling(window=3).mean()
+
+        return df
+
+    def get_graph(self):
+        # create plot
+        style = self.bot.database.get_graph_style(self.user.id)
+        with plt.style.context(style):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            for relic_name, price_history in zip(self.relic_names, self.price_histories):
+                df = self.get_dataframe(price_history)
+
+                # filter the dataframe if date window is specified
+                if self.date_window is not None:
+                    start_date = (datetime.now() - timedelta(days=int(self.date_window))).strftime('%Y-%m-%d')
+                    df = df.loc[df.index >= start_date]
+
+                ax.plot(df.index, df['Average Return'], label=relic_name.title())
+
+            # rotate and increase size of x-axis labels
+            fig.autofmt_xdate(rotation=30)
+            ax.tick_params(axis='x', labelsize=10)
+
+            # increase size of y-axis labels
+            ax.tick_params(axis='y', labelsize=10)
+
+            # set axis labels and title
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Average Return")
+            ax.set_title(f"Average Return History: {', '.join([name.title() for name in self.relic_names])}")
+
+            # add legend
+            ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
+
+            # format date axis
+            ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+
+            ax.yaxis.grid(True)
+
+            # save plot to a file-like object
+            fig.tight_layout()
+            plt.margins(x=0.002)
+
+            if style == 'cyberpunk':
+                mplcyberpunk.make_lines_glow(ax)
+
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            buf.seek(0)
+
+            plt.close()
+
+            return buf
+
+    async def change_date_handler(self, interaction, date):
+        if interaction.user != self.user:
+            await interaction.response.send_message("Only the user who initiated this command "
+                                                    "can change the date window",
+                                                    ephemeral=True)
+            return
+
+        self.date_window = date
+
+        buf = self.get_graph()
+
+        await self.message.edit(attachments=[discord.File(buf, 'plot.png')])
+
+        buf.close()
+
+        await interaction.response.send_message(f"Date window changed to {f'{date} days' if date != '9999' else 'all'}",
+                                                ephemeral=True)
 
 class MarketItemGraphView(discord.ui.View):
     def __init__(self, items: List[MarketItem], database: MarketDatabase, bot: commands.Bot,
@@ -231,6 +347,83 @@ class Statistics(Cog, name="statistics"):
 
         self.bot.database.set_graph_style(ctx.author.id, style)
         await ctx.send(f"Graph style set to {style}")
+
+    @commands.hybrid_command(name='relic_value_history',
+                             description="Gets the average return history for one or more relics.",
+                             aliases=["rvh"])
+    async def relic_value_history(self, ctx: commands.Context, *, relic_names: str) -> None:
+        """
+        Shows the average return history for one or more relics.
+
+        The average return history is shown in a graph, with the x-axis representing the date and the y-axis representing the average return.
+
+        Multiple relics can be specified by separating them with commas.
+
+        The user can select the time period to display using the dropdown menu.
+        """
+        relic_names = [name.strip() for name in relic_names.split(',')]
+
+        style_list = ['1b1', '2b2', '3b3', '4b4']
+        refinement_list = ['i', 'e', 'f', 'r']
+
+        processed_relics = []
+        for relic_name in relic_names:
+            style = '4b4'
+            refinement = 'r'
+            original_relic_name = relic_name
+
+            # Check if the user concatenated style and refinement values
+            for style_val in style_list:
+                for ref_val in refinement_list:
+                    concat_val = style_val + ref_val
+                    if concat_val in relic_name.lower():
+                        relic_name = relic_name.replace(concat_val, '').strip()
+                        style = style_val
+                        refinement = ref_val
+                    elif ref_val + style_val in relic_name.lower():
+                        relic_name = relic_name.replace(ref_val + style_val, '').strip()
+                        style = style_val
+                        refinement = ref_val
+
+            # Check if the user included any of the style or refinement values separately
+            for style_ref in style_list:
+                if style_ref in relic_name.lower() and not any(
+                        char.isalnum() for char in relic_name.lower().split(style_ref)[0][-1:]):
+                    relic_name = relic_name.replace(style_ref, '').strip()
+                    style = style_ref
+            for ref_val in refinement_list:
+                if ref_val in relic_name.lower() and not any(
+                        char.isalnum() for char in relic_name.lower().split(ref_val)[0][-1:]):
+                    relic_name = relic_name.replace(ref_val, '').strip()
+                    refinement = ref_val
+
+            processed_relics.append((relic_name.title(), style, refinement))
+
+        print(processed_relics)
+
+        invalid_relics = [name for name, _, _ in processed_relics if name.title() not in relic_engine.get_relic_list()]
+        if invalid_relics:
+            await ctx.send(f"Invalid relic name(s): {', '.join(invalid_relics)}. Please provide valid relic names.")
+            return
+
+        price_histories = []
+        for relic_name, style, refinement in processed_relics:
+            relic_drops = list(relic_engine.get_relic_drops(relic_name.title(), refinement))
+            price_dicts = self.bot.market_db.get_price_history_dicts(relic_drops)
+
+            average_returns = {}
+            for day in price_dicts:
+                average_return = relic_engine.get_average_return(relic_name.title(), style, refinement,
+                                                                 price_dicts[day])
+                average_returns[day] = average_return
+
+            price_histories.append(average_returns)
+
+        view = RelicValueGraphView([f"{name.title()} {style.lower()}{refinement.lower()}"
+            for name, style, refinement in processed_relics], price_histories, self.bot, ctx.author)
+
+        await view.send_message(ctx, [f"Average Return History for "
+                                      f"{', '.join([name.title() for name, _, _ in processed_relics])}"])
 
     @set_style.error
     async def set_style_error(self, ctx: commands.Context, error: commands.CommandError) -> None:

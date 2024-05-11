@@ -17,15 +17,114 @@ from discord.ext.commands import Cog, command, cooldown, BucketType
 from lib.simulation_utils import parse_message, get_order, get_content, get_ducats, \
     get_srsettings_embed, get_sr_config, parse_setting, process_quad_rare, simulation_engine
 
-
 import textwrap
 
 from PIL import Image, ImageDraw, ImageFont
 
-
 special_image_path = "lib/simulation/special"
 base_image_path = "lib/simulation/images"
 font_path = "lib/simulation/fonts"
+
+
+def parse_simulation_data(args, author_id, srsettings):
+    msg, relics, offcycle_relics, offcycle_count, style, \
+        refinement, offcycle_refinement, amount, mode, verbose = parse_message(args)
+
+    if msg:
+        return SimulationData(error_message=msg)
+
+    if style == "3b3" and amount % (3 / 4) != 0:
+        return SimulationData(error_message="3b3 runs must be a multiple of 3.")
+
+    if verbose and amount > 1000:
+        verbose = False
+
+    srconfig = get_sr_config(author_id)
+
+    relic_dict_list = [{'relics': relics, 'refinement': refinement}] + \
+                      [{'relics': offcycle_relic, 'refinement': offcycle_ref}
+                       for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement)]
+
+    drop_order = get_order(relic_dict_list, author_id, srsettings, srconfig, mode)
+
+    return SimulationData(
+        relics=relics,
+        offcycle_relics=offcycle_relics,
+        offcycle_count=offcycle_count,
+        style=style,
+        refinement=refinement,
+        offcycle_refinement=offcycle_refinement,
+        amount=amount,
+        verbose=verbose,
+        srconfig=srconfig,
+        relic_dict_list=relic_dict_list,
+        drop_order=drop_order
+    )
+
+async def simulate_relics(simulation_data, loop):
+    return await loop.run_in_executor(
+        ThreadPoolExecutor(),
+        functools.partial(simulation_engine.simulate_relic,
+                          simulation_data.relic_dict_list, style=simulation_data.style,
+                          amount=simulation_data.amount, drop_priority=simulation_data.drop_order)
+    )
+
+def create_simulation_embed(simulation_data):
+    title = get_title(simulation_data)
+
+    embed = Embed(title=title, description='\n'.join(simulation_data.rewards) if len('\n'.join(simulation_data.rewards)) <= 4096 else '')
+
+    if simulation_data.totals:
+        embed.add_field(name="Totals", value="\n".join(simulation_data.totals), inline=True)
+    if simulation_data.info:
+        embed.add_field(name="Info", value="\n".join(simulation_data.info), inline=True)
+
+    return embed
+
+async def send_verbose_output(ctx, embed, reward_screen):
+    verbose_string = '\n'.join(' | '.join(f"{x[1][0]} {x[0]}" for x in element) for element in reward_screen)
+    with StringIO(verbose_string) as f:
+        fp = discord.File(f, filename='output.txt')
+        await ctx.send(embed=embed, file=fp)
+
+async def send_output(ctx, embed, rewards):
+    if len('\n'.join(rewards)) <= 4096:
+        await ctx.send(embed=embed)
+    else:
+        with StringIO('\n'.join(rewards)) as f:
+            fp = discord.File(f, filename='output.txt')
+            await ctx.send(embed=embed, file=fp)
+
+def get_title(simulation_data):
+    title = f"Simulated {simulation_data.amount} {' '.join(simulation_data.relics)} {simulation_data.style} {simulation_data.refinement}" if len(' '.join(simulation_data.relics)) <= 10 \
+        else f"Simulated {simulation_data.amount} Relics {simulation_data.style} {simulation_data.refinement}"
+    if simulation_data.offcycle_count > 0:
+        for lst, ref in zip(simulation_data.offcycle_relics, simulation_data.offcycle_refinement):
+            title += f"\nwith {' '.join(lst)} {ref}"
+        title += ' offcycle'
+    title += ':'
+    return title
+
+class SimulationData:
+    def __init__(self, error_message=None, relics=None, offcycle_relics=None, offcycle_count=None,
+                 style=None, refinement=None, offcycle_refinement=None, amount=None, verbose=None,
+                 srconfig=None, relic_dict_list=None, drop_order=None, rewards=None, totals=None, info=None):
+        self.error_message = error_message
+        self.relics = relics
+        self.offcycle_relics = offcycle_relics
+        self.offcycle_count = offcycle_count
+        self.style = style
+        self.refinement = refinement
+        self.offcycle_refinement = offcycle_refinement
+        self.amount = amount
+        self.verbose = verbose
+        self.srconfig = srconfig
+        self.relic_dict_list = relic_dict_list
+        self.drop_order = drop_order
+        self.rewards = rewards
+        self.totals = totals
+        self.info = info
+
 
 
 def get_relic_drop_image(relic_drop):
@@ -101,7 +200,8 @@ def generate_base_image(reward_screen):
     num_rewards = len(reward_screen[0])
     base_width = (relic_drop_image.width + divider.width) * num_rewards
 
-    rarities = [f"{special_image_path}/Common.png", f"{special_image_path}/Uncommon.png", f"{special_image_path}/Rare.png"]
+    rarities = [f"{special_image_path}/Common.png", f"{special_image_path}/Uncommon.png",
+                f"{special_image_path}/Rare.png"]
     max_height = max(Image.open(rarity).height for rarity in rarities)
 
     base_height = relic_drop_image.height + max_height
@@ -176,76 +276,23 @@ class Simulator(Cog, name="simulator"):
         --srconfig: Modify display and constants
         """
         if ctx.guild is None or ctx.channel.name == "relic-simulation":
-            msg, relics, offcycle_relics, offcycle_count, style, \
-                refinement, offcycle_refinement, amount, mode, verbose = parse_message(args)
-
-            if style == "3b3" and amount % (3 / 4) != 0:
-                msg = "3b3 runs must be a multiple of 3."
-
-            if msg is not None:
-                await ctx.send(msg)
+            simulation_data = parse_simulation_data(args, ctx.author.id, self.srsettings)
+            if simulation_data.error_message:
+                await ctx.send(simulation_data.error_message)
                 return
 
-            if verbose and amount > 1000:
-                await ctx.send("Verbose mode only supports up to 1000 runs, verbose mode has been disabled.")
-                verbose = False
+            reward_list, reward_screen = await simulate_relics(simulation_data, self.bot.loop)
 
-            srconfig = get_sr_config(ctx.author.id)
+            simulation_data.rewards, simulation_data.totals, simulation_data.info = get_content(reward_list,
+                                                                                                simulation_data)
 
-            relic_dict_list = [
-                {'relics': relics, 'refinement': refinement},
-            ]
+            embed = create_simulation_embed(simulation_data)
 
-            for offcycle_relic, offcycle_ref in zip(offcycle_relics, offcycle_refinement):
-                relic_dict_list.append({'relics': offcycle_relic, 'refinement': offcycle_ref})
-
-            drop_order = get_order(relic_dict_list, ctx.author.id, self.srsettings, srconfig, mode)
-
-            reward_list, reward_screen = await self.bot.loop.run_in_executor(
-                ThreadPoolExecutor(),
-                functools.partial(simulation_engine.simulate_relic,
-                                  relic_dict_list, style=style, amount=amount,
-                                  drop_priority=drop_order)
-            )
-            if verbose:
-                verbose = []
-                for element in reward_screen:
-                    verbose += [' | '.join(f"{x[1][0]} {x[0]}" for x in element)]
-                verbose_string = '\n'.join(verbose)
-
-            rewards, totals, info = get_content(reward_list, style, amount, refinement, offcycle_count,
-                                                offcycle_refinement,
-                                                drop_order, srconfig)
-            if len(' '.join(relics)) <= 10:
-                title = f"Simulated {amount} {' '.join(relics)} {style} {refinement}"
+            if simulation_data.verbose:
+                await send_verbose_output(ctx, embed, reward_screen)
             else:
-                title = f"Simulated {amount} Relics {style} {refinement}"
-            if offcycle_count > 0:
-                for i, lst in enumerate(offcycle_relics):
-                    title += '\n'
-                    title += f"with {' '.join(lst)} {offcycle_refinement[i]}"
-                title += ' offcycle'
+                await send_output(ctx, embed, simulation_data.rewards)
 
-            title += ':'
-
-            rewards = '\n'.join(rewards)
-            embed = Embed(title=title, description=rewards if len(rewards) <= 4096 else '')
-            if totals:
-                embed.add_field(name="Totals", value="\n".join(totals), inline=True)
-
-            if info:
-                embed.add_field(name="Info", value="\n".join(info), inline=True)
-
-            if verbose:
-                with StringIO(verbose_string) as f:
-                    fp = discord.File(f, filename='output.txt')
-                    await ctx.send(embed=embed, file=fp)
-            elif len(rewards) <= 4096:
-                await ctx.send(embed=embed)
-            else:
-                with StringIO(rewards) as f:
-                    fp = discord.File(f, filename='output.txt')
-                    await ctx.send(embed=embed, file=fp)
         else:
             msg = await ctx.send(content="This command is only allowed to be used in the relic-simulation channel.")
             self.bot.mdh(ctx.message, msg, ctx.channel)
