@@ -101,7 +101,7 @@ class RelicValueGraphView(discord.ui.View):
             # set axis labels and title
             ax.set_xlabel("Date")
             ax.set_ylabel("Average Return")
-            ax.set_title(f"Average Return History: {', '.join([name.title() for name in self.relic_names])}")
+            ax.set_title(f"Average Return History: {', '.join([name for name in self.relic_names])}")
 
             # add legend
             ax.legend(fancybox=True, framealpha=0.5, fontsize='small')
@@ -399,7 +399,9 @@ class Statistics(Cog, name="statistics"):
 
             processed_relics.append((relic_name.title(), style, refinement))
 
-        print(processed_relics)
+            if len(processed_relics) >= 5:
+                await ctx.send("You can only request the average return history for up to 5 relics at a time.")
+                return
 
         invalid_relics = [name for name, _, _ in processed_relics if name.title() not in relic_engine.get_relic_list()]
         if invalid_relics:
@@ -420,7 +422,7 @@ class Statistics(Cog, name="statistics"):
             price_histories.append(average_returns)
 
         view = RelicValueGraphView([f"{name.title()} {style.lower()}{refinement.lower()}"
-            for name, style, refinement in processed_relics], price_histories, self.bot, ctx.author)
+                                    for name, style, refinement in processed_relics], price_histories, self.bot, ctx.author)
 
         await view.send_message(ctx, [f"Average Return History for "
                                       f"{', '.join([name.title() for name, _, _ in processed_relics])}"])
