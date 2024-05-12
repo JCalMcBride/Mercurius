@@ -338,31 +338,6 @@ class MercuriusDatabase:
     def unset_fissure_list_channel(self, server_id: int, channel_id: int, message_id: int) -> None:
         self._execute_query(self._UNSET_FISSURE_LIST_CHANNEL_QUERY, server_id, channel_id, message_id, commit=True)
 
-    def get_fissure_list_message_id(self, server_id: int, channel_id: int, fissure_types: List[str]) -> Union[
-        int, None]:
-        column_mapping = {
-            "Void Storms": "show_void_storms",
-            "Normal": "show_normal",
-            "Steel Path": "show_steel_path"
-        }
-
-        columns = [column_mapping[fissure_type] for fissure_type in fissure_types]
-        conditions = [f"{column} = TRUE" for column in columns]
-
-        # Add conditions for columns not in fissure_types
-        remaining_columns = set(column_mapping.values()) - set(columns)
-        conditions.extend(f"{column} = FALSE" for column in remaining_columns)
-
-        conditions_str = " AND ".join(conditions)
-
-        query = f"""
-        SELECT message_id
-        FROM fissure_list_channels
-        WHERE server_id = %s AND channel_id = %s AND {conditions_str}
-        """
-
-        message_id = self._execute_query(query, server_id, channel_id, fetch='one')
-        return message_id[0] if message_id else None
     def set_fissure_list_message_id(self, fissure_list_id: int, message_id: int) -> None:
         self._execute_query(self._SET_FISSURE_LIST_MESSAGE_ID_QUERY, message_id, fissure_list_id, commit=True)
 

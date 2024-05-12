@@ -672,6 +672,61 @@ class Fissure(Cog, name='fissure'):
         status = "enabled" if enabled else "disabled"
         await self.bot.send_message(ctx, f"Fissure notifications have been {status}.", ephemeral=True)
 
+    @commands.hybrid_command(name='unsetfissurelist', aliases=['ufl'],
+                             brief='Unset a fissure list message.')
+    @app_commands.describe(message_id='The ID of the fissure list message to unset.')
+    @commands.has_permissions(manage_channels=True)
+    async def unset_fissure_list(self, ctx: commands.Context, message_id: str = commands.parameter(
+        description="The ID of the fissure list message to unset.")) -> None:
+        """
+        Unset a fissure list message, deleting the message and the corresponding database entry.
+        """
+        try:
+            message_id = int(message_id)
+        except ValueError:
+            await self.bot.send_message(ctx, content="Invalid message ID. Please provide a valid message ID.",
+                                        ephemeral=True)
+            return
+
+        fissure_list_data = self.bot.database.get_fissure_list_channels()
+        fissure_list_found = False
+
+        for server_id, channel_configs in fissure_list_data.items():
+            for channel_config in channel_configs:
+                if channel_config['message_id'] == message_id:
+                    fissure_list_found = True
+                    channel_id = channel_config['channel_id']
+                    self.bot.database.unset_fissure_list_channel(server_id, channel_id, message_id)
+                    break
+            if fissure_list_found:
+                break
+
+        if fissure_list_found:
+            try:
+                channel = self.bot.get_channel(channel_id)
+                message = await channel.fetch_message(message_id)
+                await message.delete()
+                await self.bot.send_message(ctx, content=f"Fissure list with message ID {message_id} has been unset.",
+                                            ephemeral=True)
+            except discord.NotFound:
+                await self.bot.send_message(ctx, content="The fissure list message no longer exists.",
+                                            ephemeral=True)
+        else:
+            await self.bot.send_message(ctx, content="No fissure list found with the provided message ID.",
+                                        ephemeral=True)
+
+    @unset_fissure_list.autocomplete('message_id')
+    async def fissure_list_autocomplete(self, interaction: discord.Interaction, current: str) -> List[Choice[str]]:
+        """
+        Autocomplete for the message_id parameter of the unset_fissure_list command.
+        Provides a list of valid fissure list messages for the given server.
+        """
+        fissure_list_data = self.bot.database.get_fissure_list_channels()
+        server_id = interaction.guild.id
+        channel_configs = fissure_list_data.get(server_id, [])
+        message_ids = [str(channel_config['message_id']) for channel_config in channel_configs]
+        return [Choice(name=message_id, value=message_id) for message_id in message_ids if current in message_id][:10]
+
     @commands.hybrid_command(name='setfissuredefaults', aliases=['sfd'])
     @app_commands.describe(show_normal='Whether to show normal fissures by default.',
                            show_steel_path='Whether to show Steel Path fissures by default.',
@@ -1162,7 +1217,7 @@ class Fissure(Cog, name='fissure'):
         await self.bot.send_message(ctx, f'A fissure list will now be posted and then updated in {channel.mention}',
                                     ephemeral=True)
 
-    @commands.hybrid_command(name='updatefissurelists', aliases=['ufl'],
+    @commands.hybrid_command(name='updatefissurelists', aliases=['updatelists'],
                              brief='Update all fissure lists.')
     @commands.has_permissions(administrator=True)
     async def update_fissure_lists(self, ctx):
