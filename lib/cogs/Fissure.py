@@ -875,8 +875,9 @@ class Fissure(Cog, name='fissure'):
             await self.bot.send_message(ctx, "Your fissure subscription has been added.", ephemeral=True)
         except ValueError as e:
             await self.bot.send_message(ctx, str(e), ephemeral=True)
-        except IntegrityError:
+        except IntegrityError as e:
             await self.bot.send_message(ctx, "This subscription already exists.", ephemeral=True)
+            self.bot.logger.error(f"IntegrityError: {str(e)} occurred while adding a fissure subscription.")
 
     @commands.hybrid_command(name='listfissuresubscriptions', aliases=['lfs'])
     async def list_fissure_subscriptions(self, ctx):
