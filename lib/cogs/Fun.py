@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
@@ -335,6 +336,20 @@ class Fun(Cog, name="fun"):
 
         await ctx.send(url['url'])
 
+    def get_image_file(self, image_type):
+        if image_type == "bird":
+            bird_type = random.choice(os.listdir("lib/data/images/birds"))
+            bird_image = random.choice(os.listdir(f"lib/data/images/birds/{bird_type}"))
+
+            return f"lib/data/images/birds/{bird_type}/{bird_image}"
+
+    @commands.hybrid_command(name='bird', description="Display a random bird.")
+    @app_commands.checks.cooldown(1, 5)
+    async def bird_picture(self, ctx: commands.Context):
+        """Sends an image of a random frog."""
+        file_path = self.get_image_file("bird")
+
+        await ctx.send(file=File(file_path, filename="image.png"))
     @Cog.listener()
     async def on_ready(self):
         if not self.bot.ready:
