@@ -186,7 +186,7 @@ class Tags(Cog, name="tags"):
 
     @Cog.listener()
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
 
         prefixes = await self.bot.get_prefix(message)
