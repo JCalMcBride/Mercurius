@@ -1600,7 +1600,7 @@ class Fissure(Cog, name='fissure'):
 
         era_resets = self.bot.fissure_engine.get_resets(fissure_type=fissure_types,
                                                         display_type=display_type,
-                                                        emoji_dict=self.bot.emoji_dict,
+                                                        image_dict=self.bot.emoji_dict,
                                                         era_list=era_list)
 
         embed = discord.Embed(colour=discord.Colour.dark_gold())
