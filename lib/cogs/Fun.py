@@ -154,7 +154,8 @@ class Fun(Cog, name="fun"):
                       328145199845081088: "🐢",
                       281471947177459712: "<:silvaandaege:1124178791665766410>",
                       474458695351402497: "<a:catkiss:1226994912315183145>",
-                      715200888217534475: "<:jolyrno:1246045514336833548>"}
+                      715200888217534475: "<:jolyrno:1246045514336833548>",
+                      991633609511415849: "<:ahsoka:1246046592151195679>"}
 
         for supporter in supporter_role.members + patrons:
             if supporter.id in emoji_dict:
