@@ -543,7 +543,7 @@ def parse_message(content):
             else:
                 offcycle_refinement[offcycle_count] = ref
 
-        for s in style_list:
+        for s in style_list + ['8b8', '16b16']:
             if arg == s:
                 style = s
                 return

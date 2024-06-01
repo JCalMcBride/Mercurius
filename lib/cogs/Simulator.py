@@ -420,7 +420,7 @@ class Simulator(Cog, name="simulator"):
             _, reward_screen = await self.bot.loop.run_in_executor(
                 ThreadPoolExecutor(), functools.partial(simulation_engine.simulate_relic,
                                                         relic_dict_list, style=style, amount=1))
-            result_image = create_reward_screen(reward_screen)
+
             new_img = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), create_reward_screen, reward_screen)
 
             b = BytesIO()
