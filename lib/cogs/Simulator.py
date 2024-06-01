@@ -403,7 +403,7 @@ class Simulator(Cog, name="simulator"):
             await ctx.send(msg)
             return
         else:
-            if style != '4b4' and style != '8b8' and style != '16b16':
+            if style in ['1b1', '2b2', '3b3']:
                 if offcycle_count == 0:
                     offcycle_count += 1
                     non_vaulted_relics = relic_engine.get_non_vaulted_relics()
