@@ -388,7 +388,7 @@ class Simulator(Cog, name="simulator"):
             self.bot.mdh(ctx.message, msg, ctx.channel)
 
     @command(name="getscreen", aliases=["gs"])
-    @cooldown(3, 1, BucketType.channel)
+    @cooldown(1, 3, BucketType.channel)
     async def get_reward_screen(self, ctx, *, args):
         """
         Simulates a single relic run and returns the reward screen.
