@@ -544,7 +544,7 @@ def parse_message(content):
                 offcycle_refinement[offcycle_count] = ref
 
         # Add all styles of the form 'xbx' to the style list for each muultiple of 4 above 4 max of 256, including 256
-        new_style_list = style_list.copy() + [f"{x}b{y}" for x in range(4, 129, 4) for y in range(4, 129, 4)]
+        new_style_list = style_list.copy() + [f"{x}b{x}" for x in range(4, 129, 4)]
 
         for s in new_style_list:
             if arg == s:

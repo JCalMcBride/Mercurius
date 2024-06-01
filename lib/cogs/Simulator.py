@@ -399,6 +399,7 @@ class Simulator(Cog, name="simulator"):
         msg, relics, offcycle_relics, offcycle_count, style, \
             refinement, offcycle_refinement = parse_message(args)[:7]
 
+
         if msg is not None:
             await ctx.send(msg)
             return
