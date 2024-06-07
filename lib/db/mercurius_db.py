@@ -674,8 +674,14 @@ class MercuriusDatabase:
         return None
 
     def delete_tag(self, tag_id: int, server_id: int) -> None:
-        query = f"DELETE FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
-        self._execute_query(query, tag_id, server_id, server_id, server_id, commit=True)
+        tag_server_link_query = "DELETE FROM tag_server_link WHERE tag_id = %s AND server_id = %s"
+        self._execute_query(tag_server_link_query, tag_id, commit=True)
+
+        try:
+            query = f"DELETE FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
+            self._execute_query(query, tag_id, server_id, server_id, server_id, commit=True)
+        except pymysql.err.IntegrityError:
+            pass
 
     def update_autodelete(self, tag_id: int, autodelete: bool, server_id: int) -> None:
         query = f"UPDATE tags SET autodelete = %s WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
