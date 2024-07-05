@@ -300,9 +300,9 @@ class MarketItemView(discord.ui.View):
     @staticmethod
     def get_emoji(rarities):
         rarity_descriptions = {
-            frozenset([1]): "<:common:1099015121516367934>",
-            frozenset([2]): "<:uncommon:1099015120111292428>",
-            frozenset([3]): "<:rare:1099015118718779472>",
+            frozenset([1]): "<:common:1258881648879992982>",
+            frozenset([2]): "<:uncommon:1258881644278841404>",
+            frozenset([3]): "<:rare:1258881645495455804>",
             frozenset([1, 2]): "<:commonuncommon:1099015114860019723>",
             frozenset([1, 3]): "<:commonrare:1099015117548564610>",
             frozenset([2, 3]): "<:uncommonrare:1099015116139282482>",
