@@ -5,6 +5,7 @@ from typing import Optional, List
 
 import discord
 import relic_engine
+import requests
 from discord import Embed, NotFound, HTTPException, app_commands, ButtonStyle
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -24,7 +25,6 @@ import pickle
 import relic_engine
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
-
 
 with open('lib/data/wfcd_api.json', encoding='utf-8') as f:
     wfcd_api = json.load(f)
@@ -170,7 +170,6 @@ def decrypt_overwolf_data(encrypted_data):
     key_str = config['key']
     iv_str = config['iv']
 
-
     key = key_str.encode('utf-8')
     iv = iv_str.replace('\\0', '\0').encode('utf-8')
     cipher = AES.new(key, AES.MODE_CBC, iv=iv)
@@ -305,8 +304,8 @@ def build_data_dict(weapon, forma_count, upgrade_dict):
     return data_dict, forma_count
 
 
-with open('lib/data/parser.json') as f:
-    parser = json.load(f)
+# Fetch parser json from https://relics.run/export/parser.json
+parser = requests.get('https://relics.run/export/parser.json').json()
 
 with open('lib/data/item_type_dict.json') as f:
     item_type_dict = json.load(f)
@@ -658,7 +657,6 @@ class Overwolf(GroupCog, name="overwolf"):
 
             image_list = ['https://i.imgur.com/YQk5XPf.png', 'https://i.imgur.com/GONvoLc.png',
                           'https://i.imgur.com/m3wxJhM.png']
-
 
             await ctx.send(no_attachment_string)
             for image in image_list:
