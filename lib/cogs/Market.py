@@ -133,6 +133,7 @@ class FavoritesView(discord.ui.View):
 class SubtypeSelectMenu(discord.ui.Select):
     def __init__(self, market_item_view: MarketItemView, subtypes):
         options = []
+        subtypes.sort()
         for subtype in subtypes:
             options.append(discord.SelectOption(label=subtype.title(), value=subtype))
         self.market_item_view = market_item_view

@@ -22,7 +22,7 @@ matplotlib>=3.7.2
 numpy>=1.25.1
 pandas>=2.0.3
 scipy>=1.11.1
-market-engine>=0.1.42
+market-engine>=0.1.51
 mplcyberpunk>=0.7.1
 
 pillow~=10.2.0
