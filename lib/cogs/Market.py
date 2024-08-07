@@ -676,7 +676,7 @@ class Market(Cog, name="market"):
         Results are limited to 20 items and will be displayed in an embed with Item and Price fields.
 
         Usage examples:
-        !highestprice Mods 10 100
+        --highestprice Mods 10 100
         /highestprice item_type:PrimeWeapons min_price:50 max_price:500
         """
         async with aiohttp.ClientSession() as session:
@@ -698,7 +698,7 @@ class Market(Cog, name="market"):
 
                 if not items:
                     await self.bot.send_message(ctx,
-                                                f"No {item_type} found between {min_price} and {max_price} platinum.",
+                                                f"No valid items found.",
                                                 ephemeral=True)
                     return
 
