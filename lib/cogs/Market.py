@@ -108,11 +108,14 @@ class FavoritesView(discord.ui.View):
     async def refresh_callback(self, interaction: discord.Interaction):
         start = self.current_page * 10
         end = min(start + 10, len(self.favorite_items))
-        for item in self.favorite_items[start:end]:
+        for i, item in enumerate(self.favorite_items[start:end]):
             embed_data = await self.create_favorite_embed(item)
             if embed_data is not None:
                 embed, average_price = embed_data
-                self.embeds[start:end] = [(embed, average_price)]
+                self.embeds[start+i] = (embed, average_price)
+
+        self.embeds.sort(key=lambda x: x[1], reverse=True)
+
         await self.update_message(interaction)
 
     async def next_callback(self, interaction: discord.Interaction):
