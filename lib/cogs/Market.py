@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 from typing import Tuple, List, Dict, Any, Union
 
+import aiohttp
 import discord
 import pycountry as pycountry
 import relic_engine
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from discord import ButtonStyle, app_commands
+from discord.app_commands import Choice
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 from market_engine.Models.MarketDatabase import MarketDatabase
@@ -646,6 +648,69 @@ class Market(Cog, name="market"):
 
         await self.item_embed_handler(target_part.lower(), ctx, 'part_price')
 
+    @commands.hybrid_command(name='highestprice', aliases=['itemsearch', 'isearch', 'searchitems'],
+                             brief='Search for highest priced items of a specific type.')
+    @app_commands.describe(item_type='The type of item to search for.',
+                           min_price='The minimum price threshold (default: 0).',
+                           max_price='The maximum price threshold (default: 1000000).')
+    @app_commands.choices(item_type=[
+        Choice(name=item_type, value=item_type) for item_type in [
+            'ArcaneHelmets', 'Arcanes', 'ArmorPieces', 'Avionics', 'AyatanSculptures', 'CapturaScenes',
+            'CollectorItems',
+            'Emotes', 'Fish', 'FocusLens', 'Gems', 'Imprints', 'Misc', 'Mods', 'PrimeSentinelParts', 'PrimeSentinels',
+            'PrimeWarframeParts', 'PrimeWarframes', 'PrimeWeaponParts', 'PrimeWeapons', 'Relics', 'SentinelParts',
+            'ShipComponents', 'WeaponParts', 'Weapons'
+        ]
+    ])
+    async def highest_price(self, ctx,
+                            item_type: str,
+                            min_price: int = commands.parameter(default=0, description="The minimum price threshold."),
+                            max_price: int = commands.parameter(default=1000000,
+                                                                description="The maximum price threshold.")):
+        """
+        Search for highest priced items of a specific type within a given price range.
+
+        Results are limited to 20 items and will be displayed in an embed with Item and Price fields.
+
+        Usage examples:
+        !highestprice Mods 10 100
+        /highestprice item_type:PrimeWeapons min_price:50 max_price:500
+        """
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://relics.run/items', params={
+                'item_type_include': [item_type],
+                'min_price': min_price,
+                'max_price': max_price,
+                'sort_by': 'last_average_price',
+                'sort_direction': 'desc',
+                'items_per_page': 20,
+                'return_type': 'price_info'
+            }) as response:
+                if response.status != 200:
+                    await self.bot.send_message(ctx, f"Error retrieving data: HTTP {response.status}", ephemeral=True)
+                    return
+
+                data = await response.json()
+                items = data['items']
+
+                if not items:
+                    await self.bot.send_message(ctx,
+                                                f"No {item_type} found between {min_price} and {max_price} platinum.",
+                                                ephemeral=True)
+                    return
+
+                # Additional sort to ensure items are in correct order
+                sorted_items = dict(sorted(items.items(), key=lambda x: x[1], reverse=True))
+
+                embed = discord.Embed(title=f"Highest Priced {item_type}", color=discord.Color.blue())
+
+                item_names = "\n".join([f"**{item_name}**" for item_name in sorted_items.keys()][:20])
+                item_prices = "\n".join([f"{int(price)}" for price in sorted_items.values()][:20])
+
+                embed.add_field(name="Item", value=item_names, inline=True)
+                embed.add_field(name="Price", value=item_prices, inline=True)
+
+                await self.bot.send_message(ctx, embed=embed)
     @commands.hybrid_command(name='addalias',
                              description="Adds an alias for an item.")
     @app_commands.describe(target_item='Item you want to add an alias for.')
