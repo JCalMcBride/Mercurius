@@ -28,6 +28,7 @@ class Misc(Cog, name="misc"):
         Shows the upcoming rotations for the incarnon adapters.
         """
         rotations = [['Zylok', 'Sibear', 'Dread', 'Despair', 'Hate'],
+                     ['Dera', 'Sybaris', 'Cestra', 'Sicarus', 'Okina'],
                      ['Braton', 'Lato', 'Skana', 'Paris', 'Kunai'],
                      ["Boar", "Gammacor", "Angstrum", "Gorgon", "Anku"],
                      ['Bo', 'Latron', 'Furis', 'Furax', 'Strun'],
@@ -36,7 +37,7 @@ class Misc(Cog, name="misc"):
                      ['Ack & Brunt', 'Soma', 'Vasto', 'Nami Solo', 'Burston']]
 
         # Create a datetime object for July 31st, 2023, at midnight UTC
-        start_date = datetime(2023, 7, 16, 0, 0, 0, tzinfo=timezone.utc)
+        start_date = datetime(2023, 7, 9, 0, 0, 0, tzinfo=timezone.utc)
 
         # Get the current date in UTC and set it to midnight
         current_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -56,7 +57,7 @@ class Misc(Cog, name="misc"):
         rotation_str = f"**This week's rotation**: {', '.join(get_wiki_link(item) for item in rotations[rotation_index])}\n"
 
         # Print the rotations for the next six weeks
-        for i in range(1, 8):
+        for i in range(1, 9):
             rotation_str += '\n'
             future_date = current_week_start + timedelta(weeks=i)
             days_until = (future_date - current_date).days
