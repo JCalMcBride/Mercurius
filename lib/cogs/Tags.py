@@ -95,7 +95,7 @@ class Tags(Cog, name="tags"):
                            content="The content of the new tag.",
                            autodelete="Whether to automatically delete the command message.",
                            dm="Whether to send the tag content as a DM.")
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_roles=True)
     async def create_tag(self, ctx: commands.Context,
                          tag_name: str = commands.parameter(description="The name of the new tag."),
                          content: str = commands.parameter(description="The content of the new tag."),
@@ -107,7 +107,7 @@ class Tags(Cog, name="tags"):
 
     @commands.hybrid_command(name='deletetag', description="Deletes a tag by its name.", aliases=['removetag', 'deltag', 'removet', 'delt', 'dt'])
     @app_commands.describe(tag_name="The name of the tag to delete.")
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_roles=True)
     async def delete_tag(self, ctx: commands.Context,
                          tag_name: str = commands.parameter(description="The name of the tag to delete.")):
         """Deletes a tag by its name."""
@@ -121,7 +121,7 @@ class Tags(Cog, name="tags"):
     @commands.hybrid_command(name='changetagautodelete', description="Changes the autodelete setting of a tag.", aliases=['changedelete', 'setdelete', 'cta'])
     @app_commands.describe(tag_name="The name of the tag to modify.",
                            autodelete="Whether to enable or disable autodelete for the tag.")
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_roles=True)
     async def change_tag_autodelete(self, ctx: commands.Context,
                                     tag_name: str = commands.parameter(description="The name of the tag to modify."),
                                     autodelete: bool = commands.parameter(description="Whether to enable or disable autodelete for the tag.")):
@@ -136,7 +136,7 @@ class Tags(Cog, name="tags"):
     @commands.hybrid_command(name='changetagdm', description="Changes the DM setting of a tag.", aliases=['changedm', 'pmtag', 'settagdm', 'dmtag', 'ctd'])
     @app_commands.describe(tag_name="The name of the tag to modify.",
                            dm="Whether to enable or disable DM sending for the tag.")
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_roles=True)
     async def change_tag_dm(self, ctx: commands.Context,
                             tag_name: str = commands.parameter(description="The name of the tag to modify."),
                             dm: bool = commands.parameter(description="Whether to enable or disable DM sending for the tag.")):
@@ -151,7 +151,7 @@ class Tags(Cog, name="tags"):
     @commands.hybrid_command(name='linktagtoserver', description="Links a tag to a server, allowing it to be used in that server.", aliases=['linktag', 'ltts'])
     @app_commands.describe(tag_name="The name of the tag to link.",
                            server_id="The ID of the server to link the tag to.")
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_roles=True)
     async def link_tag_to_server(self, ctx: commands.Context,
                                  tag_name: str = commands.parameter(description="The name of the tag to link."),
                                  server_id: int = commands.parameter(description="The ID of the server to link the tag to.")):
