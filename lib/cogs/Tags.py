@@ -1,3 +1,4 @@
+import random
 from typing import Optional, List
 
 import discord
@@ -89,6 +90,22 @@ class Tags(Cog, name="tags"):
 
         await self.bot.send_message(ctx, embed=embed,
                                          ephemeral=True)
+
+    @commands.hybrid_command(name='randomtag', description="Retrieves a random tag from the server.", aliases=['rt'])
+    async def random_tag(self, ctx: commands.Context):
+        """Retrieves a random tag from the server."""
+        if not ctx.guild:
+            await ctx.send("This command can only be used in a server.")
+            return
+
+        server_tags = self.bot.database.get_server_tags(ctx.guild.id)
+        if not server_tags:
+            await ctx.send("No tags found in this server.")
+            return
+
+        tag = random.choice(server_tags)
+        content = tag["content"]
+        await ctx.send(content)
 
     @commands.hybrid_command(name='createtag', description="Creates a new tag with the provided name and content.", aliases=['newtag', 'newt', 'createt', 'ct'])
     @app_commands.describe(tag_name="The name of the new tag.",
