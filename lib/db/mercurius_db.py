@@ -442,7 +442,7 @@ class MercuriusDatabase:
         }
 
         if new_subscription in existing_subscriptions:
-            raise ValueError("You're already subscribed to this fissure. To manage subscriptions type /list_fissure_subscriptions")
+            raise ValueError("You're already subscribed to this fissure. To manage subscriptions type /listfissuresubscriptions")
 
         self._execute_query(self._ADD_FISSURE_SUBSCRIPTION_QUERY, user_id, fissure_type, era, node, mission, planet,
                             tileset, enemy, tier, commit=True)
