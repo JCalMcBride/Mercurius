@@ -1356,7 +1356,7 @@ class Fissure(Cog, name='fissure'):
 
             for channel_config in channel_configs:
                 await update_channel_fissure_list(channel_config)
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
 
         # Update the fissure lists for each server
         server_update_tasks = [update_server_fissure_lists(server_id, channel_configs) for server_id, channel_configs in
