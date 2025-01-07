@@ -331,9 +331,14 @@ class MarketItemView(discord.ui.View):
             emoji = self.get_emoji(self.get_rarities(part.item_name))
             orders = self.filter_orders(part, 1)
             required = relic_engine.get_required_amount(part.item_name)
+
+            if orders:
+                price_string += f"{orders[0]['price']}\n"
+                part_price += (orders[0]['price'] * required)
+            else:
+                price_string += "N/A\n"
+
             name_string += f"{self.format_part_name(part.item_name, emoji)}\n"
-            price_string += f"{orders[0]['price']}\n"
-            part_price += (orders[0]['price'] * required)
             required_string += f"{relic_engine.get_required_amount(part.item_name)}\n"
 
         orders = self.filter_orders(self.item, 1)
