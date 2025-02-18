@@ -667,7 +667,7 @@ class Market(Cog, name="market"):
             'CollectorItems',
             'Emotes', 'Fish', 'FocusLens', 'Gems', 'Imprints', 'Misc', 'Mods', 'PrimeSentinelParts', 'PrimeSentinels',
             'PrimeWarframeParts', 'PrimeWarframes', 'PrimeWeaponParts', 'PrimeWeapons', 'Relics', 'SentinelParts',
-            'ShipComponents', 'WeaponParts', 'Weapons'
+            'WeaponParts', 'Weapons', 'All'
         ]
     ])
     async def highest_price(self, ctx,
@@ -684,16 +684,20 @@ class Market(Cog, name="market"):
         --highestprice Mods 10 100
         /highestprice item_type:PrimeWeapons min_price:50 max_price:500
         """
+        params = {
+            'min_price': min_price,
+            'max_price': max_price,
+            'sort_by': 'last_average_price',
+            'sort_direction': 'desc',
+            'items_per_page': 20,
+            'return_type': 'price_info'
+        }
+
+        if item_type != "All":
+            params['item_type_include'] = [item_type]
+
         async with aiohttp.ClientSession() as session:
-            async with session.get('http://relics.run/items', params={
-                'item_type_include': [item_type],
-                'min_price': min_price,
-                'max_price': max_price,
-                'sort_by': 'last_average_price',
-                'sort_direction': 'desc',
-                'items_per_page': 20,
-                'return_type': 'price_info'
-            }) as response:
+            async with session.get('http://relics.run/items', params=params) as response:
                 if response.status != 200:
                     await self.bot.send_message(ctx, f"Error retrieving data: HTTP {response.status}", ephemeral=True)
                     return
