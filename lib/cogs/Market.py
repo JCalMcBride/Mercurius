@@ -112,7 +112,7 @@ class FavoritesView(discord.ui.View):
             embed_data = await self.create_favorite_embed(item)
             if embed_data is not None:
                 embed, average_price = embed_data
-                self.embeds[start+i] = (embed, average_price)
+                self.embeds[start + i] = (embed, average_price)
 
         self.embeds.sort(key=lambda x: x[1], reverse=True)
 
@@ -436,6 +436,15 @@ class MarketItemView(discord.ui.View):
         embed = await self.embed()
 
         fields = self.get_order_embed_fields(num_orders=num_orders)
+
+        # Add field if no valid content is in any of the fields
+        if any([len(field[1]) == 0 for field in fields]):
+            embed.insert_field_at(0, name="No orders found",
+                                  value="Either warframe.market is having issues, or there are no valid orders.\n"
+                                        "Click the title to see the orders on the website.\n"
+                                        "Sometimes warframe.market blocks bots during periods of high load.", inline=False)
+            return embed
+
         for i, field in enumerate(fields):
             embed.insert_field_at(i, name=field[0], value=field[1], inline=True)
 
@@ -723,6 +732,7 @@ class Market(Cog, name="market"):
                 embed.add_field(name="Price", value=item_prices, inline=True)
 
                 await self.bot.send_message(ctx, embed=embed)
+
     @commands.hybrid_command(name='addalias',
                              description="Adds an alias for an item.")
     @app_commands.describe(target_item='Item you want to add an alias for.')
@@ -775,17 +785,17 @@ class Market(Cog, name="market"):
 
         if wfm_item is None:
             await self.bot.send_message(ctx, f"Item {target_item} does not exist on Warframe.Market",
-                                                    ephemeral=True)
+                                        ephemeral=True)
             return
 
         if alias.lower() not in wfm_item.aliases:
             await self.bot.send_message(ctx, f"Alias {alias} does not exist for item {target_item}",
-                                                    ephemeral=True)
+                                        ephemeral=True)
             return
 
         wfm_item.remove_alias(alias.lower())
         await self.bot.send_message(ctx, f"Alias {alias} removed from item {target_item}",
-                                                ephemeral=True)
+                                    ephemeral=True)
 
     @commands.hybrid_command(name='setplatform',
                              description="Sets your platform for market commands.",
