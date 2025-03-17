@@ -573,7 +573,7 @@ class Market(Cog, name="market"):
         }
 
         self.user_easter_eggs = {
-            585035501929758721: {'go': {'revenant': (0, get_revenant_count)}}
+            486876988175286282: {'go': {'revenant': (0, get_revenant_count)}}
         }
 
     @tasks.loop(minutes=1)
