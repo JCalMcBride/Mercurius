@@ -681,7 +681,7 @@ class Market(Cog, name="market"):
             return self.easter_eggs[alias_used][clean_message]
 
         # No easter egg found
-        return False
+        return False, None
 
     def easter_egg_logic(self, message, prefix, author_id):
         if easter_egg := self.easter_egg_check(message, prefix, author_id):
@@ -692,7 +692,7 @@ class Market(Cog, name="market"):
 
             return exit_state, message
 
-        return None
+        return None, None
 
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
