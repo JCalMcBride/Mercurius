@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Tuple, List, Dict, Any, Union
+from datetime import datetime
+from typing import Tuple, List, Dict, Any, Union, Optional
 
 import aiohttp
 import discord
@@ -538,16 +539,41 @@ def get_alias_used_and_message(message, prefix):
     return alias_used, clean_message
 
 
+def get_revenant_count():
+    with open('lib/data/revenant_count.txt', 'r') as f:
+        text = f.read()
+
+    date, today, total = text.split(',')
+    today = int(today)
+    total = int(total)
+
+    if date != datetime.now().strftime('%Y-%m-%d'):
+        today = 0
+        date = datetime.now().strftime('%Y-%m-%d')
+
+    today += 1
+    total += 1
+
+    with open('lib/data/revenant_count.txt', 'w') as f:
+        f.write(f"{date},{today},{total}")
+
+    return f"Alex has checked revenant prices {today} times today and {total} times in total."
+
+
 class Market(Cog, name="market"):
     def __init__(self, bot):
         self.bot = bot
         self.base_api_url = "https://api.warframe.market/v1"
         self.base_url = "https://warframe.market"
         self.easter_eggs = {
-            'go': {'go power rangers': 'https://www.youtube.com/watch?v=BwbHW8MeHDU',
-                   'to bed': 'go to bed <@167596939460739072>',
-                   'tobed': 'go to bed <@167596939460739072>'},
-            'pp': {'big': '😳'}
+            'go': {'go power rangers': (1, 'https://www.youtube.com/watch?v=BwbHW8MeHDU'),
+                   'to bed': (1, 'go to bed <@167596939460739072>'),
+                   'tobed': (1, 'go to bed <@167596939460739072>')},
+            'pp': {'big': (1, '😳')}
+        }
+
+        self.user_easter_eggs = {
+            585035501929758721: {'go': {'revenant': (0, get_revenant_count)}}
         }
 
     @tasks.loop(minutes=1)
@@ -555,7 +581,7 @@ class Market(Cog, name="market"):
         self.bot.market_db.update_usernames()
 
     async def item_embed_handler(self, input_string: str, ctx: commands.Context,
-                                 embed_type: str) -> None:
+                                 embed_type: str, extra_str: Optional[str]) -> None:
         fetch_part_orders = False
         if embed_type == 'part_price':
             fetch_part_orders = True
@@ -586,6 +612,9 @@ class Market(Cog, name="market"):
             else:
                 self.bot.logger.error(f"Invalid embed type {embed_type} passed to item_embed_handler")
                 return
+
+            if extra_str is not None:
+                output_string = extra_str + '\n' + output_string
 
             message = await self.bot.send_message(ctx, content=output_string, embed=embed, view=view)
 
@@ -637,33 +666,56 @@ class Market(Cog, name="market"):
         """Shows the first five orders for a given user on warframe.market."""
         await self.user_embed_handler(target_user, ctx, 'orders')
 
-    def easter_egg_check(self, message, prefix):
+    def easter_egg_check(self, message, prefix, author_id):
         alias_used, clean_message = get_alias_used_and_message(message, prefix)
-        if alias_used not in self.easter_eggs or clean_message not in self.easter_eggs[alias_used]:
-            return False
 
-        return self.easter_eggs[alias_used][clean_message]
+        # First check for user-specific easter eggs
+        if (author_id in self.user_easter_eggs and
+                alias_used in self.user_easter_eggs[author_id] and
+                clean_message in self.user_easter_eggs[author_id][alias_used]):
+            return self.user_easter_eggs[author_id][alias_used][clean_message]
+
+        # Then check for general easter eggs
+        if (alias_used in self.easter_eggs and
+                clean_message in self.easter_eggs[alias_used]):
+            return self.easter_eggs[alias_used][clean_message]
+
+        # No easter egg found
+        return False
+
+    def easter_egg_logic(self, message, prefix, author_id):
+        if easter_egg := self.easter_egg_check(message, prefix, author_id):
+            exit_state, message = easter_egg
+
+            if callable(message):
+                message = message()
+
+            return exit_state, message
+
+        return None
 
     @commands.hybrid_command(name='marketorders',
                              description="Gets orders for the requested item, if it exists.",
                              aliases=["getorders", 'wfmorders', 'wfmo', 'go'])
     async def get_market_orders(self, ctx: commands.Context, *, target_item: str) -> None:
         """Gets orders for the requested item, if it exists."""
-        if easter_egg := self.easter_egg_check(ctx.message.content, ctx.prefix):
-            await ctx.send(easter_egg)
+        exit_state, message = self.easter_egg_logic(ctx.message.content, ctx.prefix, ctx.author.id)
+        if exit_state:
+            await self.bot.send_message(ctx, message)
             return
 
-        await self.item_embed_handler(target_item.lower(), ctx, 'order')
+        await self.item_embed_handler(target_item.lower(), ctx, 'order', message)
 
     @commands.hybrid_command(name='partprices',
                              description="Gets prices for the requested part, if it exists.",
                              aliases=["partprice", "pp", "partp"])
     async def get_part_prices(self, ctx: commands.Context, *, target_part: str) -> None:
-        if easter_egg := self.easter_egg_check(ctx.message.content, ctx.prefix):
-            await ctx.send(easter_egg)
+        exit_state, message = self.easter_egg_logic(ctx.message.content, ctx.prefix, ctx.author.id)
+        if exit_state:
+            await self.bot.send_message(ctx, message)
             return
 
-        await self.item_embed_handler(target_part.lower(), ctx, 'part_price')
+        await self.item_embed_handler(target_part.lower(), ctx, 'part_price', message)
 
     @commands.hybrid_command(name='highestprice', aliases=['itemsearch', 'isearch', 'searchitems'],
                              brief='Search for highest priced items of a specific type.')
