@@ -573,7 +573,8 @@ class Market(Cog, name="market"):
         }
 
         self.user_easter_eggs = {
-            486876988175286282: {'go': {'revenant': (0, get_revenant_count)}}
+            486876988175286282: {'go': {'revenant': (0, get_revenant_count)}},
+            328145199845081088: {'go': {'agnis': (1, "You have been given 100 reputation.")}}
         }
 
     @tasks.loop(minutes=1)
