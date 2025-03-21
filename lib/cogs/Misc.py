@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import command, Cog, has_permissions
 
 def get_wiki_link(item_name: str):
-    return f"[{item_name}](https://warframe.fandom.com/wiki/{item_name.replace(' ', '_')}_Incarnon_Genesis)"
+    return f"[{item_name}](https://wiki.warframe.com/w/{item_name.replace(' ', '_')}_Incarnon_Genesis)"
 
 
 class Misc(Cog, name="misc"):
