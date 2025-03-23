@@ -1247,6 +1247,9 @@ class Fissure(Cog, name='fissure'):
     async def resend_fissure_views(self, ctx: commands.Context) -> None:
         """
         Resends all fissure views that have been previously saved.
+
+        This is useful if there are issues with the original messages,
+        or if you wish it to be all be one "block of messages" without the separate avatar/timestamps per message.
         """
         if ctx.interaction:
             ctx.interaction.response.defer()
@@ -1538,9 +1541,10 @@ class Fissure(Cog, name='fissure'):
                 continue
             if value is None:
                 continue
-            if key == "mission" and value.lower() in fissure.mission.lower():
-                return True
-            if key == "max_tier":
+            if key == "mission":
+                if value.lower() not in fissure.mission.lower():
+                    return False
+            elif key == "max_tier":
                 if fissure.tier > value:
                     return False
             elif getattr(fissure, key) != value:
