@@ -326,6 +326,46 @@ class Fun(Cog, name="fun"):
         if data:
             await ctx.send(data["image"])
 
+    @commands.hybrid_command(name='redpanda', description="Display a random panda.")
+    @app_commands.checks.cooldown(1, 5)
+    async def panda_picture(self, ctx: commands.Context):
+        """Sends an image of a random panda."""
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/red_panda")
+        if data:
+            await ctx.send(data["image"])
+
+    @commands.hybrid_command(name='racoon', description="Display a random panda.")
+    @app_commands.checks.cooldown(1, 5)
+    async def panda_picture(self, ctx: commands.Context):
+        """Sends an image of a random panda."""
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/racoon")
+        if data:
+            await ctx.send(data["image"])
+
+    @commands.hybrid_command(name='koala', description="Display a random panda.")
+    @app_commands.checks.cooldown(1, 5)
+    async def panda_picture(self, ctx: commands.Context):
+        """Sends an image of a random panda."""
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/koala")
+        if data:
+            await ctx.send(data["image"])
+
+    @commands.hybrid_command(name='kangaroo', description="Display a random panda.")
+    @app_commands.checks.cooldown(1, 5)
+    async def panda_picture(self, ctx: commands.Context):
+        """Sends an image of a random panda."""
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/kangaroo")
+        if data:
+            await ctx.send(data["image"])
+
+    @commands.hybrid_command(name='whale', description="Display a random panda.")
+    @app_commands.checks.cooldown(1, 5)
+    async def panda_picture(self, ctx: commands.Context):
+        """Sends an image of a random panda."""
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/whale")
+        if data:
+            await ctx.send(data["image"])
+
     @commands.hybrid_command(name='duck', description="Display a random duck.")
     @app_commands.checks.cooldown(1, 5)
     async def duck_picture(self, ctx: commands.Context):
