@@ -190,6 +190,10 @@ class Fun(Cog, name="fun"):
     async def pat_command(self, ctx: commands.Context):
         """pat people :)"""
         pat_list = [x for x in ctx.guild.emojis if x.name.lower().startswith("pat")]
+        if not pat_list:
+            await ctx.send("No pat emojis found.", delete_after=5)
+            return
+
         await ctx.send(choice(pat_list))
 
     @commands.hybrid_command(name='extremelyconcerning', description="When something is just..too concerning.")
@@ -318,9 +322,9 @@ class Fun(Cog, name="fun"):
     @app_commands.checks.cooldown(1, 5)
     async def panda_picture(self, ctx: commands.Context):
         """Sends an image of a random panda."""
-        data = await self.get_image(ctx, "https://some-random-api.ml/img/panda")
+        data = await self.get_image(ctx, "https://some-random-api.com/animal/panda")
         if data:
-            await ctx.send(data["link"])
+            await ctx.send(data["image"])
 
     @commands.hybrid_command(name='duck', description="Display a random duck.")
     @app_commands.checks.cooldown(1, 5)
