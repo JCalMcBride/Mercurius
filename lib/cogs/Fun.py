@@ -231,6 +231,24 @@ class Fun(Cog, name="fun"):
 
         await ctx.send(f"User {target} has been banned.")
 
+    @commands.hybrid_command(name='unban', description="The unban hammer.")
+    @app_commands.checks.dynamic_cooldown(no_botspam_cooldown)
+    async def unban_cmd(self, ctx: commands.Context, target: Optional[Member]):
+        """The unban hammer."""
+        if target:
+            target = target.mention
+        else:
+            target = ctx.author.mention
+
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            pass
+        except discord.HTTPException:
+            pass
+
+        await ctx.send(f"User {target} has been unbanned.")
+
     @commands.hybrid_command(name='hug', description="Hug someone <3.")
     @app_commands.checks.dynamic_cooldown(no_botspam_cooldown)
     async def hug_cmd(self, ctx: commands.Context, target: Optional[Member]):
