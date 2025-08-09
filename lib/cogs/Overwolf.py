@@ -887,7 +887,15 @@ class Overwolf(GroupCog, name="overwolf"):
                 embed_list.append([item, str(overwolf_data['FormaCount'][item])])
                 total_count += overwolf_data['FormaCount'][item]
 
+            omnis_used = 0
+
+            for item in overwolf_data['Arsenal']:
+                for weapon in overwolf_data['Arsenal'][item]:
+                    omnis_used += sum(1 for polarity in weapon.get('Polarity', {}).values() if polarity == 'Aura')
+
             embed_list = embed_list[:-1]
+
+            embed_list.append(['**Omni Formas Used:**', str(omnis_used)])
 
             embed_list.append(['**Total:**', str(total_count)])
 
