@@ -861,7 +861,7 @@ class Fissure(Cog, name='fissure'):
 
         if not user_exists:
             # Create a new entry for the user in the users table
-            user_id = self.bot.database.create_user(user_id)
+            self.bot.database.create_user(user_id)
 
         # Check if any subscription fields are provided
         if not any([fissure_type, era, node, mission, planet, tileset, enemy, max_tier]):
@@ -876,8 +876,19 @@ class Fissure(Cog, name='fissure'):
         except ValueError as e:
             await self.bot.send_message(ctx, str(e), ephemeral=True)
         except IntegrityError as e:
-            await self.bot.send_message(ctx, "This subscription already exists.", ephemeral=True)
-            self.bot.logger.error(f"IntegrityError: {str(e)} occurred while adding a fissure subscription.")
+            if e.args[0] == 1048:  # MySQL error code for "Column cannot be null"
+                await self.bot.send_message(ctx,
+                                            "An error occurred while processing your subscription. Please try again.",
+                                            ephemeral=True)
+                self.bot.logger.error(
+                    f"Null user_id error: {str(e)} occurred while adding a fissure subscription for user {ctx.author.id}")
+            elif e.args[0] == 1062:  # MySQL error code for "Duplicate entry"
+                await self.bot.send_message(ctx, "This subscription already exists.", ephemeral=True)
+            else:
+                # Handle other integrity errors
+                await self.bot.send_message(ctx, "An error occurred while adding your subscription.", ephemeral=True)
+                self.bot.logger.error(
+                    f"IntegrityError: {str(e)} occurred while adding a fissure subscription for user {ctx.author.id}")
 
     @commands.hybrid_command(name='listfissuresubscriptions', aliases=['lfs'])
     async def list_fissure_subscriptions(self, ctx):
