@@ -411,7 +411,9 @@ class Statistics(Cog, name="statistics"):
         price_histories = []
         for relic_name, style, refinement in processed_relics:
             relic_drops = list(relic_engine.get_relic_drops(relic_name.title(), refinement))
+            print(relic_drops)
             price_dicts = self.bot.market_db.get_price_history_dicts(relic_drops)
+            print(price_dicts)
 
             average_returns = {}
             for day in price_dicts:
