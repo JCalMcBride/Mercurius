@@ -137,6 +137,7 @@ class Fun(Cog, name="fun"):
         rav = await self.bot.fetch_user(113361399727558656)
         mojober = await self.bot.fetch_user(492255815160430593)
         snap = await self.bot.fetch_user(148706546308612096)
+        robo = await self.bot.fetch_user(166903506551177216)
 
         supporter_role = self.bot.get_guild(780376195182493707).get_role(1086352745390419968)
         patrons = [await self.bot.fetch_user(182359932518006794),
@@ -169,7 +170,7 @@ class Fun(Cog, name="fun"):
         content = f"Bot designed and coded by {guthix.mention}\n" \
                   f"Logo by {mojober.mention} Thank you! {random.choice(heart_list)}\n" \
                   f"Name/Design Help by {rav.mention} Thank you! {random.choice(heart_list)}\n" \
-                  f"Special thanks to {snap.mention}\n\n\n" \
+                  f"Special thanks to {snap.mention}\n\n\n and {robo.mention}" \
                   f"Thank you to all of my supporters and patrons!\n" \
                   f"{supporter_string}"
 
