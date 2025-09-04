@@ -170,7 +170,7 @@ class Fun(Cog, name="fun"):
         content = f"Bot designed and coded by {guthix.mention}\n" \
                   f"Logo by {mojober.mention} Thank you! {random.choice(heart_list)}\n" \
                   f"Name/Design Help by {rav.mention} Thank you! {random.choice(heart_list)}\n" \
-                  f"Special thanks to {snap.mention}\n\n\n and {robo.mention}" \
+                  f"Special thanks to {snap.mention} and {robo.mention}\n\n\n" \
                   f"Thank you to all of my supporters and patrons!\n" \
                   f"{supporter_string}"
 
