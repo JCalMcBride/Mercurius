@@ -636,7 +636,9 @@ class Overwolf(GroupCog, name="overwolf"):
 
         self.overwolf_text = """
         Could not find your overwolf data!
+        
         To use this command, you need to DM the bot ``overwolf`` while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` after running AlecaFrame.
+        
         For more information on how to do this, type ``overwolf`` in DMs.
         """
 
