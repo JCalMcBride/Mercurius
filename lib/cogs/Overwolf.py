@@ -634,6 +634,12 @@ class Overwolf(GroupCog, name="overwolf"):
         self.bot = bot
         super().__init__()
 
+        self.overwolf_text = """
+        Could not find your overwolf data!
+        To use this command, you need to DM the bot ``overwolf`` while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` after running AlecaFrame.
+        For more information on how to do this, type ``overwolf`` in DMs.
+        """
+
     @command(name='overwolf')
     async def parse_overwolf(self, ctx):
         """
@@ -731,10 +737,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/xp/{ctx.author.id}', encoding='utf-8') as f:
                 xp_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         embed_list = []
@@ -1197,10 +1200,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if ctx.message.content[2:] == 'formacount':
@@ -1258,10 +1258,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if not min_value:
@@ -1336,10 +1333,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if data_type is None:
@@ -1392,11 +1386,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(
-                r"Could not find your overwolf data!\nTo use this command, you first "
-                r"need to use the overwolf command in DMs while attaching your "
-                r"lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if not min_value:
@@ -1445,11 +1435,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(
-                r"Could not find your overwolf data!\nTo use this command, you first "
-                r"need to use the overwolf command in DMs while attaching your "
-                r"lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if not min_value:
@@ -1488,10 +1474,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:
                 overwolf_data = json.load(f)
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
         if not search:
@@ -1537,10 +1520,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/data/{ctx.author.id}', mode='rb') as f:
                 await ctx.send(file=discord.File(fp=f, filename='overwolf_data.json'))
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
 
     @command(name='rawexport')
@@ -1558,10 +1538,7 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/raw/{ctx.author.id}', mode='rb') as f:
                 await ctx.send(file=discord.File(fp=f, filename='overwolf_data.json'))
         except FileNotFoundError:
-            await ctx.send(r"Could not find your overwolf data!"
-                           "\nTo use this command, you first need to use the overwolf command in DMs "
-                           r"while attaching your lastData.dat file found in ``%localappdata%\AlecaFrame`` "
-                           r"after running AlecaFrame.")
+            await ctx.send(self.overwolf_text)
             return
         except ValueError:
             self.bot.logger.error("Failed to decrypt overwolf data.", exc_info=True)
