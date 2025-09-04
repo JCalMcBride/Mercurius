@@ -634,9 +634,9 @@ class Overwolf(GroupCog, name="overwolf"):
         self.bot = bot
         super().__init__()
 
-        self.overwolf_text = ("Could not find your overwolf data!\nTo use this command, "
+        self.overwolf_text = ("Could not find your overwolf data!\n\nTo use this command, "
                               "you need to DM the bot ``overwolf`` while attaching your lastData.dat file "
-                              "found in ``%localappdata%\AlecaFrame`` after running AlecaFrame.\n"
+                              "found in ``%localappdata%\AlecaFrame`` after running AlecaFrame.\n\n"
                               "For more information on how to do this, type ``overwolf`` in DMs.")
 
     @command(name='overwolf')
