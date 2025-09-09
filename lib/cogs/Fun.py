@@ -482,7 +482,7 @@ class Fun(Cog, name="fun"):
             return
 
         await ctx.send(
-            f"{ctx.author.mention} {'successfully stole **1** mercoin from ' + target.mention if success else 'failed to steal and lost **1** mercoin instead'}. "
+            f"{ctx.author.mention} {'successfully stole 1 mercoin from ' + target.mention if success else 'failed and lost 1 mercoin to ' + target.mention}. "
             f"You now have **{total}** mercoin{'s' if total != 1 else ''}."
             f"You will be invoiced **${total:.2f}** when mercoin officially launches. Thank you.", delete_after=10
         )
