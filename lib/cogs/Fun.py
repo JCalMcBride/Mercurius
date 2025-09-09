@@ -82,12 +82,6 @@ class Fun(Cog, name="fun"):
                        text_size: Optional[int]):
         """
         Creates a sign with the given text. Default is {person} is cute!
-
-        Word order is important. The first word is the person's name, and the second is the adjective you want to describe them with.
-        So, if you want to say "Sui is cute!" you would use the command like this: --signgen Sui cute
-        You only need to include the verb if you want to change it. The default is "is". If you're describing a person, you can leave it out.
-
-        Example: --signgen DK best -> DK is best | --signgen Relics cool are -> Relics are cool
         """
         if adjective is None:
             adjective = "cute!"
@@ -129,8 +123,6 @@ class Fun(Cog, name="fun"):
     async def credits_command(self, ctx):
         """
         Shows the credits for the bot.
-
-        Includes the current supporters and patrons.
         """
         heart_list = ["<:pepeheart:780599565039697981>", "<:jaxheart:780515012279402536>", "❤️", "💙", "💚", "💛", "💜"]
         guthix = await self.bot.fetch_user(585035501929758721)
@@ -162,9 +154,7 @@ class Fun(Cog, name="fun"):
             if supporter.id in emoji_dict:
                 continue
 
-            emoji_dict[supporter.id] = random.choice(heart_list)
-
-        supporter_string = '\n'.join([f"{member.mention} {emoji_dict[member.id]}"
+        supporter_string = '\n'.join([f"{member.mention} {random.choice(heart_list)}"
                                       for member in supporter_role.members + patrons])
 
         content = f"Bot designed and coded by {guthix.mention}\n" \
@@ -181,9 +171,7 @@ class Fun(Cog, name="fun"):
 
     @commands.hybrid_command(name='cringe', description="CRINGE.")
     async def get_cringe(self, ctx: commands.Context):
-        """
-        Shows a random cringe video.
-        """
+        """Shows a random cringe video."""
         await ctx.send(choice(misc_bot_data['cringe_list']))
 
     @commands.hybrid_command(name='pat', description="pat people :)")
@@ -194,7 +182,6 @@ class Fun(Cog, name="fun"):
         if not pat_list:
             await ctx.send("No pat emojis found.", delete_after=5)
             return
-
         await ctx.send(choice(pat_list))
 
     @commands.hybrid_command(name='extremelyconcerning', description="When something is just..too concerning.")
@@ -218,7 +205,6 @@ class Fun(Cog, name="fun"):
             ping = current_time.timestamp() - ctx.interaction.created_at.timestamp()
         else:
             ping = current_time.timestamp() - ctx.message.created_at.timestamp()
-
         await msg.edit(content=f"+!Pong {target}! Latency: `{round(ping * 1000)}ms`")
 
     @commands.hybrid_command(name='ban', description="The ban hammer.")
@@ -229,7 +215,6 @@ class Fun(Cog, name="fun"):
             target = target.mention
         else:
             target = ctx.author.mention
-
         await ctx.send(f"User {target} has been banned.")
 
     @commands.hybrid_command(name='unban', description="The unban hammer.")
@@ -240,14 +225,12 @@ class Fun(Cog, name="fun"):
             target = target.mention
         else:
             target = ctx.author.mention
-
         try:
             await ctx.message.delete()
         except discord.Forbidden:
             pass
         except discord.HTTPException:
             pass
-
         await ctx.send(f"User {target} has been unbanned.")
 
     @commands.hybrid_command(name='hug', description="Hug someone <3.")
@@ -258,7 +241,6 @@ class Fun(Cog, name="fun"):
             target = target.mention
         else:
             target = ctx.author.mention
-
         await ctx.send(f"User {target} has been hugged. <:pepeheart:780599565039697981>")
 
     @commands.hybrid_command(name='say', description="Echoes whatever text was given in embed format.")
@@ -267,7 +249,6 @@ class Fun(Cog, name="fun"):
         """Echoes whatever text was given in embed format."""
         if ctx.interaction is None:
             echoed_message = ctx.message.content.split(maxsplit=1)[1]
-
         await ctx.send(embed=Embed(title="", description=echoed_message))
 
     @commands.hybrid_command(name='calculate', description="Calculates the given expression.", aliases=["calc"])
@@ -276,13 +257,10 @@ class Fun(Cog, name="fun"):
         """Calculates mathematical expressions! (Thanks zach..)"""
         if ctx.interaction is None:
             expression = ctx.message.content.split(maxsplit=1)[1]
-
         answer = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), evaluate_expression, expression)
-
         await ctx.send(answer)
 
-    @command(name="becomeselfaware", aliases=["selfaware"],
-             hidden=True)
+    @command(name="becomeselfaware", aliases=["selfaware"], hidden=True)
     async def self_aware(self, ctx):
         """error"""
         await ctx.message.delete()
@@ -292,7 +270,6 @@ class Fun(Cog, name="fun"):
         async with request("GET", url, headers={}) as response:
             if response.status == 200:
                 data = await response.read()
-
                 return json.loads(data)
             else:
                 await ctx.send("Could not receive image, please try again later.")
@@ -398,25 +375,87 @@ class Fun(Cog, name="fun"):
     async def frog_picture(self, ctx: commands.Context):
         """Sends an image of a random frog."""
         url = random.choice(self.frog_images)
-
         await ctx.send(url['url'])
 
     def get_image_file(self, image_type):
         if image_type == "bird":
             bird_type = random.choice(os.listdir("lib/data/images/birds"))
             bird_image = random.choice(os.listdir(f"lib/data/images/birds/{bird_type}"))
-
             return f"lib/data/images/birds/{bird_type}/{bird_image}"
 
     @commands.hybrid_command(name='bird', description="Display a random bird.")
     @app_commands.checks.cooldown(1, 5)
     async def bird_picture(self, ctx: commands.Context):
-        """Sends an image of a random frog."""
+        """Sends an image of a random bird."""
         file_path = self.get_image_file("bird")
-
         await ctx.send(file=File(file_path, filename="image.png"))
+
+    @commands.hybrid_command(
+        name='buymercoin',
+        description="Buy exactly 1 mercoin and see your total.",
+        aliases=['buy_mercoin', 'buy-mercoin']
+    )
+    @app_commands.checks.cooldown(1, 30)
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def buy_mercoin(self, ctx: commands.Context):
+        """
+        Gives the invoking user exactly 1 mercoin and reports their total.
+        Requires the bot to have a database instance at self.bot.db supporting add_mercoins/get_mercoins.
+        """
+        if ctx.interaction is None:
+            await ctx.message.delete(delay=1)
+
+        db = getattr(self.bot, 'database', None)
+        if db is None or not hasattr(db, 'add_mercoins') or not hasattr(db, 'get_mercoins'):
+            await ctx.send("Database is not configured for mercoins.", delete_after=10)
+            return
+
+        user_id = ctx.author.id
+        try:
+            if hasattr(db, 'user_exists') and hasattr(db, 'create_user'):
+                if not db.user_exists(user_id):
+                    db.create_user(user_id)
+            db.add_mercoins(user_id, 1)  # increment by exactly 1
+            total = db.get_mercoins(user_id)
+        except Exception:
+            await ctx.send("There was an error processing your mercoin purchase.", delete_after=10)
+            return
+
+        await ctx.send(
+            f"{ctx.author.mention} purchased **1** mercoin. "
+            f"You now have **{total}** mercoin{'s' if total != 1 else ''}."
+            f"You will be invoiced **${total:.2f}** when mercoin officially launches. Thank you.", delete_after=10
+        )
+
+    @commands.hybrid_command(
+        name='setupmercoins',
+        description="Initialize or repair the mercoin schema (admin only).",
+        aliases=['setup_mercoins']
+    )
+    @commands.has_permissions(administrator=True)
+    async def setup_mercoins(self, ctx: commands.Context):
+        db = getattr(self.bot, 'database', None)
+        if db is None or not hasattr(db, 'ensure_mercoin_schema'):
+            await ctx.send("Database is not available for schema setup.", delete_after=10)
+            return
+        try:
+            db.ensure_mercoin_schema()
+        except Exception:
+            await ctx.send("Failed to initialize the mercoin schema.", delete_after=10)
+            return
+        await ctx.send("Mercoin schema is initialized and ready.")
+
     @Cog.listener()
     async def on_ready(self):
+        # Auto-initialize schema on first startup (idempotent)
+        db = getattr(self.bot, 'database', None)
+        if db and hasattr(db, 'maybe_initialize_schema'):
+            try:
+                db.maybe_initialize_schema()
+            except Exception:
+                # Avoid blocking startup if migration fails; admin command can repair.
+                pass
+
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("Fun")
 

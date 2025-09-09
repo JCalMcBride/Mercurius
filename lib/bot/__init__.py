@@ -253,7 +253,8 @@ class Bot(BotBase):
 
     async def send_message(self, ctx, content: str = None, error: Exception = None,
                            embed: Union[discord.Embed, List, None] = None,
-                           view: discord.ui.View = None, ephemeral: bool = False):
+                           view: discord.ui.View = None, ephemeral: bool = False,
+                           delete_delay = None):
         if ctx is None:
             if error:
                 self.logger.error(f"{content}", exc_info=error)
@@ -264,7 +265,7 @@ class Bot(BotBase):
 
         embeds = [embed] if isinstance(embed, discord.Embed) else embed
 
-        message = await ctx.send(content=content, view=view, embeds=embeds, ephemeral=ephemeral)
+        message = await ctx.send(content=content, view=view, embeds=embeds, ephemeral=ephemeral, delete_after=delete_delay)
         if error:
             self.logger.error(format_log_message(ctx, content), exc_info=error)
         else:
@@ -373,12 +374,22 @@ class Bot(BotBase):
         raise
 
     async def on_command_error(self, ctx, exc):
+        if ctx.message is not None:
+            try:
+                await ctx.message.delete(delay=1)
+            except NotFound:
+                pass
+            except Forbidden:
+                pass
+            except HTTPException:
+                pass
+
         if isinstance(exc, CommandNotFound):
             pass
         elif isinstance(exc, commands.errors.CheckFailure):
             await self.send_message(ctx, "You do not have the required role or permissions to use this command.")
         elif isinstance(exc, CommandOnCooldown):
-            await self.send_message(ctx, "Command is currently on cooldown, try again later.")
+            await self.send_message(ctx, "Command is currently on cooldown, try again later.", delete_delay=3)
         elif isinstance(exc, MissingPermissions):
             await self.send_message(ctx, "You lack the permissions to use this command here.")
         elif isinstance(exc, MissingRole):

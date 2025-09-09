@@ -168,7 +168,6 @@ class MercuriusDatabase:
         WHERE discord_id = %s
         """
 
-
     _SET_ITEM_SETTINGS_QUERY = """
     INSERT INTO item_settings (user_id, item_id, plat_notification_threshold, daily_messages, favorite)
     VALUES (%s, %s, %s, %s, %s)
@@ -248,8 +247,38 @@ class MercuriusDatabase:
     )
     """
 
+    # --- NEW: Mercoins queries ---
+    _ADD_MERCOINS_QUERY = """
+    INSERT INTO mercoins (user_id, amount)
+    VALUES (%s, %s)
+    ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)
+    """
 
+    _GET_MERCOINS_QUERY = """
+    SELECT amount FROM mercoins WHERE user_id = %s
+    """
 
+    # SQL used by ensure_mercoin_schema (mirrors build.sql)
+    _ENSURE_USERS_SQL = """
+    CREATE TABLE IF NOT EXISTS users (
+        discord_id BIGINT PRIMARY KEY NOT NULL,
+        platform ENUM('pc', 'xbox', 'switch', 'ps4') DEFAULT 'pc',
+        graph_style VARCHAR(255) DEFAULT 'ggplot',
+        fissure_notification_type ENUM('DM', 'Thread') DEFAULT 'DM',
+        thread_notification_server_id BIGINT,
+        fissure_notifications_enabled BOOLEAN DEFAULT true,
+        mute_market_notifications BOOLEAN DEFAULT true
+    )
+    """
+
+    _ENSURE_MERCOINS_SQL = """
+    CREATE TABLE IF NOT EXISTS mercoins (
+        user_id BIGINT NOT NULL,
+        amount BIGINT NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id),
+        FOREIGN KEY (user_id) REFERENCES users (discord_id)
+    )
+    """
 
     def __init__(self, user: str, password: str, host: str, database: str) -> None:
         try:
@@ -263,37 +292,64 @@ class MercuriusDatabase:
                                  host=host) as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(f"create database if not exists {database};")
-
             self.connection = pymysql.connect(user=user,
                                               password=password,
                                               host=host,
                                               database=database)
 
+        # Auto-initialize core schema if needed (idempotent)
+        self.maybe_initialize_schema()
+
     def build_database(self) -> None:
         with open("lib/db/build.sql", "r") as f:
             sql = f.read()
-
-        for sql in sql.split(";"):
-            if sql.strip() != "":
-                self._execute_query(sql)
+        for sql_stmt in sql.split(";"):
+            if sql_stmt.strip():
+                self._execute_query(sql_stmt)
 
     def _execute_query(self, query: str, *params, fetch: str = 'all',
                        commit: bool = False, many: bool = False) -> Union[Tuple, List[Tuple], None]:
         self.connection.ping(reconnect=True)
-
         with self.connection.cursor() as cur:
             if many:
                 cur.executemany(query, params[0])
             else:
                 cur.execute(query, params)
-
             if commit:
                 self.connection.commit()
-
             if fetch == 'one':
                 return cur.fetchone()
             elif fetch == 'all':
                 return cur.fetchall()
+
+    def _table_exists(self, table_name: str) -> bool:
+        q = """
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = %s
+        """
+        return self._execute_query(q, table_name, fetch='one') is not None
+
+    def ensure_mercoin_schema(self) -> None:
+        """Create users + mercoins tables if missing; safe to call repeatedly."""
+        self._execute_query(self._ENSURE_USERS_SQL, commit=True)
+        self._execute_query(self._ENSURE_MERCOINS_SQL, commit=True)
+
+    def maybe_initialize_schema(self) -> None:
+        """
+        Run a minimal, fast check: if mercoins or users are missing, either:
+        - run full build.sql (preferred since you ship many tables), else
+        - fall back to ensuring just users/mercoins.
+        """
+        users_ok = self._table_exists("users")
+        mer_ok = self._table_exists("mercoins")
+        if users_ok and mer_ok:
+            return
+        try:
+            self.build_database()
+        except Exception:
+            # If build file missing/corrupt, at least ensure mercoins works.
+            self.ensure_mercoin_schema()
 
     def insert_servers(self, servers: List[int]) -> None:
         self._execute_query(self._INSERT_SERVER_QUERY, servers, many=True, commit=True)
@@ -320,11 +376,9 @@ class MercuriusDatabase:
 
     def get_fissure_log_channels(self) -> defaultdict:
         results = self._execute_query(self._GET_FISSURE_LOG_CHANNEL_QUERY, fetch='all')
-
         fissure_log_dict = defaultdict(lambda: defaultdict(list))
         for fissure_type, server_id, channel_id in results:
             fissure_log_dict[fissure_type][server_id].append(channel_id)
-
         return fissure_log_dict
 
     def set_fissure_list_channel(self, server_id: int, channel_id: int, message_id: int, max_tier: int,
@@ -343,7 +397,6 @@ class MercuriusDatabase:
 
     def get_fissure_list_channels(self) -> defaultdict:
         results = self._execute_query(self._GET_FISSURE_LIST_CHANNEL_QUERY, fetch='all')
-
         fissure_list_dict = defaultdict(list)
         for row in results:
             channel_config = {
@@ -364,7 +417,6 @@ class MercuriusDatabase:
                 "show_void_storms": row[14]
             }
             fissure_list_dict[row[1]].append(channel_config)
-
         return fissure_list_dict
 
     def set_fissure_list_defaults(self, user_id: int, **kwargs) -> None:
@@ -394,12 +446,7 @@ class MercuriusDatabase:
         update_fields = [f"{field} = %s" for field in kwargs]
         if not update_fields:
             return
-
-        query = f"""
-        UPDATE fissure_list_defaults
-        SET {', '.join(update_fields)}
-        WHERE user_id = %s
-        """
+        query = f"UPDATE fissure_list_defaults SET {', '.join(update_fields)} WHERE user_id = %s"
         params = list(kwargs.values()) + [user_id]
         self._execute_query(query, *params, commit=True)
 
@@ -426,10 +473,7 @@ class MercuriusDatabase:
         if not any([fissure_type, era, node, mission, planet, tileset, enemy, tier]):
             raise ValueError("Cannot add a blank subscription")
 
-        # Get existing subscriptions for the user
         existing_subscriptions = self.get_fissure_subscriptions(user_id)
-
-        # Check if the new subscription already exists
         new_subscription = {
             "fissure_type": fissure_type,
             "era": era,
@@ -440,7 +484,6 @@ class MercuriusDatabase:
             "enemy": enemy,
             "max_tier": tier
         }
-
         if new_subscription in existing_subscriptions:
             raise ValueError("You're already subscribed to this fissure. To manage subscriptions type /listfissuresubscriptions")
 
@@ -460,15 +503,12 @@ class MercuriusDatabase:
             ("enemy", enemy),
             ("max_tier", max_tier)
         ]
-
         query = str(self._REMOVE_FISSURE_SUBSCRIPTION_QUERY)
         params = [user_id]
-
         for column, value in conditions:
             if value is not None:
                 query += f" AND {column} = %s"
                 params.append(value)
-
         self._execute_query(query, *params, commit=True)
 
     def remove_all_fissure_subscriptions(self, user_id: int) -> None:
@@ -666,17 +706,12 @@ class MercuriusDatabase:
             query = f"SELECT content, autodelete, dm FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
             result = self._execute_query(query, tag_id, server_id, server_id, server_id, fetch='one')
             if result:
-                return {
-                    "content": result[0],
-                    "autodelete": result[1],
-                    "dm": result[2]
-                }
+                return {"content": result[0], "autodelete": result[1], "dm": result[2]}
         return None
 
     def delete_tag(self, tag_id: int, server_id: int) -> None:
         tag_server_link_query = "DELETE FROM tag_server_link WHERE tag_id = %s AND server_id = %s"
         self._execute_query(tag_server_link_query, tag_id, server_id, commit=True)
-
         try:
             query = f"DELETE FROM tags WHERE id = %s AND id IN ({self._TAG_SERVER_LINK_SUBQUERY})"
             self._execute_query(query, tag_id, server_id, server_id, server_id, commit=True)
@@ -701,9 +736,7 @@ class MercuriusDatabase:
     def bulk_insert_tags(self, tags: Dict[str, Dict[str, Any]], server_ids: List[int]) -> None:
         tag_data = [(tag_name, tag_info["content"], tag_info["autodelete"], tag_info["dm"]) for tag_name, tag_info in tags.items()]
         self._execute_query(self._STORE_TAG_QUERY, tag_data, many=True, commit=True)
-
         tag_ids = [self._execute_query(f"SELECT id FROM tags WHERE tag_name = %s", (tag_name,), fetch='one')[0] for tag_name in tags.keys()]
-
         for server_id in server_ids:
             link_data = [(tag_id, server_id) for tag_id in tag_ids]
             self._execute_query(self._LINK_TAG_TO_SERVER_QUERY, link_data, many=True, commit=True)
@@ -732,12 +765,20 @@ class MercuriusDatabase:
         """
         results = self._execute_query(query, server_id, server_id, server_id, fetch='all')
         return [
-            {
-                "id": row[0],
-                "tag_name": row[1],
-                "content": row[2],
-                "autodelete": row[3],
-                "dm": row[4]
-            }
+            {"id": row[0], "tag_name": row[1], "content": row[2], "autodelete": row[3], "dm": row[4]}
             for row in results
         ]
+
+    # --- NEW: Mercoins helpers ---
+    def add_mercoins(self, user_id: int, amount: int = 1) -> None:
+        """Atomically add (increment) mercoins for a user; creates the row if needed."""
+        if amount is None:
+            amount = 1
+        if amount == 0:
+            return
+        self.create_user(user_id)  # ensure FK row
+        self._execute_query(self._ADD_MERCOINS_QUERY, user_id, amount, commit=True)
+
+    def get_mercoins(self, user_id: int) -> int:
+        result = self._execute_query(self._GET_MERCOINS_QUERY, user_id, fetch='one')
+        return result[0] if result else 0
