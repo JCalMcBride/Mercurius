@@ -438,8 +438,8 @@ class Fun(Cog, name="fun"):
         """
         Has a 10% chance to steal exactly 1 mercoin from the target user and gives it to the invoking user.
         Requires the bot to have a database instance at self.bot.db supporting add_mercoins/get_mercoins.
-        90% chance to fail and lose 1 mercoin instead.
-        10% chance to succeed and steal 1 mercoin from the target user.
+        50% chance to fail and lose 1 mercoin instead.
+        50% chance to succeed and steal 1 mercoin from the target user.
         """
         if ctx.interaction is None:
             await ctx.message.delete(delay=1)
@@ -464,12 +464,17 @@ class Fun(Cog, name="fun"):
                     await ctx.send("Target user does not have any mercoins to steal.", delete_after=10)
                     return
 
-            if random.random() < 0.1:  # 10% chance to succeed
+            if db.get_mercoins(user_id) < 1:
+                await ctx.send("You need at least 1 mercoin to attempt a theft.", delete_after=10)
+                return
+
+            if random.random() < 0.5:  # 10% chance to succeed
                 db.remove_mercoins(target.id, 1)  # remove 1 from target
                 db.add_mercoins(user_id, 1)
                 success = True
             else:
                 db.remove_mercoins(user_id, 1)  # remove 1 from self
+                db.add_mercoins(target.id, 1)  # give 1 to target
                 success = False
             total = db.get_mercoins(user_id)
         except Exception:
