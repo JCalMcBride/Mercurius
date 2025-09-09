@@ -247,18 +247,22 @@ class MercuriusDatabase:
     )
     """
 
-    # --- NEW: Mercoins queries ---
     _ADD_MERCOINS_QUERY = """
     INSERT INTO mercoins (user_id, amount)
     VALUES (%s, %s)
     ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)
     """
 
+    _REMOVE_MERCOINS_QUERY = """
+    UPDATE mercoins
+    SET amount = GREATEST(0, amount - %s)
+    WHERE user_id = %s
+    """
+
     _GET_MERCOINS_QUERY = """
     SELECT amount FROM mercoins WHERE user_id = %s
     """
 
-    # SQL used by ensure_mercoin_schema (mirrors build.sql)
     _ENSURE_USERS_SQL = """
     CREATE TABLE IF NOT EXISTS users (
         discord_id BIGINT PRIMARY KEY NOT NULL,
@@ -769,7 +773,6 @@ class MercuriusDatabase:
             for row in results
         ]
 
-    # --- NEW: Mercoins helpers ---
     def add_mercoins(self, user_id: int, amount: int = 1) -> None:
         """Atomically add (increment) mercoins for a user; creates the row if needed."""
         if amount is None:
@@ -778,6 +781,16 @@ class MercuriusDatabase:
             return
         self.create_user(user_id)  # ensure FK row
         self._execute_query(self._ADD_MERCOINS_QUERY, user_id, amount, commit=True)
+
+    def remove_mercoins(self, user_id: int, amount: int = 1) -> None:
+        """Atomically remove (decrement) mercoins for a user; floors at zero."""
+        if amount is None:
+            amount = 1
+        if amount == 0:
+            return
+        self.create_user(user_id)  # ensure FK row
+        self._execute_query(self._REMOVE_MERCOINS_QUERY, amount, user_id, commit=True)
+
 
     def get_mercoins(self, user_id: int) -> int:
         result = self._execute_query(self._GET_MERCOINS_QUERY, user_id, fetch='one')

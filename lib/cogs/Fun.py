@@ -428,22 +428,60 @@ class Fun(Cog, name="fun"):
         )
 
     @commands.hybrid_command(
-        name='setupmercoins',
-        description="Initialize or repair the mercoin schema (admin only).",
-        aliases=['setup_mercoins']
+        name='stealmercoin',
+        description="You wouldn't....",
+        aliases=['steal_mercoin', 'steal-mercoin']
     )
-    @commands.has_permissions(administrator=True)
-    async def setup_mercoins(self, ctx: commands.Context):
+    @app_commands.checks.cooldown(1, 30)
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def steal_mercoin(self, ctx: commands.Context, target: Optional[Member]):
+        """
+        Has a 10% chance to steal exactly 1 mercoin from the target user and gives it to the invoking user.
+        Requires the bot to have a database instance at self.bot.db supporting add_mercoins/get_mercoins.
+        90% chance to fail and lose 1 mercoin instead.
+        10% chance to succeed and steal 1 mercoin from the target user.
+        """
+        if ctx.interaction is None:
+            await ctx.message.delete(delay=1)
+
         db = getattr(self.bot, 'database', None)
-        if db is None or not hasattr(db, 'ensure_mercoin_schema'):
-            await ctx.send("Database is not available for schema setup.", delete_after=10)
+        if db is None or not hasattr(db, 'add_mercoins') or not hasattr(db, 'get_mercoins'):
+            await ctx.send("Database is not configured for mercoins.", delete_after=10)
             return
+
+        user_id = ctx.author.id
         try:
-            db.ensure_mercoin_schema()
+            if hasattr(db, 'user_exists') and hasattr(db, 'create_user'):
+                if not db.user_exists(user_id):
+                    db.create_user(user_id)
+
+            if target is None or target.id == ctx.author.id:
+                await ctx.send("You cannot steal from yourself.", delete_after=10)
+                return
+
+            if target is not None and hasattr(db, 'user_exists') and hasattr(db, 'create_user'):
+                if not db.user_exists(target.id) or not db.get_mercoins(target.id):
+                    await ctx.send("Target user does not have any mercoins to steal.", delete_after=10)
+                    return
+
+            if random.random() < 0.1:  # 10% chance to succeed
+                db.remove_mercoins(target.id, 1)  # remove 1 from target
+                db.add_mercoins(user_id, 1)
+                success = True
+            else:
+                db.remove_mercoins(user_id, 1)  # remove 1 from self
+                success = False
+            total = db.get_mercoins(user_id)
         except Exception:
-            await ctx.send("Failed to initialize the mercoin schema.", delete_after=10)
+            await ctx.send("There was an error processing your mercoin purchase.", delete_after=10)
             return
-        await ctx.send("Mercoin schema is initialized and ready.")
+
+        await ctx.send(
+            f"{ctx.author.mention} {'successfully stole **1** mercoin from ' + target.mention if success else 'failed to steal and lost **1** mercoin instead'}. "
+            f"You now have **{total}** mercoin{'s' if total != 1 else ''}."
+            f"You will be invoiced **${total:.2f}** when mercoin officially launches. Thank you.", delete_after=10
+        )
+
 
     @Cog.listener()
     async def on_ready(self):
