@@ -3,6 +3,7 @@ import logging
 import pickle
 import random
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, List
 
 import discord
@@ -107,15 +108,50 @@ def get_embed(giveaway_prize, author, role, winners, current_time, giveaway_time
 def log_entry(message):
     logging.info(message)
 
+class _RestrictedUnpickler(pickle.Unpickler):
+    _ALLOWED = {"set", "frozenset", "list", "tuple", "dict", "str", "int", "float", "bool"}
+
+    def find_class(self, module, name):
+        if module == "builtins" and name in self._ALLOWED:
+            return getattr(__import__(module), name)
+        raise pickle.UnpicklingError(f"Disallowed global: {module}.{name}")
+
+_BASE_GIVEAWAYS_DIR = Path('lib/data/giveaways').resolve()
+
+def _safe_load_reactions(message_id):
+    try:
+        msg_id = int(message_id)
+    except (TypeError, ValueError):
+        log_entry(f"Invalid message_id for giveaway: {message_id!r}")
+        return []
+
+    file_path = (_BASE_GIVEAWAYS_DIR / f"{msg_id}.p").resolve()
+    if file_path.parent != _BASE_GIVEAWAYS_DIR or file_path.suffix != ".p":
+        log_entry(f"Unsafe file path blocked for giveaway {msg_id}")
+        return []
+
+    try:
+        with file_path.open("rb") as fp:
+            data = _RestrictedUnpickler(fp).load()
+    except FileNotFoundError:
+        log_entry(f"Could not find reactions for {msg_id}")
+        return []
+    except Exception as e:
+        log_entry(f"Failed to load reactions for {msg_id}: {e}")
+        return []
+
+    if isinstance(data, list) and all(isinstance(x, str) for x in data):
+        return data
+
+    log_entry(f"Malformed reactions data for giveaway {msg_id}")
+    return []
+
 
 def get_giveaway_winners(role, winners, message_id, reactions=None):
     winner_list = []
 
     if reactions is None and role is None:
-        try:
-            reactions = pickle.load(open(f"lib/data/giveaways/{message_id}.p", "rb"))
-        except FileNotFoundError:
-            log_entry(f"Could not find reactions for {message_id}")
+        reactions = _safe_load_reactions(message_id)
     else:
         reactions = [u for u in reactions if not u.bot]
         if role is not None:
@@ -155,6 +191,7 @@ def new_giveaway_handler(msg_id, guild_id, author_id, channel_id, role_id, start
     }
 
     update_giveaway_data()
+
 
 
 def get_giveaway_data(msg_id):
