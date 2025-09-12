@@ -436,7 +436,7 @@ class Fun(Cog, name="fun"):
     @commands.cooldown(1, 30, commands.BucketType.user)
     async def steal_mercoin(self, ctx: commands.Context, target: Optional[Member]):
         """
-        Has a 10% chance to steal exactly 1 mercoin from the target user and gives it to the invoking user.
+        Has a 50% chance to steal exactly 1 mercoin from the target user and gives it to the invoking user.
         Requires the bot to have a database instance at self.bot.db supporting add_mercoins/get_mercoins.
         50% chance to fail and lose 1 mercoin instead.
         50% chance to succeed and steal 1 mercoin from the target user.
@@ -468,7 +468,7 @@ class Fun(Cog, name="fun"):
                 await ctx.send("You need at least 1 mercoin to attempt a theft.", delete_after=10)
                 return
 
-            if random.random() < 0.5:  # 10% chance to succeed
+            if random.random() < 0.5:
                 db.remove_mercoins(target.id, 1)  # remove 1 from target
                 db.add_mercoins(user_id, 1)
                 success = True
@@ -487,6 +487,53 @@ class Fun(Cog, name="fun"):
             f"You will be invoiced **${total:.2f}** when mercoin officially launches. Thank you.", delete_after=10
         )
 
+    @commands.hybrid_command(
+        name='mercoinleaderboard',
+        description="Shows the top mercoin holders.",
+        aliases=['mercoin_leaderboard', 'mercoin-leaderboard', 'mlb']
+    )
+    @commands.cooldown(1, 30, commands.BucketType.guild)
+    async def mercoin_leaderboard(self, ctx: commands.Context):
+        db = getattr(self.bot, 'database', None)
+        if db is None or not hasattr(db, 'get_mercoins'):
+            await ctx.send("Database is not configured for mercoins.", delete_after=10)
+            return
+
+        # Fetch all users and their mercoin counts
+        query = "SELECT user_id, amount FROM mercoins ORDER BY amount DESC"
+        results = db._execute_query(query, fetch='all')
+        leaderboard = [(user_id, amount) for user_id, amount in results]
+
+        user_list, rank, last_amount = [], 0, None
+        user_in_list = False
+        ctx_user_id = ctx.author.id
+
+        for i, (user_id, amount) in enumerate(leaderboard, 1):
+            if amount != last_amount:
+                rank = i
+
+            user = self.bot.get_user(user_id)
+            user_display = user.mention if user else str(user_id)
+
+            if ctx_user_id == user_id:
+                user_in_list = True
+                if i > 10:
+                    user_list.append(["...", "...", "..."])
+                user_list.append([f"**{rank}**", f"**{user_display}**", f"**{'{:,}'.format(amount)}**"])
+            elif i <= 10:
+                user_list.append([rank, user_display, f"{'{:,}'.format(amount)}"])
+
+            last_amount = amount
+
+            if i >= 10 and user_in_list:
+                break
+
+        embed = discord.Embed(title="Mercoin Leaderboard", colour=discord.Colour.gold())
+        embed.add_field(name="Rank", value='\n'.join([str(user[0]) for user in user_list]), inline=True)
+        embed.add_field(name="User", value='\n'.join([str(user[1]) for user in user_list]), inline=True)
+        embed.add_field(name="Mercoins", value='\n'.join([str(user[2]) for user in user_list]), inline=True)
+
+        await ctx.send(embed=embed)
 
     @Cog.listener()
     async def on_ready(self):
