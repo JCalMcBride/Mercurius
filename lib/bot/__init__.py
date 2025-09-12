@@ -374,18 +374,9 @@ class Bot(BotBase):
         raise
 
     async def on_command_error(self, ctx, exc):
-        if ctx.message is not None:
-            try:
-                await ctx.message.delete(delay=1)
-            except NotFound:
-                pass
-            except Forbidden:
-                pass
-            except HTTPException:
-                pass
-
+        delete_message = True
         if isinstance(exc, CommandNotFound):
-            pass
+            delete_message = False
         elif isinstance(exc, commands.errors.CheckFailure):
             await self.send_message(ctx, "You do not have the required role or permissions to use this command.")
         elif isinstance(exc, CommandOnCooldown):
@@ -408,6 +399,17 @@ class Bot(BotBase):
                 raise exc.original
         else:
             raise exc
+
+        if delete_message:
+            if ctx.message is not None:
+                try:
+                    await ctx.message.delete(delay=1)
+                except NotFound:
+                    pass
+                except Forbidden:
+                    pass
+                except HTTPException:
+                    pass
 
     def supporter_check(self, ctx: commands.Context) -> bool:
         member_obj = self.vrc.get_member(ctx.author.id)
