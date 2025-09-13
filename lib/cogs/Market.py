@@ -471,12 +471,13 @@ def get_discord_timestamp(wfm_timestamp):
 
 
 class MarketUserView(discord.ui.View):
-    def __init__(self, user: MarketUser, database: MarketDatabase, bot: commands.Bot):
+    def __init__(self, user: MarketUser, database: MarketDatabase, bot: commands.Bot, is_order_view: bool):
         super().__init__()
         self.user = user
         self.database = database
         self.bot = bot
         self.message = None
+        self.is_order_view = is_order_view
 
     def embed(self) -> discord.Embed:
         soup = BeautifulSoup(self.user.about, 'html.parser')
@@ -489,8 +490,17 @@ class MarketUserView(discord.ui.View):
         fields = [
             ("Reputation", self.user.reputation, True),
             ("Last Seen", get_discord_timestamp(self.user.last_seen), True),
-            ("Locale", get_language_name(self.user.locale), True)
         ]
+
+        if self.is_order_view:
+            total_orders = 0
+            orders = self.user.orders or {}
+            for order_type in orders:
+                total_orders += len(self.user.orders[order_type])
+
+            fields.append(("Total Orders", total_orders, True))
+        else:
+            fields.append(("Locale", get_language_name(self.user.locale), True))
 
         for name, value, inline in fields:
             embed.add_field(name=name, value=value, inline=inline)
@@ -639,7 +649,7 @@ class Market(Cog, name="market"):
             await self.bot.send_message(ctx, f"User {target_user} does not exist on Warframe.Market")
             return
 
-        view = MarketUserView(wfm_user, self.bot.market_db, self.bot)
+        view = MarketUserView(wfm_user, self.bot.market_db, self.bot, embed_type == 'orders')
 
         if embed_type == 'reviews':
             embed = await view.get_review_embed()
