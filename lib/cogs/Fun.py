@@ -444,6 +444,10 @@ class Fun(Cog, name="fun"):
         if ctx.interaction is None:
             await ctx.message.delete(delay=1)
 
+        if "<@" in ctx.message.content:
+            await ctx.send("You are only allowed to target members by their ID, server name, or username.", delete_after=10)
+            return
+
         db = getattr(self.bot, 'database', None)
         if db is None or not hasattr(db, 'add_mercoins') or not hasattr(db, 'get_mercoins'):
             await ctx.send("Database is not configured for mercoins.", delete_after=10)
@@ -482,7 +486,7 @@ class Fun(Cog, name="fun"):
             return
 
         await ctx.send(
-            f"{ctx.author.mention} {'successfully stole 1 mercoin from ' + target.mention if success else 'failed and lost 1 mercoin to ' + target.mention}. "
+            f"{ctx.author.mention} {'successfully stole 1 mercoin from ' + target.display_name if success else 'failed and lost 1 mercoin to ' + target.display_name}. "
             f"You now have **{total}** mercoin{'s' if total != 1 else ''}."
             f"You will be invoiced **${total:.2f}** when mercoin officially launches. Thank you.", delete_after=10
         )
