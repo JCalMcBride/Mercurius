@@ -1384,7 +1384,7 @@ class Fissure(Cog, name='fissure'):
 
     @tasks.loop(seconds=10)
     async def update_fissure_list(self):
-        new_fissures, changed_fissure_types = await self.bot.fissure_engine.build_fissure_list()
+        new_fissures, changed_fissure_types = await self.bot.fissure_engine.build_fissure_list(data_url="http://5.161.72.79/worldstate.php")
 
         if new_fissures:
             self.bot.loop.create_task(self.send_new_fissures(new_fissures))
