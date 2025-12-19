@@ -18,12 +18,18 @@ def parse_command_args(content):
     refinements = []
     styles = []
     era = None
+    vanguard = False
     for word in content.split():
         word = word.lower()
         if word.title() in era_list:
             era = word.title()
-        elif era is not None and f"{era.title()} {word.title()}" in relic_engine.get_relic_list():
+        elif word.title() == "Vanguard":
+            vanguard = True
+            era = "Axi"
+        elif era is not None and f"{era.title()} {word.title()}" in relic_engine.get_relic_list() and not vanguard:
             relic = f"{era.title()} {word.title()}"
+        elif vanguard and f"Vanguard {word.title()}" in relic_engine.get_relic_list():
+            relic = f"Vanguard {word.title()}"
         elif word in refinement_list:
             refinements.append(fix_refinement(word))
         elif word[0:3] in style_list:
