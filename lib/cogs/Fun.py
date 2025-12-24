@@ -154,8 +154,10 @@ class Fun(Cog, name="fun"):
             if supporter.id in emoji_dict:
                 continue
 
-        supporter_string = '\n'.join([f"{member.mention} {random.choice(heart_list)}"
-                                      for member in supporter_role.members + patrons])
+            emoji_dict[supporter.id] = random.choice(heart_list)
+
+        supporter_string = '\n'.join([f"{member.mention} {emoji_dict[member.id]}" for member in supporter_role.members + patrons])
+
 
         content = f"Bot designed and coded by {guthix.mention}\n" \
                   f"Logo by {mojober.mention} Thank you! {random.choice(heart_list)}\n" \
