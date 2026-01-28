@@ -210,7 +210,7 @@ class Fun(Cog, name="fun"):
                 json.dump(data, f, indent=4)
 
             try:
-                await ctx.message.delete()
+                await ctx.message.delete(delay=1)
             except discord.Forbidden:
                 pass
 
@@ -240,10 +240,12 @@ class Fun(Cog, name="fun"):
 
             with open(price_file, 'w') as f:
                 json.dump(data, f, indent=4)
+
             try:
-                await ctx.message.delete()
+                await ctx.message.delete(delay=1)
             except discord.Forbidden:
                 pass
+
             await ctx.send(f"Revenant price lowered to **{data['price']}**", delete_after=5)
         except Exception as e:
             await ctx.send(f"Error updating price: {e}")
