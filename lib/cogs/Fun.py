@@ -186,6 +186,60 @@ class Fun(Cog, name="fun"):
             return
         await ctx.send(choice(pat_list))
 
+    @commands.hybrid_command(
+        name='raiserevenantprice',
+        description="Raises the revenant price by 0.1",
+        aliases=['raiserevprice', 'raise_rev_price', 'raise-rev-price']
+    )
+    @app_commands.checks.cooldown(1, 120)
+    @commands.cooldown(1, 120, commands.BucketType.user)
+    async def raise_revenant_price(self, ctx: commands.Context):
+        """Raises the revenant price counter by 0.1"""
+        price_file = 'lib/data/revenant_price.json'
+
+        try:
+            if os.path.exists(price_file):
+                with open(price_file, 'r') as f:
+                    data = json.load(f)
+            else:
+                data = {'price': 60.0}
+
+            data['price'] = round(data['price'] + 0.1, 1)
+
+            with open(price_file, 'w') as f:
+                json.dump(data, f, indent=4)
+
+            await ctx.send(f"Revenant price raised to **{data['price']}**", delete_after=5)
+        except Exception as e:
+            await ctx.send(f"Error updating price: {e}")
+
+    @commands.hybrid_command(
+        name='lowerrevenantprice',
+        description="Lowers the revenant price by 0.1",
+        aliases=['lowerrevprice', 'lower_rev_price', 'lower-rev-price']
+    )
+    @app_commands.checks.cooldown(1, 120)
+    @commands.cooldown(1, 120, commands.BucketType.user)
+    async def lower_revenant_price(self, ctx: commands.Context):
+        """Lowers the revenant price counter by 0.1"""
+        price_file = 'lib/data/revenant_price.json'
+
+        try:
+            if os.path.exists(price_file):
+                with open(price_file, 'r') as f:
+                    data = json.load(f)
+            else:
+                data = {'price': 60.0}
+
+            data['price'] = round(max(0.0, data['price'] - 0.1), 1)
+
+            with open(price_file, 'w') as f:
+                json.dump(data, f, indent=4)
+
+            await ctx.send(f"Revenant price lowered to **{data['price']}**", delete_after=5)
+        except Exception as e:
+            await ctx.send(f"Error updating price: {e}")
+
     @commands.hybrid_command(name='extremelyconcerning', description="When something is just..too concerning.")
     async def extremely_concerning(self, ctx: commands.Context):
         """extremely concerning."""
