@@ -533,22 +533,19 @@ class Simulator(Cog, name="simulator"):
             await ctx.send("This command is only allowed to be used in the s!pam channel.", delete_after=3)
             try:
                 await ctx.message.delete(delay=1)
-            except discord.Forbidden:
-                pass
-            except discord.NotFound:
-                pass
-            except discord.HTTPException:
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                 pass
             return
 
+        # Run simulation
         counter, refinement, probability = await self.bot.loop.run_in_executor(
             ThreadPoolExecutor(), process_quad_rare,
             refinement
         )
-        # Calculate equivalent number of runs with a success chance of .3439
+
+        # Calculate luck stats
         equivalent_run_unlucky = np.log(1 - probability) / np.log(1 - .3439)
         equivalent_run_lucky = np.log(probability) / np.log(.3439)
-
         prob_formatted = "{:.2f}".format(probability * 100) + '%'
 
         prob_string = f"You had a {prob_formatted} chance of needing that many runs!"
@@ -562,12 +559,36 @@ class Simulator(Cog, name="simulator"):
                            f"rares in a row in 4b4 rad" \
                            f"{' <:WTFFFF:890180639247175680>' if equivalent_run_lucky > 8 else ''}."
 
-        pb_check, old_run_val, old_run_prob = self.save_to_leaderboard(ctx.author, refinement.lower(), int(counter),
-                                                                       prob_formatted)
+        # Save to leaderboard and check for PB/PW
+        # pb_check is True if Best, False if Worst, None if neither
+        pb_check, old_run_val, old_run_prob = self.save_to_leaderboard(
+            ctx.author, refinement.lower(), int(counter), prob_formatted
+        )
 
         if pb_check is not None:
+            # --- NEW RANK CALCULATION LOGIC ---
+            ref_key = refinement.lower()
+            data = self.leaderboard.get(ref_key, {})
+
+            # Helper to parse "123 (10%)" -> 123
+            def get_run_count(item, idx):
+                return int(item[1][idx].split(' ')[0])
+
+            if pb_check:
+                # Calculate Rank for Best (Index 0, Ascending)
+                sorted_lb = sorted(data.items(), key=lambda x: get_run_count(x, 0))
+                rank_type = "best"
+            else:
+                # Calculate Rank for Worst (Index 1, Descending)
+                sorted_lb = sorted(data.items(), key=lambda x: get_run_count(x, 1), reverse=True)
+                rank_type = "worst"
+
+            # Find user's new rank
+            new_rank = next((i for i, (uid, _) in enumerate(sorted_lb, 1) if uid == ctx.author.id), "?")
+
             old_run = f"{'{:,}'.format(int(old_run_val))} {old_run_prob}"
-            prob_string += f"\nYou got a new personal {'best' if pb_check else 'worst'}!\n" \
+
+            prob_string += f"\nYou got a new personal {rank_type} (Rank #{new_rank})!\n" \
                            f"Previous was {old_run}."
 
         await ctx.send(
