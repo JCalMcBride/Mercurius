@@ -430,6 +430,95 @@ class Simulator(Cog, name="simulator"):
 
             await ctx.send(file=discord.File(fp=b, filename="image.png"))
 
+    @command(name="quadrareprofile", aliases=["qrprofile", "qrp", "qprofile"])
+    async def quad_rare_profile(self, ctx, user: discord.Member = None):
+        """
+        Displays a user's Quad Rare stats.
+        Clean layout with Medals for Top 3 positions.
+        """
+        target = user or ctx.author
+
+        # Check for data
+        has_data = False
+        for ref in ['intact', 'exceptional', 'flawless', 'radiant']:
+            if target.id in self.leaderboard.get(ref, {}):
+                has_data = True
+                break
+
+        if not has_data:
+            await ctx.send(f"**{target.display_name}** has no recorded Quad Rare simulations yet.")
+            return
+
+        embed = discord.Embed(color=discord.Color.gold())
+        embed.set_author(name=f"{target.display_name}'s Quad Rare Profile", icon_url=target.display_avatar.url)
+
+        # Refinement keys in order
+        ref_keys = ['intact', 'exceptional', 'flawless', 'radiant']
+
+        def get_stat_line(label, rank, val_string):
+            # val_string comes in as "12 (5.5%)"
+            # We want to format it as: "Best: 🥇 #1 • 12 (5.5%)"
+
+            medal = ""
+            if rank == 1:
+                medal = "🥇 "
+            elif rank == 2:
+                medal = "🥈 "
+            elif rank == 3:
+                medal = "🥉 "
+
+            return f"**{label}:** {medal}#{rank} • {val_string}"
+
+        def get_field_data(ref_key):
+            data = self.leaderboard.get(ref_key, {})
+            if target.id not in data:
+                return None
+
+            # Helper to parse integer runs for sorting "1,200 (5%)" -> 1200
+            def parse_runs(entry):
+                return int(entry[1][0].split(' ')[0].replace(',', ''))
+
+            def parse_runs_worst(entry):
+                return int(entry[1][1].split(' ')[0].replace(',', ''))
+
+            # 1. Best Rank (Ascending)
+            sorted_best = sorted(data.items(), key=parse_runs)
+            rank_best = next((i for i, (uid, _) in enumerate(sorted_best, 1) if uid == target.id), "-")
+
+            # 2. Worst Rank (Descending)
+            sorted_worst = sorted(data.items(), key=parse_runs_worst, reverse=True)
+            rank_worst = next((i for i, (uid, _) in enumerate(sorted_worst, 1) if uid == target.id), "-")
+
+            # Get the display strings
+            best_str = data[target.id][0]
+            worst_str = data[target.id][1]
+
+            return (
+                    get_stat_line("Best", rank_best, best_str) + "\n" +
+                    get_stat_line("Worst", rank_worst, worst_str)
+            )
+
+        # Iterate in pairs for the 2-column layout with spacer
+        for i in range(0, len(ref_keys), 2):
+            # Left Column
+            key_a = ref_keys[i]
+            val_a = get_field_data(key_a) or "No data recorded."
+            embed.add_field(name=key_a.title(), value=val_a, inline=True)
+
+            # Center Spacer
+            embed.add_field(name='\u200b', value='\u200b', inline=True)
+
+            # Right Column
+            if i + 1 < len(ref_keys):
+                key_b = ref_keys[i + 1]
+                val_b = get_field_data(key_b) or "No data recorded."
+                embed.add_field(name=key_b.title(), value=val_b, inline=True)
+            else:
+                # Padding if odd number of items
+                embed.add_field(name='\u200b', value='\u200b', inline=True)
+
+        await ctx.send(embed=embed)
+
     @command(name="quadrare", aliases=["qr", 'qrs'])
     @cooldown(1, 30, BucketType.user)
     async def quad_rare_simulator(self, ctx, refinement: str = 'Radiant'):
