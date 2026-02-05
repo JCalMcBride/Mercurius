@@ -60,6 +60,8 @@ class Fun(Cog, name="fun"):
         with open('lib/data/filelist.json') as f:
             self.frog_images = json.load(f)
 
+        self.allowed_channels = [780377679227650079, 1089587184987811961]
+
     @commands.hybrid_command(name='hello', description="Says hello",
                              aliases=['hi', 'hey'])
     @app_commands.checks.cooldown(1, 5)
@@ -195,6 +197,10 @@ class Fun(Cog, name="fun"):
     @commands.cooldown(1, 120, commands.BucketType.user)
     async def raise_revenant_price(self, ctx: commands.Context):
         """Raises the revenant price counter by 0.1"""
+        if ctx.channel.id not in self.allowed_channels:
+            await ctx.send("This command cannot be used in this channel.", delete_after=5, ephemeral=True)
+            return
+
         price_file = 'lib/data/revenant_price.json'
 
         try:
@@ -227,6 +233,10 @@ class Fun(Cog, name="fun"):
     @commands.cooldown(1, 120, commands.BucketType.user)
     async def lower_revenant_price(self, ctx: commands.Context):
         """Lowers the revenant price counter by 0.1"""
+        if ctx.channel.id not in self.allowed_channels:
+            await ctx.send("This command cannot be used in this channel.", delete_after=5, ephemeral=True)
+            return
+
         price_file = 'lib/data/revenant_price.json'
 
         try:
