@@ -3,6 +3,7 @@ import functools
 import json
 import math
 import os
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import StringIO, BytesIO
 from os import listdir
@@ -243,10 +244,13 @@ class Simulator(Cog, name="simulator"):
         self.bot = bot
         self.srsettings = listdir('lib/data/simulation/settings')
         self.leaderboard = None
+
+        # Load Leaderboard
         if os.path.isfile('lib/data/simulation/leaderboard.json'):
             with open('lib/data/simulation/leaderboard.json', 'r') as f:
                 self.leaderboard = json.load(f)
 
+            # Ensure user ID keys are integers (JSON stores keys as strings)
             for key in self.leaderboard:
                 self.leaderboard[key] = {int(k): v for k, v in self.leaderboard[key].items()}
         else:
@@ -455,10 +459,8 @@ class Simulator(Cog, name="simulator"):
         # Refinement keys in order
         ref_keys = ['intact', 'exceptional', 'flawless', 'radiant']
 
-        def get_stat_line(label, rank, val_string):
-            # val_string comes in as "12 (5.5%)"
-            # We want to format it as: "Best: 🥇 #1 • 12 (5.5%)"
-
+        def get_stat_line(label, rank, entry):
+            # entry is now a dictionary: {'runs': int, 'percent': float, 'timestamp': float}
             medal = ""
             if rank == 1:
                 medal = "🥇 "
@@ -467,38 +469,47 @@ class Simulator(Cog, name="simulator"):
             elif rank == 3:
                 medal = "🥉 "
 
-            return f"**{label}:** {medal}#{rank} • {val_string}"
+            runs = '{:,}'.format(entry['runs'])
+            # Formatting percent to readable string, stored with high precision
+            pct = f"{entry['percent'] * 100:.5f}%"
+
+            # Optional: Display Date
+            # ts = int(entry.get('timestamp', 0))
+            # date_str = f" <t:{ts}:d>" if ts > 0 else ""
+
+            return f"**{label}:** {medal}#{rank} • {runs} ({pct})"
 
         def get_field_data(ref_key):
             data = self.leaderboard.get(ref_key, {})
             if target.id not in data:
                 return None
 
-            # Helper to parse integer runs for sorting "1,200 (5%)" -> 1200
-            def parse_runs(entry):
-                return int(entry[1][0].split(' ')[0].replace(',', ''))
+            # Helpers to access the dict keys safely
+            def get_runs_best(item):
+                # item is (user_id, [best_dict, worst_dict])
+                return item[1][0]['runs']
 
-            def parse_runs_worst(entry):
-                return int(entry[1][1].split(' ')[0].replace(',', ''))
+            def get_runs_worst(item):
+                return item[1][1]['runs']
 
             # 1. Best Rank (Ascending)
-            sorted_best = sorted(data.items(), key=parse_runs)
+            sorted_best = sorted(data.items(), key=get_runs_best)
             rank_best = next((i for i, (uid, _) in enumerate(sorted_best, 1) if uid == target.id), "-")
 
             # 2. Worst Rank (Descending)
-            sorted_worst = sorted(data.items(), key=parse_runs_worst, reverse=True)
+            sorted_worst = sorted(data.items(), key=get_runs_worst, reverse=True)
             rank_worst = next((i for i, (uid, _) in enumerate(sorted_worst, 1) if uid == target.id), "-")
 
-            # Get the display strings
-            best_str = data[target.id][0]
-            worst_str = data[target.id][1]
+            # Get the display objects
+            best_entry = data[target.id][0]
+            worst_entry = data[target.id][1]
 
             return (
-                    get_stat_line("Best", rank_best, best_str) + "\n" +
-                    get_stat_line("Worst", rank_worst, worst_str)
+                    get_stat_line("Best", rank_best, best_entry) + "\n" +
+                    get_stat_line("Worst", rank_worst, worst_entry)
             )
 
-        # Iterate in pairs for the 2-column layout with spacer
+        # Iterate in pairs for the 2-column layout
         for i in range(0, len(ref_keys), 2):
             # Left Column
             key_a = ref_keys[i]
@@ -560,19 +571,18 @@ class Simulator(Cog, name="simulator"):
                            f"{' <:WTFFFF:890180639247175680>' if equivalent_run_lucky > 8 else ''}."
 
         # Save to leaderboard and check for PB/PW
-        # pb_check is True if Best, False if Worst, None if neither
-        pb_check, old_run_val, old_run_prob = self.save_to_leaderboard(
-            ctx.author, refinement.lower(), int(counter), prob_formatted
+        # Returns only (pb_check, old_entry_dict)
+        pb_check, old_run_entry = self.save_to_leaderboard(
+            ctx.author, refinement.lower(), int(counter), probability
         )
 
         if pb_check is not None:
-            # --- NEW RANK CALCULATION LOGIC ---
             ref_key = refinement.lower()
             data = self.leaderboard.get(ref_key, {})
 
-            # Helper to parse "123 (10%)" -> 123
+            # Helper to get runs from dict structure
             def get_run_count(item, idx):
-                return int(item[1][idx].split(' ')[0])
+                return item[1][idx]['runs']
 
             if pb_check:
                 # Calculate Rank for Best (Index 0, Ascending)
@@ -586,10 +596,16 @@ class Simulator(Cog, name="simulator"):
             # Find user's new rank
             new_rank = next((i for i, (uid, _) in enumerate(sorted_lb, 1) if uid == ctx.author.id), "?")
 
-            old_run = f"{'{:,}'.format(int(old_run_val))} {old_run_prob}"
+            # Format the old run string safely
+            if old_run_entry:
+                old_val = '{:,}'.format(old_run_entry['runs'])
+                old_prob_str = f"{old_run_entry['percent'] * 100:.2f}%"
+                old_run_str = f"{old_val} ({old_prob_str})"
+            else:
+                old_run_str = "None"
 
             prob_string += f"\nYou got a new personal {rank_type} (Rank #{new_rank})!\n" \
-                           f"Previous was {old_run}."
+                           f"Previous was {old_run_str}."
 
         await ctx.send(
             f"It took you ... {'{:,}'.format(counter)} runs to get a {refinement.lower()} quad rare reward screen!\n"
@@ -602,16 +618,21 @@ class Simulator(Cog, name="simulator"):
         # Choose index 0 (best runs) or 1 (worst runs)
         index = 0 if best else 1
 
-        # Sort by runs, parsed from the tuples, ignoring probabilities
+        # Sort by runs inside the dict object
+        # item[1] is [best_dict, worst_dict]
         sorted_items = sorted(user_dict.items(),
-                              key=lambda item: (int(item[1][index].split(' ')[0]), item[0]),
+                              key=lambda item: (item[1][index]['runs'], item[0]),
                               reverse=not best)
 
         user_list, rank, last_run = [], 0, None
         user_in_list = False
-        for i, (user_id, run) in enumerate(sorted_items, 1):
-            run_val, run_prob = run[index].split(' ')
-            run_val = int(run_val)
+
+        for i, (user_id, run_list) in enumerate(sorted_items, 1):
+            entry = run_list[index]
+            run_val = entry['runs']
+            # Format to 9 digits as requested
+            run_prob = f"({entry['percent'] * 100:.5f}%)"
+
             if run_val != last_run:
                 rank = i
 
@@ -619,15 +640,18 @@ class Simulator(Cog, name="simulator"):
             if user is None:
                 user = user_id
 
+            # Create display string
+            display_str = f"{'{:,}'.format(run_val)} {run_prob}"
+
             if ctx_user_id == user_id:
                 user_in_list = True
 
                 if i > 10:
                     user_list.append(["...", "...", "..."])
 
-                user_list.append([f"**{rank}**", f"**{user}**", f"**{'{:,}'.format(run_val)} {run_prob}**"])
+                user_list.append([f"**{rank}**", f"**{user}**", f"**{display_str}**"])
             elif i <= 10:
-                user_list.append([rank, user, f"{'{:,}'.format(run_val)} {run_prob}"])
+                user_list.append([rank, user, display_str])
 
             last_run = run_val
 
@@ -644,36 +668,44 @@ class Simulator(Cog, name="simulator"):
 
     def save_to_leaderboard(self, user, refinement, new_run, probability):
         result = None
-        old_run_val = None
-        old_run_prob = None
+        old_run_entry = None
+        current_ts = time.time()
+
+        # Create the new entry object
+        new_entry = {
+            'runs': new_run,
+            'percent': probability,  # Stored as raw float
+            'timestamp': current_ts
+        }
 
         # Check if the user already has stored runs
         if user.id in self.leaderboard[refinement]:
-            best_run, worst_run = self.leaderboard[refinement][user.id]
-            best_run_val, best_run_prob = best_run.split(' ')
-            worst_run_val, worst_run_prob = worst_run.split(' ')
+            # These are now dicts
+            best_entry = self.leaderboard[refinement][user.id][0]
+            worst_entry = self.leaderboard[refinement][user.id][1]
 
-            # Update best and/or worst run if necessary
-            if new_run < int(best_run_val):
-                old_run_val = best_run_val
-                old_run_prob = best_run_prob
-                best_run = f"{new_run} ({probability})"
-                result = True
-            if new_run > int(worst_run_val):
-                old_run_val = worst_run_val
-                old_run_prob = worst_run_prob
-                worst_run = f"{new_run} ({probability})"
-                result = False
+            # Compare Integers directly
+            if new_run < best_entry['runs']:
+                old_run_entry = best_entry
+                best_entry = new_entry
+                result = True  # Is Best
+
+            if new_run > worst_entry['runs']:
+                old_run_entry = worst_entry if result is None else old_run_entry
+                worst_entry = new_entry
+                result = False  # Is Worst
         else:
-            # If the user is not in the dictionary yet, both their best and worst runs are the new run
-            best_run = worst_run = f"{new_run} ({probability})"
+            # First time user
+            best_entry = new_entry
+            worst_entry = new_entry
+            result = True  # Treat first run as a PB
 
-        self.leaderboard[refinement][user.id] = [best_run, worst_run]
+        self.leaderboard[refinement][user.id] = [best_entry, worst_entry]
 
         with open('lib/data/simulation/leaderboard.json', 'w') as f:
             json.dump(self.leaderboard, f, indent=4)
 
-        return result, old_run_val, old_run_prob
+        return result, old_run_entry
 
     @command(name='quadrareleaderboard', aliases=['qrlb', 'qlb', 'qleader'])
     async def quad_rare_leaderboard(self, ctx, refinement: str = 'radiant'):
@@ -701,7 +733,6 @@ class Simulator(Cog, name="simulator"):
 
         await ctx.send(embed=embed)
 
-    # noinspection PyRedundantParentheses
     @command(name="srconfig")
     async def sr_config(self, ctx, setting: Optional[str], value: Optional[str]):
         """
@@ -750,7 +781,6 @@ class Simulator(Cog, name="simulator"):
     async def on_ready(self):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("Simulator")
-
 
 async def setup(bot):
     await bot.add_cog(Simulator(bot))
