@@ -191,7 +191,7 @@ class Fun(Cog, name="fun"):
     @commands.hybrid_command(
         name='raiserevenantprice',
         description="Raises the revenant price by 0.1",
-        aliases=['raiserevprice', 'raise_rev_price', 'raise-rev-price']
+        aliases=['raiserevprice', 'raise_rev_price', 'raise-rev-price', 'rrp']
     )
     @app_commands.checks.cooldown(1, 120)
     @commands.cooldown(1, 120, commands.BucketType.user)
@@ -227,7 +227,7 @@ class Fun(Cog, name="fun"):
     @commands.hybrid_command(
         name='lowerrevenantprice',
         description="Lowers the revenant price by 0.1",
-        aliases=['lowerrevprice', 'lower_rev_price', 'lower-rev-price']
+        aliases=['lowerrevprice', 'lower_rev_price', 'lower-rev-price', 'lrp']
     )
     @app_commands.checks.cooldown(1, 120)
     @commands.cooldown(1, 120, commands.BucketType.user)
