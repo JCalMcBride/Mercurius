@@ -220,7 +220,7 @@ class Fun(Cog, name="fun"):
             except discord.Forbidden:
                 pass
 
-            await ctx.send(f"Revenant price raised to **{data['price']}**", delete_after=5)
+            await ctx.send(f"Revenant price raised to **{data['price']}**", delete_after=3)
         except Exception as e:
             await ctx.send(f"Error updating price: {e}")
 
@@ -256,7 +256,7 @@ class Fun(Cog, name="fun"):
             except discord.Forbidden:
                 pass
 
-            await ctx.send(f"Revenant price lowered to **{data['price']}**", delete_after=5)
+            await ctx.send(f"Revenant price lowered to **{data['price']}**", delete_after=3)
         except Exception as e:
             await ctx.send(f"Error updating price: {e}")
 
