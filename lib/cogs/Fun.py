@@ -191,7 +191,7 @@ class Fun(Cog, name="fun"):
     @commands.hybrid_command(
         name='raiserevenantprice',
         description="Raises the revenant price by 0.1",
-        aliases=['raiserevprice', 'raise_rev_price', 'raise-rev-price', 'rrp']
+        aliases=['raiserevprice', 'raise_rev_price', 'raise-rev-price', 'rrp', 'elevaterevprice','elevate_rev_price','elevate-rev-price','erp']
     )
     @app_commands.checks.cooldown(1, 120)
     @commands.cooldown(1, 120, commands.BucketType.user)
