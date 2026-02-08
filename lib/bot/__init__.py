@@ -380,7 +380,9 @@ class Bot(BotBase):
         elif isinstance(exc, commands.errors.CheckFailure):
             await self.send_message(ctx, "You do not have the required role or permissions to use this command.")
         elif isinstance(exc, CommandOnCooldown):
-            await self.send_message(ctx, "Command is currently on cooldown, try again later.", delete_delay=3)
+            await self.send_message(ctx,
+                                    f"Command is currently on cooldown. Try again in {exc.retry_after:.1f} seconds.",
+                                    delete_delay=3)
         elif isinstance(exc, MissingPermissions):
             await self.send_message(ctx, "You lack the permissions to use this command here.")
         elif isinstance(exc, MissingRole):
