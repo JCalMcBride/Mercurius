@@ -180,7 +180,6 @@ def decrypt_overwolf_data(encrypted_data):
 
     return overwolf_data
 
-
 def parse_overwolf(author_id, sync_time, reparse):
     with open(f"lib/data/overwolf/raw/{author_id}", "rb") as f:
         encrypted_data = f.read()
@@ -1533,9 +1532,12 @@ class Overwolf(GroupCog, name="overwolf"):
             message = await ctx.send("This command only works in direct messages.", delete_after=5)
             return
 
+
         try:
             with open(f'lib/data/overwolf/raw/{ctx.author.id}', mode='rb') as f:
-                await ctx.send(file=discord.File(fp=f, filename='overwolf_data.json'))
+                overwolf_data = decrypt_overwolf_data(f.read())
+
+                await ctx.send(file=discord.File(fp=BytesIO(overwolf_data), filename='overwolf_raw_data.json'))
         except FileNotFoundError:
             await ctx.send(self.overwolf_text)
             return
