@@ -1537,7 +1537,6 @@ class Overwolf(GroupCog, name="overwolf"):
             with open(f'lib/data/overwolf/raw/{ctx.author.id}', mode='rb') as f:
                 overwolf_data = decrypt_overwolf_data(f.read())
 
-                # convert the dict to a discord file and send it
                 overwolf_data_file = discord.File(fp=io.BytesIO(json.dumps(overwolf_data, indent=4).encode()), filename='overwolf_raw_data.json')
                 await ctx.send(file=overwolf_data_file)
 
