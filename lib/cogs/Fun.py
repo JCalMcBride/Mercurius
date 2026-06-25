@@ -309,15 +309,19 @@ class Fun(Cog, name="fun"):
             pass
         await ctx.send(f"User {target} has been unbanned.")
 
-    @commands.hybrid_command(name='hug', description="Hug someone <3.")
+    @commands.hybrid_command(name='hug', description="Hug people <3.")
     @app_commands.checks.dynamic_cooldown(no_botspam_cooldown)
-    async def hug_cmd(self, ctx: commands.Context, target: Optional[Member]):
-        """Hug someone <3."""
-        if target:
-            target = target.mention
+    async def hug_command(self, ctx: commands.Context, *, targets: Optional[str] = None):
+        """Hug people <3."""
+        if targets:
+            users_to_hug = targets
         else:
-            target = ctx.author.mention
-        await ctx.send(f"User {target} has been hugged. <:pepeheart:780599565039697981>")
+            users_to_hug = ctx.author.mention
+
+        await ctx.send(
+            f"Users {users_to_hug} have been hugged. <:pepeheart:780599565039697981>",
+            allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False)
+        )
 
     @commands.hybrid_command(name='say', description="Echoes whatever text was given in embed format.")
     @app_commands.checks.cooldown(1, 5)

@@ -248,6 +248,7 @@ class ButtonView(discord.ui.View):
             options=[discord.SelectOption(label=config['text'], value=str(i)) for i, config in
                      enumerate(self.button_configs)]
         )
+        discord.ui.UserSelect
         select.callback = self.edit_button_select_callback
         view = discord.ui.View()
         view.add_item(select)
