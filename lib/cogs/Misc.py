@@ -27,17 +27,17 @@ class Misc(Cog, name="misc"):
         """
         Shows the upcoming rotations for the incarnon adapters.
         """
-        rotations = [['Zylok', 'Sibear', 'Dread', 'Despair', 'Hate'],
-                     ['Dera', 'Sybaris', 'Cestra', 'Sicarus', 'Okina'],
-                     ['Braton', 'Lato', 'Skana', 'Paris', 'Kunai'],
+        rotations = [['Braton', 'Lato', 'Skana', 'Paris', 'Kunai'],
                      ["Boar", "Gammacor", "Angstrum", "Gorgon", "Anku"],
                      ['Bo', 'Latron', 'Furis', 'Furax', 'Strun'],
                      ['Lex', 'Magistar', 'Boltor', 'Bronco', 'Ceramic Dagger'],
                      ['Torid', 'Dual Toxocyst', 'Dual Ichor', 'Miter', 'Atomos'],
-                     ['Ack & Brunt', 'Soma', 'Vasto', 'Nami Solo', 'Burston']]
+                     ['Ack & Brunt', 'Soma', 'Vasto', 'Nami Solo', 'Burston'],
+                     ['Zylok', 'Sibear', 'Dread', 'Despair', 'Hate'],
+                     ['Dera', 'Sybaris', 'Cestra', 'Sicarus', 'Okina'],
+                     ['Vectis', 'Stug', 'Ballistica', 'Destreza', 'Obex']]
 
-        # Create a datetime object for July 31st, 2023, at midnight UTC
-        start_date = datetime(2023, 7, 9, 0, 0, 0, tzinfo=timezone.utc)
+        start_date = datetime(2026, 6, 29, 0, 0, 0, tzinfo=timezone.utc)
 
         # Get the current date in UTC and set it to midnight
         current_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
