@@ -56,8 +56,7 @@ class Misc(Cog, name="misc"):
 
         rotation_str = f"**This week's rotation**: {', '.join(get_wiki_link(item) for item in rotations[rotation_index])}\n"
 
-        # Print the rotations for the next six weeks
-        for i in range(1, 9):
+        for i in range(1, 10):
             rotation_str += '\n'
             future_date = current_week_start + timedelta(weeks=i)
             days_until = (future_date - current_date).days
