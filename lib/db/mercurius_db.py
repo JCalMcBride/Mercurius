@@ -263,6 +263,18 @@ class MercuriusDatabase:
     SELECT amount FROM mercoins WHERE user_id = %s
     """
 
+    _GET_SUPPORTERS_QUERY = """
+    SELECT user_id FROM supporters
+    """
+
+    _ADD_SUPPORTER_QUERY = """
+    INSERT IGNORE INTO supporters (user_id) VALUES (%s)
+    """
+
+    _REMOVE_SUPPORTER_QUERY = """
+    DELETE FROM supporters WHERE user_id = %s
+    """
+
     _ENSURE_USERS_SQL = """
     CREATE TABLE IF NOT EXISTS users (
         discord_id BIGINT PRIMARY KEY NOT NULL,
@@ -795,3 +807,10 @@ class MercuriusDatabase:
     def get_mercoins(self, user_id: int) -> int:
         result = self._execute_query(self._GET_MERCOINS_QUERY, user_id, fetch='one')
         return result[0] if result else 0
+
+    def get_supporters(self) -> List[int]:
+        return [row[0] for row in self._execute_query(self._GET_SUPPORTERS_QUERY)]
+
+    def set_supporter(self, user_id: int, is_supporter: bool) -> None:
+        query = self._ADD_SUPPORTER_QUERY if is_supporter else self._REMOVE_SUPPORTER_QUERY
+        self._execute_query(query, user_id, commit=True)

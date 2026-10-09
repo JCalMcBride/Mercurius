@@ -347,7 +347,7 @@ class Statistics(Cog, name="statistics"):
 
         This command is only available to supporters and patrons.
         """
-        if not self.bot.supporter_check(ctx):
+        if not await self.bot.supporter_check(ctx):
             raise commands.CheckFailure()
 
         if style not in plt.style.available + ['cyberpunk'] or style is None:

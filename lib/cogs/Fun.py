@@ -16,6 +16,11 @@ from discord.ext.commands import command, Cog
 from discord.utils import escape_markdown
 from simpleeval import simple_eval
 
+from lib.common import get_command_arguments, get_content_after_prefix
+
+SUPPORTER_GUILD_ID = 780376195182493707
+SUPPORTER_ROLE_ID = 1086352745390419968
+
 with open('lib/data/misc_bot_data.json') as f:
     misc_bot_data = json.load(f)
 
@@ -61,6 +66,9 @@ class Fun(Cog, name="fun"):
             self.frog_images = json.load(f)
 
         self.allowed_channels = [780377679227650079, 1089587184987811961]
+
+        # Listing a role's members needs the members intent, so supporters are remembered as they're seen instead.
+        self.supporter_ids = set()
 
     @commands.hybrid_command(name='hello', description="Says hello",
                              aliases=['hi', 'hey'])
@@ -115,7 +123,7 @@ class Fun(Cog, name="fun"):
             await ctx.send(f"{ctx.author.mention} 👍")
 
     @command(name="supporter")
-    @commands.has_role(1086352745390419968)
+    @commands.has_role(SUPPORTER_ROLE_ID)
     async def supporter_command(self, ctx):
         """Thanks VRC's supporters!"""
         heart_list = ["<:pepeheart:780599565039697981>", "<:jaxheart:780515012279402536>", "❤️", "💙", "💚", "💛", "💜"]
@@ -133,7 +141,6 @@ class Fun(Cog, name="fun"):
         snap = await self.bot.fetch_user(148706546308612096)
         robo = await self.bot.fetch_user(166903506551177216)
 
-        supporter_role = self.bot.get_guild(780376195182493707).get_role(1086352745390419968)
         patrons = [await self.bot.fetch_user(182359932518006794),
                    await self.bot.fetch_user(137365776121200650)]
 
@@ -152,13 +159,15 @@ class Fun(Cog, name="fun"):
                       715200888217534475: "<:jolyrno:1246045514336833548>",
                       991633609511415849: "<:ahsoka:1246046592151195679>"}
 
-        for supporter in supporter_role.members + patrons:
+        supporters = await self.get_supporters(self.supporter_ids | emoji_dict.keys())
+
+        for supporter in supporters + patrons:
             if supporter.id in emoji_dict:
                 continue
 
             emoji_dict[supporter.id] = random.choice(heart_list)
 
-        supporter_string = '\n'.join([f"{member.mention} {emoji_dict[member.id]}" for member in supporter_role.members + patrons])
+        supporter_string = '\n'.join([f"{member.mention} {emoji_dict[member.id]}" for member in supporters + patrons])
 
 
         content = f"Bot designed and coded by {guthix.mention}\n" \
@@ -328,7 +337,7 @@ class Fun(Cog, name="fun"):
     async def echo_message(self, ctx: commands.Context, echoed_message: str):
         """Echoes whatever text was given in embed format."""
         if ctx.interaction is None:
-            echoed_message = ctx.message.content.split(maxsplit=1)[1]
+            echoed_message = get_command_arguments(ctx)
         await ctx.send(embed=Embed(title="", description=echoed_message))
 
     @commands.hybrid_command(name='calculate', description="Calculates the given expression.", aliases=["calc"])
@@ -336,7 +345,7 @@ class Fun(Cog, name="fun"):
     async def calc_expression(self, ctx: commands.Context, expression: str):
         """Calculates mathematical expressions! (Thanks zach..)"""
         if ctx.interaction is None:
-            expression = ctx.message.content.split(maxsplit=1)[1]
+            expression = get_command_arguments(ctx)
         answer = await self.bot.loop.run_in_executor(ThreadPoolExecutor(), evaluate_expression, expression)
         await ctx.send(answer)
 
@@ -524,7 +533,7 @@ class Fun(Cog, name="fun"):
         if ctx.interaction is None:
             await ctx.message.delete(delay=1)
 
-        if "<@" in ctx.message.content:
+        if "<@" in get_content_after_prefix(ctx):
             await ctx.send("You are only allowed to target members by their ID, server name, or username.", delete_after=10)
             return
 
@@ -619,6 +628,38 @@ class Fun(Cog, name="fun"):
 
         await ctx.send(embed=embed)
 
+    def update_supporter(self, member: Member) -> None:
+        is_supporter = member.get_role(SUPPORTER_ROLE_ID) is not None
+        if is_supporter == (member.id in self.supporter_ids):
+            return
+
+        self.bot.database.set_supporter(member.id, is_supporter)
+        if is_supporter:
+            self.supporter_ids.add(member.id)
+        else:
+            self.supporter_ids.discard(member.id)
+
+    async def get_supporters(self, candidate_ids) -> list[Member]:
+        """Returns the candidates that currently have the supporter role."""
+        members = await self.bot.query_members_by_id(self.bot.get_guild(SUPPORTER_GUILD_ID), list(candidate_ids))
+        if self.bot.database is not None:
+            for member in members:
+                self.update_supporter(member)
+
+            # Anyone not returned has left the server.
+            for user_id in self.supporter_ids - {member.id for member in members}:
+                self.bot.database.set_supporter(user_id, False)
+                self.supporter_ids.discard(user_id)
+
+        return [member for member in members if member.get_role(SUPPORTER_ROLE_ID) is not None]
+
+    @Cog.listener()
+    async def on_message(self, message):
+        # Guild messages carry the author's roles even without the message content intent.
+        if (self.bot.ready and self.bot.database is not None and message.guild is not None
+                and message.guild.id == SUPPORTER_GUILD_ID and isinstance(message.author, Member)):
+            self.update_supporter(message.author)
+
     @Cog.listener()
     async def on_ready(self):
         # Auto-initialize schema on first startup (idempotent)
@@ -631,6 +672,9 @@ class Fun(Cog, name="fun"):
                 pass
 
         if not self.bot.ready:
+            if db is not None:
+                self.supporter_ids = set(db.get_supporters())
+
             self.bot.cogs_ready.ready_up("Fun")
 
 

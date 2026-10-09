@@ -155,10 +155,7 @@ def get_giveaway_winners(role, winners, message_id, reactions=None):
     else:
         reactions = [u for u in reactions if not u.bot]
         if role is not None:
-            for reaction in reactions:
-                if not hasattr(reaction, 'roles'):
-                    reactions.remove(reaction)
-            reactions = [u for u in reactions if role in u.roles]
+            reactions = [u for u in reactions if role in getattr(u, 'roles', [])]
 
         reactions = [u.mention for u in reactions]
 
@@ -275,7 +272,7 @@ class Giveaway(Cog, name="giveaway"):
                               f"with prize {giveaway_data['prize']}, could not find role.")
                     return
 
-            author = self.bot.get_user(giveaway_data['author'])
+            author = await self.bot.get_or_fetch_user(giveaway_data['author'])
             if author is None:
                 log_entry(f"Error while attempting to get author for giveaway {message_id} "
                           f"with prize {giveaway_data['prize']}, could not find author.")
@@ -289,6 +286,10 @@ class Giveaway(Cog, name="giveaway"):
                       f" for giveaway {message_id} with prize {giveaway_data['prize']} "
                       f"had an unspecified error while editing the message.")
             return
+
+    async def get_reaction_members(self, guild, users):
+        # Reaction users are plain Users when members aren't cached, so look them up to get their roles.
+        return await self.bot.query_members_by_id(guild, [user.id for user in users if not user.bot])
 
     async def complete_giveaway(self, message_id):
         try:
@@ -334,7 +335,7 @@ class Giveaway(Cog, name="giveaway"):
                               f"with prize {giveaway_data['prize']}, could not find role.")
                     return
 
-            author = self.bot.get_user(giveaway_data['author'])
+            author = await self.bot.get_or_fetch_user(giveaway_data['author'])
             if author is None:
                 log_entry(f"Error while attempting to get author for giveaway {message_id} "
                           f"with prize {giveaway_data['prize']}, could not find author.")
@@ -343,6 +344,8 @@ class Giveaway(Cog, name="giveaway"):
             reactions = message_obj.reactions
 
             users = [user async for user in reactions[0].users()]
+            if role_obj is not None:
+                users = await self.get_reaction_members(guild_obj, users)
 
             winner_list = get_giveaway_winners(role_obj, giveaway_data['winners'], message_id, users)
         except HTTPException:
@@ -385,7 +388,7 @@ class Giveaway(Cog, name="giveaway"):
 
         winner_list = None
 
-        author = self.bot.get_user(author_id)
+        author = await self.bot.get_or_fetch_user(author_id)
         if author is None:
             log_entry(f"Error while attempting to get author during giveaway creation process "
                       f"with prize {giveaway_prize}, could not find author.")
@@ -600,6 +603,8 @@ class Giveaway(Cog, name="giveaway"):
             reactions = message_obj.reactions
 
             users = [user async for user in reactions[0].users()]
+            if role is not None:
+                users = await self.get_reaction_members(ctx.guild, users)
         winner_list = get_giveaway_winners(role, winners, message_id, users)
         if winner_list[0] != 'No one!':
             await ctx.send(

@@ -893,7 +893,7 @@ class Market(Cog, name="market"):
     @app_commands.describe(item_name='Item name you wish to favorite.')
     async def set_item_settings(self, ctx: commands.Context, *, item_name: str) -> None:
         """Favorite an item for use in the favorites command."""
-        if not self.bot.supporter_check(ctx):
+        if not await self.bot.supporter_check(ctx):
             raise commands.CheckFailure()
 
         user_id = ctx.author.id
@@ -929,7 +929,7 @@ class Market(Cog, name="market"):
     @app_commands.describe(item_name='Item name you wish to unfavorite.')
     async def unfavorite(self, ctx: commands.Context, *, item_name: str) -> None:
         """Unfavorites an item."""
-        if not self.bot.supporter_check(ctx):
+        if not await self.bot.supporter_check(ctx):
             raise commands.CheckFailure()
 
         user_id = ctx.author.id
@@ -960,7 +960,7 @@ class Market(Cog, name="market"):
                              aliases=["favs", "favourites"])
     async def get_favorites(self, ctx: commands.Context) -> None:
         """Displays the first two orders and average price for each of your favorite items."""
-        if not self.bot.supporter_check(ctx):
+        if not await self.bot.supporter_check(ctx):
             raise commands.CheckFailure()
 
         user_id = ctx.author.id

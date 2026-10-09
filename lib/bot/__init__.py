@@ -2,7 +2,7 @@ import asyncio
 import logging
 from asyncio import sleep
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Optional
 
 import discord
 from aiomysql import OperationalError
@@ -58,7 +58,7 @@ class CustomHelpCommand(commands.HelpCommand):
         return command_info
 
     async def send_bot_help(self, mapping):
-        self.invoked_prefix = self.context.prefix
+        self.invoked_prefix = self.context.clean_prefix
         self.cog_embeds = {}
         self.home_embed = discord.Embed(title="Help", color=discord.Color.blue())
         self.home_embed.description = "Click on a button below to view the commands for a specific category. The current category will be highlighted in blue."
@@ -87,7 +87,7 @@ class CustomHelpCommand(commands.HelpCommand):
         await self.context.send(embed=self.home_embed, view=view)
 
     async def send_cog_help(self, cog):
-        self.invoked_prefix = self.context.prefix
+        self.invoked_prefix = self.context.clean_prefix
         filtered_commands = await self.filter_commands(cog.get_commands(), sort=True)
         if not filtered_commands:
             await self.context.send(f"No accessible commands found for the {cog.qualified_name.title()} cog.")
@@ -114,7 +114,7 @@ class CustomHelpCommand(commands.HelpCommand):
             await interaction.response.send_message("Command not found.", ephemeral=True)
 
     def create_command_details_embed(self, command):
-        self.invoked_prefix = self.context.prefix
+        self.invoked_prefix = self.context.clean_prefix
         embed = discord.Embed(title=f"Help - {command.name}", color=discord.Color.blue())
         embed.add_field(name="Description", value=command.help, inline=False)
 
@@ -141,7 +141,7 @@ class CustomHelpCommand(commands.HelpCommand):
         return embed
 
     async def send_command_help(self, command):
-        self.invoked_prefix = self.context.prefix
+        self.invoked_prefix = self.context.clean_prefix
         embed = self.create_command_details_embed(command)
         await self.get_destination().send(embed=embed)
 
@@ -210,6 +210,8 @@ class Ready(object):
 
 
 def get_prefix(bot, message):
+    # Without the message content intent, guild messages only have content when they mention the bot,
+    # so in servers commands are invoked with "@Mercurius <command>". DMs always have content.
     prefix_list = ['--', '—']
     if not message.guild:
         prefix_list.append('')
@@ -240,7 +242,7 @@ class Bot(BotBase):
         super().__init__(
             command_prefix=get_prefix,
             owner_ids=bot_config['owner_ids'],
-            intents=Intents.all(),
+            intents=Intents.default(),
             help_command=CustomHelpCommand()
         )
 
@@ -389,7 +391,7 @@ class Bot(BotBase):
             await self.send_message(ctx, "You lack the role required to use this command here.")
         elif isinstance(exc, commands.errors.MissingRequiredArgument):
             await self.send_message(ctx, f"You are missing a required argument for this command. "
-                                         f"Type --help {ctx.command} for more information.")
+                                         f"Type {ctx.clean_prefix}help {ctx.command} for more information.")
         elif hasattr(exc, "original"):
             if isinstance(exc.original, SyntaxError):
                 await self.send_message(ctx, "Something is wrong with the syntax of that command.")
@@ -413,8 +415,41 @@ class Bot(BotBase):
                 except HTTPException:
                     pass
 
-    def supporter_check(self, ctx: commands.Context) -> bool:
-        member_obj = self.vrc.get_member(ctx.author.id)
+    async def get_or_fetch_user(self, user_id: int) -> Optional[discord.User]:
+        user = self.get_user(user_id)
+        if user is not None:
+            return user
+
+        try:
+            return await self.fetch_user(user_id)
+        except (NotFound, HTTPException):
+            return None
+
+    async def get_or_fetch_member(self, guild: discord.Guild, user_id: int) -> Optional[discord.Member]:
+        member = guild.get_member(user_id)
+        if member is not None:
+            return member
+
+        try:
+            return await guild.fetch_member(user_id)
+        except (NotFound, Forbidden, HTTPException):
+            return None
+
+    async def query_members_by_id(self, guild: discord.Guild, user_ids: List[int]) -> List[discord.Member]:
+        """Look up guild members by ID, which does not need the members intent. Users not in the guild are omitted."""
+        members = []
+        user_ids = list(dict.fromkeys(user_ids))
+        for i in range(0, len(user_ids), 100):
+            chunk = user_ids[i:i + 100]
+            members.extend(await guild.query_members(user_ids=chunk, limit=len(chunk), cache=False))
+
+        return members
+
+    async def supporter_check(self, ctx: commands.Context) -> bool:
+        member_obj = await self.get_or_fetch_member(self.vrc, ctx.author.id)
+        if member_obj is None:
+            return False
+
         user_roles = [role.id for role in member_obj.roles]
         return any(role in user_roles for role in [780630958368882689, 1086352745390419968, 1086359981860864151,
                                                    1232089653360721970])

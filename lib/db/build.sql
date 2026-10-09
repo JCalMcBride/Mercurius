@@ -133,3 +133,7 @@ CREATE TABLE IF NOT EXISTS mercoins (
     PRIMARY KEY (user_id),
     FOREIGN KEY (user_id) REFERENCES users (discord_id)
 );
+
+CREATE TABLE IF NOT EXISTS supporters (
+    user_id BIGINT PRIMARY KEY NOT NULL
+);
