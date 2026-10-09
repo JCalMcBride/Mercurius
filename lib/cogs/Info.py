@@ -8,20 +8,9 @@ from discord.ext.commands import Cog
 from more_itertools import chunked
 
 
-def status_emoji(status: discord.Status):
-    if status == discord.Status.online:
-        return "🟢"
-    elif status == discord.Status.idle:
-        return "🟡"
-    elif status == discord.Status.dnd:
-        return "🔴"
-    else:
-        return "⚪"
-
-
 def get_author_info(target: discord.Member):
     return {
-        "name": f"{status_emoji(target.status)} {target}",
+        "name": f"{target}",
         "icon_url": target.display_avatar.url
     }
 
@@ -47,7 +36,6 @@ def get_member_embed(member: discord.Member):
               ("Created", member.created_at.strftime("%Y-%m-%d %H:%M:%S"), True),
               ("Joined server", member.joined_at.strftime("%Y-%m-%d %H:%M:%S"), True),
               ("Server booster?", bool(member.premium_since), True),
-              ("Active on mobile?", member.is_on_mobile(), True),
               ("In Voice?", bool(member.voice), True),
               ("Bot?", member.bot, True)]
 
@@ -76,8 +64,16 @@ def get_guild_target(ctx, target: Optional[Guild]):
     return target
 
 
-async def get_server_embed(guild):
-    embed = discord.Embed(color=guild.owner.color,
+async def get_owner_color(bot, guild):
+    owner = await bot.get_or_fetch_member(guild, guild.owner_id)
+    return owner.color if owner else discord.Color.default()
+
+
+async def get_server_embed(bot, guild):
+    # Member lists and presences need privileged intents, so use the approximate counts Discord provides instead.
+    guild_counts = await bot.fetch_guild(guild.id, with_counts=True)
+
+    embed = discord.Embed(color=await get_owner_color(bot, guild),
                           timestamp=datetime.utcnow())
 
     embed.set_thumbnail(url=guild.icon)
@@ -87,21 +83,15 @@ async def get_server_embed(guild):
     if guild.description:
         embed.description = guild.description
 
-    statuses = [len(list(filter(lambda m: str(m.status) == "online", guild.members))),
-                len(list(filter(lambda m: str(m.status) == "idle", guild.members))),
-                len(list(filter(lambda m: str(m.status) == "dnd", guild.members))),
-                len(list(filter(lambda m: str(m.status) == "offline", guild.members)))]
-
     fields = [("ID", guild.id, True),
-              ("Owner", guild.owner, True),
+              ("Owner", f"<@{guild.owner_id}>", True),
               ("Boosts", guild.premium_subscription_count, True),
 
               ("Created", guild.created_at.strftime("%Y-%m-%d %H:%M:%S"), True),
-              ("Members", len(guild.members), True),
-              ("Bots", len(list(filter(lambda m: m.bot, guild.members))), True),
+              ("Members", guild_counts.approximate_member_count, True),
+              ("Online", guild_counts.approximate_presence_count, True),
 
               ("Banned members", len([i async for i in guild.bans()]), True),
-              ("Statuses", f"🟢 {statuses[0]} 🟠 {statuses[1]} 🔴 {statuses[2]} ⚪ {statuses[3]}", True),
               ("Text channels", len(guild.text_channels), True),
 
               ("Voice Channels", len(guild.voice_channels), True),
@@ -136,7 +126,7 @@ class Info(Cog, name="info"):
     async def server_info(self, ctx: commands.Context):
         """Display information about the current server."""
         target = get_guild_target(ctx, None)
-        embed = await get_server_embed(target)
+        embed = await get_server_embed(self.bot, target)
 
         await self.bot.send_message(ctx, embed=embed)
 
@@ -174,9 +164,10 @@ class Info(Cog, name="info"):
 
         emoji_list = [str(emoji) for emoji in target.emojis if emoji.is_usable()]
 
+        owner_color = await get_owner_color(self.bot, target)
         embeds = []
         for emojis in chunked(emoji_list, 100):
-            embed = discord.Embed(color=target.owner.color,
+            embed = discord.Embed(color=owner_color,
                                   timestamp=datetime.utcnow())
 
             embed.set_author(**get_guild_info(target))

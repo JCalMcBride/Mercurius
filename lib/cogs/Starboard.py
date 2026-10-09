@@ -116,16 +116,21 @@ class Starboard(Cog, name="starboard"):
                 if emoji_count >= starboard_data['needed']:
                     msg_id = get_sb_message(payload.message_id, emoji)
 
+                    # Without the message content intent, content and attachments are only present
+                    # if the starred message mentions the bot, otherwise the post just links to it.
                     if message.content:
                         embed_msg = f"[Jump to message!]({message.jump_url})\n" + message.content
                     else:
                         embed_msg = f"[Jump to message!]({message.jump_url})"
-                    embed = Embed(title=message.author.display_name,
+
+                    # Fetched messages only carry a plain User author when members aren't cached.
+                    author = await self.bot.get_or_fetch_member(message.guild, message.author.id) or message.author
+                    embed = Embed(title=author.display_name,
                                   description=embed_msg,
-                                  color=message.author.color,
+                                  color=author.color,
                                   timestamp=datetime.utcnow())
 
-                    embed.set_thumbnail(url=message.author.display_avatar)
+                    embed.set_thumbnail(url=author.display_avatar)
 
                     if len(message.attachments):
                         embed.set_image(url=message.attachments[0].url)

@@ -12,7 +12,7 @@ from discord.ext import commands
 from discord.ext.commands import command, Cog, GroupCog
 from more_itertools import chunked
 
-from lib.common import get_config
+from lib.common import get_config, get_command_arguments
 from lib.relic_utils import refinement_list, fix_refinement, refinement_list_new
 from lib.simulation_utils import fix_name, get_relic_value, get_set_name
 
@@ -1201,7 +1201,7 @@ class Overwolf(GroupCog, name="overwolf"):
             await ctx.send(self.overwolf_text)
             return
 
-        if ctx.message.content[2:] == 'formacount':
+        if ctx.invoked_with == 'formacount':
             data_type = 'FormaCount'
 
         embed = self.get_data_embed(overwolf_data, data_type, ctx.author.name)
@@ -1314,17 +1314,15 @@ class Overwolf(GroupCog, name="overwolf"):
 
         Sorts by quantity by default - use the sort_column option to change this.
         """
-        if ctx.message is not None:
-            split_message = ctx.message.content.split()
-            if len(split_message) == 2:
-                if split_message[1] == "kill" and split_message[0] == "--pv":
-                    await ctx.send("PV has been killed.")
-                    return
+        if ctx.interaction is None:
+            if ctx.invoked_with == "pv" and get_command_arguments(ctx) == "kill":
+                await ctx.send("PV has been killed.")
+                return
 
-            if ctx.message.content[2:] == 'totalsets':
+            if ctx.invoked_with == 'totalsets':
                 data_type = 'PrimeSets'
 
-            if ctx.message.content[2:] == 'totalducats':
+            if ctx.invoked_with == 'totalducats':
                 value_type = "Ducats"
 
         try:
@@ -1374,11 +1372,9 @@ class Overwolf(GroupCog, name="overwolf"):
 
         Sorts by quantity by default - use the sort_column option to change this.
         """
-        split_message = ctx.message.content.split()
-        if len(split_message) == 2:
-            if split_message[1] == "kill" and split_message[0] == "--rv":
-                await ctx.send("RV has been killed.")
-                return
+        if ctx.interaction is None and ctx.invoked_with == "rv" and get_command_arguments(ctx) == "kill":
+            await ctx.send("RV has been killed.")
+            return
 
         try:
             with open(f'lib/data/overwolf/data/{ctx.author.id}', encoding='utf-8') as f:

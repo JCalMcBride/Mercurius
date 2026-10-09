@@ -19,39 +19,7 @@ from fissure_engine.fissure_engine import FissureEngine
 from pymysql import IntegrityError
 from pytz import UTC
 
-
-class StatusNotificationView(discord.ui.View):
-    def __init__(self, bot, user_id, status_settings):
-        super().__init__(timeout=None)
-        self.bot = bot
-        self.user_id = user_id
-        self.status_options = {
-            'Online': 'online',
-            'Idle': 'idle',
-            'Do Not Disturb': 'dnd',
-            'Offline': 'offline'
-        }
-        self.status_settings = status_settings
-        self.update_buttons()
-
-    def update_buttons(self):
-        self.clear_items()
-        for status, status_key in self.status_options.items():
-            enabled = self.status_settings.get(status_key, True)
-            style = discord.ButtonStyle.success if enabled else discord.ButtonStyle.danger
-            button = discord.ui.Button(label=status, style=style)
-            button.callback = self.create_button_callback(status_key)
-            self.add_item(button)
-
-    def create_button_callback(self, status_key):
-        async def button_callback(interaction: discord.Interaction):
-            self.status_settings[status_key] = not self.status_settings.get(status_key, True)
-            self.bot.database.set_fissure_notification_status(self.user_id, status_key,
-                                                              self.status_settings[status_key])
-            self.update_buttons()
-            await interaction.response.edit_message(view=self)
-
-        return button_callback
+from lib.common import get_content_after_prefix
 
 
 class ThreadNotificationServerSelectView(discord.ui.View):
@@ -622,6 +590,7 @@ class Fissure(Cog, name='fissure'):
             'Requiem': discord.Color.purple(),
             'Omnia': discord.Color.dark_gold()
         }
+        self.dm_blocked_until = {}
 
     @commands.hybrid_command(name='setthreadnotificationserver', aliases=['stns'])
     @app_commands.describe(server='The server where you want to receive fissure thread notifications.')
@@ -638,7 +607,21 @@ class Fissure(Cog, name='fissure'):
         user_id = ctx.author.id
 
         if server is None:
-            user_servers = [guild for guild in self.bot.guilds if guild.get_member(user_id)]
+            # Members aren't cached without the members intent, so check the servers that have a fissure log
+            # (the only places notification threads are created) individually.
+            log_server_ids = {server_id for server_dict in self.bot.database.get_fissure_log_channels().values()
+                              for server_id in server_dict}
+            user_servers = []
+            for guild in filter(None, map(self.bot.get_guild, log_server_ids)):
+                if await self.bot.get_or_fetch_member(guild, user_id) is not None:
+                    user_servers.append(guild)
+
+            if not user_servers:
+                await ctx.send("Could not find any servers with a fissure log that you are a member of.",
+                               ephemeral=True)
+                return
+
+            user_servers = sorted(user_servers, key=lambda guild: guild.name.lower())[:25]
             message = await ctx.send("Please select the server where you want to receive thread notifications:",
                                      ephemeral=True)
             view = ThreadNotificationServerSelectView(self.bot, ctx, user_servers, message)
@@ -918,25 +901,6 @@ class Fissure(Cog, name='fissure'):
         message = await ctx.send(embed=embeds[0], view=view, ephemeral=True)
         view.message = message
 
-    @commands.hybrid_command(name='fissurenotificationsstatus',
-                             description='Set fissure notification options based on your current Discord status.')
-    async def fissure_notifications_status(self, ctx: commands.Context):
-        """Set fissure notification options based on your current Discord status."""
-        user_id = ctx.author.id
-
-        # Check if the user exists in the users table
-        user_exists = self.bot.database.user_exists(user_id)
-
-        if not user_exists:
-            # Create a new entry for the user in the users table
-            self.bot.database.create_user(user_id)
-
-        status_settings = self.bot.database.get_fissure_notification_status(user_id)
-        view = StatusNotificationView(self.bot, user_id, status_settings)
-        await self.bot.send_message(ctx,
-            content="Select the Discord statuses for which you want to receive fissure notifications:",
-            view=view, ephemeral=True)
-
     @commands.hybrid_command(name='fissurelogchannel', aliases=['flc', 'flogc', 'flogchannel'],
                              brief='Set the channel for the fissure log.')
     @commands.has_permissions(manage_channels=True)
@@ -1073,7 +1037,7 @@ class Fissure(Cog, name='fissure'):
                        for key, value in locals().items() if key != 'self' and key != 'ctx' and value is not None}
             options = {key: options.get(key, defaults.get(key, default_values[key])) for key in default_values}
         else:
-            options = self.parse_text_options(ctx.message.content, defaults, default_values)
+            options = self.parse_text_options(get_content_after_prefix(ctx), defaults, default_values)
 
         channel_config = {key: options[key] for key in options if key.startswith("show_")}
         era_list = self.get_era_list_from_config(channel_config)
@@ -1411,22 +1375,6 @@ class Fissure(Cog, name='fissure'):
 
         await self.send_fissure_subscription_dms(new_fissures)
 
-    async def get_user_status(self, user_id):
-        user = self.bot.get_user(user_id)
-        if user is None:
-            return 'Offline'
-
-        member = None
-        for guild in self.bot.guilds:
-            member = guild.get_member(user_id)
-            if member:
-                break
-
-        if member is None:
-            return 'Offline'
-
-        return str(member.status)
-
     async def send_thread_notifications(self, fissure, log_message: discord.Message):
         subscriptions = self.bot.database.get_all_fissure_subscriptions('Thread')
         thread_users = [sub['user_id'] for sub in subscriptions if self.match_subscription(sub, fissure)]
@@ -1441,10 +1389,7 @@ class Fissure(Cog, name='fissure'):
         for user_id in thread_users:
             thread_server_id = self.bot.database.get_thread_notification_server(user_id)
 
-            member_status = await self.get_user_status(user_id)
-
-            if ((thread_server_id is None or thread_server_id == log_message.guild.id) and
-                    self.bot.database.get_fissure_notification_status(user_id).get(member_status, True)):
+            if thread_server_id is None or thread_server_id == log_message.guild.id:
                 thread_user_ids.append(user_id)
 
         if not thread_user_ids:
@@ -1470,22 +1415,26 @@ class Fissure(Cog, name='fissure'):
         subscriptions = self.bot.database.get_all_fissure_subscriptions('DM')
         user_embeds = await self.get_user_embeds(new_fissures, subscriptions)
 
+        current_time = datetime.now(tz=UTC)
         user_send_tasks = []
         for user_id, embeds in user_embeds.items():
-            user = self.bot.get_user(user_id)
-            if user:
-                member_status = await self.get_user_status(user_id)
+            if self.dm_blocked_until.get(user_id, current_time) > current_time:
+                continue
 
-                if self.bot.database.get_fissure_notification_status(user_id).get(member_status, True):
-                    for embed in embeds:
-                        user_send_tasks.append(self.send_embeds_to_user(user, [embed]))
+            for embed in embeds:
+                user_send_tasks.append(self.send_embeds_to_user(user_id, [embed]))
 
         await asyncio.gather(*user_send_tasks)
 
-    async def send_embeds_to_user(self, user, embeds):
+    async def send_embeds_to_user(self, user_id, embeds):
         try:
-            await user.send(embeds=embeds)
+            # Users aren't cached without the members intent, so open the DM channel by ID instead.
+            dm_channel = await self.bot.create_dm(discord.Object(id=user_id))
+            await dm_channel.send(embeds=embeds)
         except discord.Forbidden:
+            # DMs are closed or there is no longer a mutual server, back off instead of retrying every fissure.
+            self.dm_blocked_until[user_id] = datetime.now(tz=UTC) + timedelta(hours=1)
+        except discord.HTTPException:
             pass
 
     async def get_user_embeds(self, new_fissures, subscriptions):

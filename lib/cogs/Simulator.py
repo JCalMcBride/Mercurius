@@ -3,6 +3,7 @@ import functools
 import json
 import math
 import os
+import re
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import StringIO, BytesIO
@@ -331,12 +332,16 @@ class Simulator(Cog, name="simulator"):
             await ctx.send(embed=get_srsettings_embed(drop_order, args))
 
             def check(m):
-                return m.author == ctx.author and m.channel == ctx.channel
+                # In servers the bot can only read a message's content if it mentions the bot (or pings it in a reply).
+                return m.author == ctx.author and m.channel == ctx.channel and \
+                    (m.guild is None or self.bot.user in m.mentions)
 
             message = "If you wish change order, reply to this with the new order ordered by the number of the " \
                       "part in the current order. Otherwise, reply with cancel.\nFormat is \"1,2,3,4,5,6\"\n" \
                       "Any part you do not choose will be treated as ducats in future calculations. " \
                       "If you do not wish to choose any item, reply with \"None\""
+            if ctx.guild is not None:
+                message += "\nMake sure your reply pings me (or mentions me), otherwise I can't read it."
             question = await ctx.channel.send(message)
 
             try:
@@ -345,10 +350,11 @@ class Simulator(Cog, name="simulator"):
                 await question.delete()
                 return
             await question.delete()
-            if 'cancel' in msg.content:
+            reply_content = re.sub(rf"<@!?{self.bot.user.id}>", "", msg.content)
+            if 'cancel' in reply_content:
                 return
 
-            new_order = msg.content
+            new_order = reply_content
             new_order = new_order.replace(' ', '').split(',')
             if 'none' in new_order:
                 new_order = []
@@ -762,7 +768,7 @@ class Simulator(Cog, name="simulator"):
             await ctx.send("You are missing the config value to change."
                            "\nYour current settings and their values are listed below. "
                            "To change one add the setting and the value."
-                           "\nExample: --srconfig time off")
+                           f"\nExample: {ctx.clean_prefix}srconfig time off")
 
             value_list = []
             for value in srconfig.values():
