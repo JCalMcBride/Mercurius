@@ -1637,17 +1637,30 @@ class Fissure(Cog, name='fissure'):
                                                    era_list=era_list,
                                                    max_tier=max_tier)
 
-        # Update the existing message if it exists, otherwise post a new message
-        # Ignore errors that result from temporary Discord outages or connection issues
+        # Update the existing message if it exists, otherwise post a new message.
+        # Only repost when Discord confirms the message is gone; any other error (outages,
+        # connection issues, rate limits, etc.) is treated as temporary so we don't post duplicates.
+        if message_id:
+            try:
+                await self.update_fissure_list_message(channel, message_id, embeds)
+                return
+            except discord.NotFound as e:
+                if e.code != 10008:  # Unknown Message
+                    self.bot.logger.error(f"Error updating fissure list for server {server_id}, "
+                                          f"channel {channel_config['channel_id']}", exc_info=e)
+                    return
+            except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
+                return
+            except Exception as e:
+                self.bot.logger.error(f"Error updating fissure list for server {server_id}, "
+                                      f"channel {channel_config['channel_id']}", exc_info=e)
+                return
+
         try:
-            await self.update_fissure_list_message(channel, message_id, embeds)
-        except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
-            pass
-        except (discord.NotFound, Exception) as e:
-            self.bot.logger.error(f"Error updating fissure list for server {server_id}, \
-                                    channel {channel_config['channel_id']}", exc_info=e)
             message = await channel.send(embeds=embeds)
-            self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
+        except (DiscordServerError, ClientOSError, asyncio.TimeoutError):
+            return
+        self.bot.database.set_fissure_list_message_id(channel_config["id"], message.id)
 
     async def update_fissure_list_message(self, channel: discord.TextChannel, message_id: int,
                                           embeds: List[discord.Embed]) -> None:
@@ -1662,11 +1675,8 @@ class Fissure(Cog, name='fissure'):
 
         """
 
-        if message_id:
-            message = await channel.fetch_message(message_id)
-            await message.edit(embeds=embeds)
-        else:
-            raise Exception("Message ID not found.")
+        message = await channel.fetch_message(message_id)
+        await message.edit(embeds=embeds)
 
     def filter_nodes(self, interaction: discord.Interaction, selected_values: dict = None) -> List[dict]:
         filter_rules = {
